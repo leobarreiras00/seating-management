@@ -10,5 +10,6 @@ namespace SeatingManagement.API.Data
         }
         
         public DbSet<Seat> Seats { get; set; }
+        public DbSet<User> Users { get; set; }
     }
 }

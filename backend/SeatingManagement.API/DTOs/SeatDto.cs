@@ -12,7 +12,7 @@ namespace SeatingManagement.API.DTOs
         public DateTime? MarkedAt { get; set; }
     }
 
-    // DTO específico para a criação de um lugar (não precisa de ID, a BD gera isso)
+    // DTO específico para a criação de um lugar
     public class CreateSeatDto
     {
         public string SeatNumber { get; set; } = string.Empty;
