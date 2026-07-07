@@ -1,0 +1,11 @@
+{
+  "version": 2,
+  "dgSpecHash": "v5tRPEVBV7I=",
+  "success": true,
+  "projectFilePath": "/Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/SeatingManagement.API.csproj",
+  "expectedPackageFiles": [
+    "/Users/leo_barreiras/.nuget/packages/microsoft.aspnetcore.openapi/9.0.8/microsoft.aspnetcore.openapi.9.0.8.nupkg.sha512",
+    "/Users/leo_barreiras/.nuget/packages/microsoft.openapi/1.6.17/microsoft.openapi.1.6.17.nupkg.sha512"
+  ],
+  "logs": []
+}
