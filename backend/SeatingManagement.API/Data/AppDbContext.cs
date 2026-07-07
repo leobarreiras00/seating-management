@@ -1,4 +1,5 @@
 using Microsoft.EntityFrameworkCore;
+using SeatingManagement.API.Models;
 
 namespace SeatingManagement.API.Data
 {
@@ -8,6 +9,6 @@ namespace SeatingManagement.API.Data
         {
         }
         
-        // Aqui vamos colocar as nossas tabelas (DbSets) no próximo passo
+        public DbSet<Seat> Seats { get; set; }
     }
 }
