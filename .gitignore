@@ -1,0 +1,19 @@
+# .NET / Backend
+bin/
+obj/
+*.user
+*.suo
+.vs/
+
+# Android / Frontend
+.gradle/
+/build/
+**/build/
+.idea/
+*.iml
+local.properties
+
+# Sistema
+.DS_Store
+
+**/gradle-daemon-jvm.properties
