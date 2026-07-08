@@ -1,6 +1,9 @@
+version: '3.8'
+
 services:
-  sqlserver:
-    image: mcr.microsoft.com/azure-sql-edge:latest
+  # A TUA BASE DE DADOS EXISTENTE
+  seating_db:
+    image: mcr.microsoft.com/azure-sql-edge
     container_name: seating_db
     environment:
       - ACCEPT_EULA=Y
@@ -8,7 +11,18 @@ services:
     ports:
       - "1433:1433"
     volumes:
-      - sqlserver_data:/var/opt/mssql
+      - sqledge_data:/var/opt/mssql
+    restart: always
+
+  # O NOVO SERVIDOR DE MENSAGENS EM TEMPO REAL
+  mqtt_broker:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt_broker
+    ports:
+      - "1883:1883"
+    volumes:
+      - ./mosquitto/mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: always
 
 volumes:
-  sqlserver_data:
+  sqledge_data:

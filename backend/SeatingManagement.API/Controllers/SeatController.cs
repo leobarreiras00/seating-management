@@ -1,56 +1,65 @@
+using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SeatingManagement.API.Data;
 using SeatingManagement.API.DTOs;
 using SeatingManagement.API.Models;
+using SeatingManagement.API.Services;
 
 namespace SeatingManagement.API.Controllers
 {
+    [Authorize]
     [ApiController]
     [Route("api/[controller]")]
     public class SeatController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IMqttService _mqttService;
 
-        public SeatController(AppDbContext context)
+        public SeatController(AppDbContext context, IMqttService mqttService)
         {
             _context = context;
+            _mqttService = mqttService;
         }
 
-        // 1. ENDPOINT: Obter todos os lugares (GET /api/seat)
         [HttpGet]
         public async Task<ActionResult<IEnumerable<SeatDto>>> GetSeats()
         {
-            var seats = await _context.Seats
-                .Select(s => new SeatDto
-                {
-                    Id = s.Id,
-                    SeatNumber = s.SeatNumber,
-                    EventName = s.EventName,
-                    Status = s.Status,
-                    AssignedTo = s.AssignedTo,
-                    MarkedAt = s.MarkedAt
-                })
-                .ToListAsync();
-
-            return Ok(seats);
+            return await _context.Seats.Select(s => new SeatDto
+            {
+                Id = s.Id,
+                SeatNumber = s.SeatNumber,
+                EventName = s.EventName,
+                Status = s.Status,
+                AssignedTo = s.AssignedTo,
+                MarkedAt = s.MarkedAt
+            }).ToListAsync();
         }
 
-        // 2. ENDPOINT: Criar um novo lugar (POST /api/seat)
-        [HttpPost]
-        public async Task<ActionResult<SeatDto>> CreateSeat([FromBody] CreateSeatDto dto)
+        [HttpPut("{seatNumber}/status")]
+        public async Task<IActionResult> UpdateSeatStatus(string seatNumber, [FromBody] UpdateSeatStatusDto request)
         {
-            var newSeat = new Seat
-            {
-                SeatNumber = dto.SeatNumber,
-                EventName = dto.EventName,
-                Status = SeatStatus.Vazio // Por defeito começa vazio
-            };
+            if (string.IsNullOrWhiteSpace(request.Status))
+                return BadRequest("O estado é obrigatório.");
 
-            _context.Seats.Add(newSeat);
+            var seat = await _context.Seats.FirstOrDefaultAsync(s => s.SeatNumber == seatNumber);
+            if (seat == null) return NotFound($"Lugar '{seatNumber}' não encontrado.");
+
+            if (!Enum.TryParse(request.Status, true, out SeatStatus statusEnum))
+                return BadRequest("Estado inválido.");
+
+            // 1. Mutação de Estado e Versionamento
+            seat.Status = statusEnum;
+            seat.AssignedTo = string.IsNullOrWhiteSpace(request.AssignedTo) ? null : request.AssignedTo;
+            seat.MarkedAt = statusEnum != SeatStatus.Vazio ? DateTime.UtcNow : null;
+            seat.Version++; // Incremento do contador de versão para sincronização
+
             await _context.SaveChangesAsync();
 
-            return CreatedAtAction(nameof(GetSeats), new { id = newSeat.Id }, newSeat);
+            // 2. Broadcast Otimizado: Envia apenas o ID e o Status (int)
+            _ = _mqttService.PublishSeatUpdateAsync(seat.Id, (int)seat.Status);
+
+            return Ok(new { version = seat.Version });
         }
     }
 }

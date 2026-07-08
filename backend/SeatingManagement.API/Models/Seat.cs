@@ -24,6 +24,9 @@ namespace SeatingManagement.API.Models
 
         // Para guardar o momento exato em que foi tratado/marcado
         public DateTime? MarkedAt { get; set; }
+
+        // Contador de versão para sincronização
+        public long Version { get; set; } = 0;
     }
 
     // Enum para controlar perfeitamente o estado do lugar

@@ -12,10 +12,25 @@ namespace SeatingManagement.API.DTOs
         public DateTime? MarkedAt { get; set; }
     }
 
-    // DTO específico para a criação de um lugar
     public class CreateSeatDto
     {
         public string SeatNumber { get; set; } = string.Empty;
         public string EventName { get; set; } = string.Empty;
+    }
+
+    /// <summary>
+    /// Objeto de transferência de dados (DTO) utilizado para receber atualizações de estado de um lugar.
+    /// </summary>
+    public class UpdateSeatStatusDto
+    {
+        /// <summary>
+        /// O novo estado a atribuir ao lugar (ex: Vazio, Marcado, Tratado).
+        /// </summary>
+        public string Status { get; set; } = string.Empty;
+
+        /// <summary>
+        /// Opcional: O nome da pessoa associada ao lugar após a alteração de estado.
+        /// </summary>
+        public string? AssignedTo { get; set; }
     }
 }

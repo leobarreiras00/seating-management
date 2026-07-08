@@ -10,6 +10,7 @@
         "dependencies": {
           "BCrypt.Net-Next": "4.2.0",
           "CsvHelper": "33.1.0",
+          "MQTTnet": "5.2.0.1603",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "9.0.17",
           "Microsoft.AspNetCore.OpenApi": "9.0.8",
           "Microsoft.EntityFrameworkCore": "9.0.17",
@@ -776,6 +777,14 @@
           }
         }
       },
+      "MQTTnet/5.2.0.1603": {
+        "runtime": {
+          "lib/net8.0/MQTTnet.dll": {
+            "assemblyVersion": "5.2.0.1603",
+            "fileVersion": "5.2.0.1603"
+          }
+        }
+      },
       "Swashbuckle.AspNetCore/7.3.2": {
         "dependencies": {
           "Microsoft.Extensions.ApiDescription.Server": "6.0.5",
@@ -1407,6 +1416,13 @@
       "sha512": "sha512-YqueG52R/Xej4VVbKuRIodjiAhV0HR/XVbLbNrJhCZnzjnSjgMJ/dCdV0akQQxavX6hp/LC6rqLGLcXeQYU7XA==",
       "path": "mono.texttemplating/3.0.0",
       "hashPath": "mono.texttemplating.3.0.0.nupkg.sha512"
+    },
+    "MQTTnet/5.2.0.1603": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-iNuWVo/568aRo2ExEN2qkC4J5b07ckKqt+9Uok2kIbbK7PMBsXvYiKVENPHmOBWFB5ExhlNQb/qQ8M9/IYRTdQ==",
+      "path": "mqttnet/5.2.0.1603",
+      "hashPath": "mqttnet.5.2.0.1603.nupkg.sha512"
     },
     "Swashbuckle.AspNetCore/7.3.2": {
       "type": "package",
