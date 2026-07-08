@@ -1,12 +1,13 @@
 {
   "version": 2,
-  "dgSpecHash": "ubeLJ1SlInA=",
+  "dgSpecHash": "NYGe2FkR6GE=",
   "success": true,
   "projectFilePath": "/Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/SeatingManagement.API.csproj",
   "expectedPackageFiles": [
     "/Users/leo_barreiras/.nuget/packages/azure.core/1.38.0/azure.core.1.38.0.nupkg.sha512",
     "/Users/leo_barreiras/.nuget/packages/azure.identity/1.11.4/azure.identity.1.11.4.nupkg.sha512",
     "/Users/leo_barreiras/.nuget/packages/bcrypt.net-next/4.2.0/bcrypt.net-next.4.2.0.nupkg.sha512",
+    "/Users/leo_barreiras/.nuget/packages/csvhelper/33.1.0/csvhelper.33.1.0.nupkg.sha512",
     "/Users/leo_barreiras/.nuget/packages/humanizer.core/2.14.1/humanizer.core.2.14.1.nupkg.sha512",
     "/Users/leo_barreiras/.nuget/packages/microsoft.aspnetcore.authentication.jwtbearer/9.0.17/microsoft.aspnetcore.authentication.jwtbearer.9.0.17.nupkg.sha512",
     "/Users/leo_barreiras/.nuget/packages/microsoft.aspnetcore.openapi/9.0.8/microsoft.aspnetcore.openapi.9.0.8.nupkg.sha512",

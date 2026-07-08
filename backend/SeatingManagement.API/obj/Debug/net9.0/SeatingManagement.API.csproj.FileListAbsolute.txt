@@ -8,7 +8,10 @@
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/SeatingManagement.API.pdb
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/Azure.Core.dll
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/Azure.Identity.dll
+/Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/BCrypt-Net-Next.dll
+/Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/CsvHelper.dll
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/Humanizer.dll
+/Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/Microsoft.AspNetCore.OpenApi.dll
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/Microsoft.Bcl.AsyncInterfaces.dll
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/Microsoft.Build.Locator.dll
@@ -167,5 +170,3 @@
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/obj/Debug/net9.0/SeatingManagement.API.pdb
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/obj/Debug/net9.0/SeatingManagement.API.genruntimeconfig.cache
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/obj/Debug/net9.0/ref/SeatingManagement.API.dll
-/Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/BCrypt-Net-Next.dll
-/Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net9.0/Microsoft.AspNetCore.Authentication.JwtBearer.dll

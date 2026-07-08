@@ -49,6 +49,10 @@
               "target": "Package",
               "version": "[4.2.0, )"
             },
+            "CsvHelper": {
+              "target": "Package",
+              "version": "[33.1.0, )"
+            },
             "Microsoft.AspNetCore.Authentication.JwtBearer": {
               "target": "Package",
               "version": "[9.0.*, )"

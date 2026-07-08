@@ -9,6 +9,7 @@
       "SeatingManagement.API/1.0.0": {
         "dependencies": {
           "BCrypt.Net-Next": "4.2.0",
+          "CsvHelper": "33.1.0",
           "Microsoft.AspNetCore.Authentication.JwtBearer": "9.0.17",
           "Microsoft.AspNetCore.OpenApi": "9.0.8",
           "Microsoft.EntityFrameworkCore": "9.0.17",
@@ -60,6 +61,14 @@
           "lib/netstandard2.1/BCrypt-Net-Next.dll": {
             "assemblyVersion": "4.2.0.0",
             "fileVersion": "4.2.0.0"
+          }
+        }
+      },
+      "CsvHelper/33.1.0": {
+        "runtime": {
+          "lib/net9.0/CsvHelper.dll": {
+            "assemblyVersion": "33.0.0.0",
+            "fileVersion": "33.1.0.26"
           }
         }
       },
@@ -1090,6 +1099,13 @@
       "sha512": "sha512-gwLD2KfCuwQesP17aVh4h6lpiMPEVt5Lbpndo0ej903hNUUTtyxt3ARdDjmuydBRTAUICc7OVKVbaOvc6SQYXA==",
       "path": "bcrypt.net-next/4.2.0",
       "hashPath": "bcrypt.net-next.4.2.0.nupkg.sha512"
+    },
+    "CsvHelper/33.1.0": {
+      "type": "package",
+      "serviceable": true,
+      "sha512": "sha512-kqfTOZGrn7NarNeXgjh86JcpTHUoeQDMB8t9NVa/ZtlSYiV1rxfRnQ49WaJsob4AiGrbK0XDzpyKkBwai4F8eg==",
+      "path": "csvhelper/33.1.0",
+      "hashPath": "csvhelper.33.1.0.nupkg.sha512"
     },
     "Humanizer.Core/2.14.1": {
       "type": "package",
