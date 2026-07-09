@@ -28,12 +28,26 @@ namespace SeatingManagement.API.Controllers
             return await _context.Seats.Select(s => new SeatDto
             {
                 Id = s.Id,
+                EventId = s.EventId,
                 SeatNumber = s.SeatNumber,
                 EventName = s.EventName,
                 Status = s.Status,
                 AssignedTo = s.AssignedTo,
                 MarkedAt = s.MarkedAt
             }).ToListAsync();
+        }
+
+        [HttpGet("{eventId}")]
+        public async Task<ActionResult<IEnumerable<Seat>>> GetSeatsByEvent(int eventId)
+        {
+            var seats = await _context.Seats
+                                      .Where(s => s.EventId == eventId)
+                                      .ToListAsync();
+
+            if (!seats.Any())
+                return NotFound($"Nenhum lugar encontrado para o Evento {eventId}.");
+
+            return Ok(seats);
         }
 
         [HttpPut("{seatNumber}/status")]
@@ -48,18 +62,41 @@ namespace SeatingManagement.API.Controllers
             if (!Enum.TryParse(request.Status, true, out SeatStatus statusEnum))
                 return BadRequest("Estado inválido.");
 
-            // 1. Mutação de Estado e Versionamento
             seat.Status = statusEnum;
             seat.AssignedTo = string.IsNullOrWhiteSpace(request.AssignedTo) ? null : request.AssignedTo;
             seat.MarkedAt = statusEnum != SeatStatus.Vazio ? DateTime.UtcNow : null;
-            seat.Version++; // Incremento do contador de versão para sincronização
+            seat.Version++; 
 
             await _context.SaveChangesAsync();
 
-            // 2. Broadcast Otimizado: Envia apenas o ID e o Status (int)
             _ = _mqttService.PublishSeatUpdateAsync(seat.Id, (int)seat.Status);
 
             return Ok(new { version = seat.Version });
+        }
+
+        [HttpPost("validate-ticket")]
+        public async Task<IActionResult> ValidateTicket([FromBody] ValidateTicketDto request)
+        {
+            var seat = await _context.Seats
+                                     .FirstOrDefaultAsync(s => s.EventId == request.EventId 
+                                                            && s.SeatNumber == request.TicketHash);
+
+            if (seat == null)
+                return NotFound(new { Message = "Lugar não encontrado ou bilhete inválido." });
+
+            if (seat.Status != (SeatStatus)0)
+                return BadRequest(new { Message = "Erro: Este lugar já está ocupado ou tratado!" });
+
+            seat.Status = (SeatStatus)1;
+            seat.MarkedAt = DateTime.UtcNow;
+            seat.Version++;
+
+            await _context.SaveChangesAsync();
+
+            // Avisa a rede MQTT em tempo real
+            _ = _mqttService.PublishSeatUpdateAsync(seat.Id, 1);
+
+            return Ok(new { Message = "Bilhete validado com sucesso!", Seat = seat });
         }
     }
 }

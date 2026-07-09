@@ -7,6 +7,7 @@ namespace SeatingManagement.API.DTOs
         public int Id { get; set; }
         public string SeatNumber { get; set; } = string.Empty;
         public string EventName { get; set; } = string.Empty;
+        public int EventId { get; set; }
         public SeatStatus Status { get; set; }
         public string? AssignedTo { get; set; }
         public DateTime? MarkedAt { get; set; }

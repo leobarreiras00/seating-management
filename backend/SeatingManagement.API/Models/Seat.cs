@@ -10,6 +10,8 @@ namespace SeatingManagement.API.Models
 
         [Required]
         [MaxLength(50)]
+
+        public int EventId { get; set; }
         public string SeatNumber { get; set; } = string.Empty; // Ex: A1, B2, Plateia-1
 
         [MaxLength(100)]
