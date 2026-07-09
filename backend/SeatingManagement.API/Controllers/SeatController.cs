@@ -38,26 +38,31 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpGet("{eventId}")]
-        public async Task<ActionResult<IEnumerable<Seat>>> GetSeatsByEvent(int eventId)
+        public async Task<ActionResult<IEnumerable<SeatDto>>> GetSeatsByEvent(int eventId)
         {
             var seats = await _context.Seats
-                                      .Where(s => s.EventId == eventId)
-                                      .ToListAsync();
+                .Where(s => s.EventId == eventId)
+                .Select(s => new SeatDto
+                {
+                    Id = s.Id,
+                    EventId = s.EventId,
+                    SeatNumber = s.SeatNumber,
+                    EventName = s.EventName,
+                    Status = s.Status,
+                    AssignedTo = s.AssignedTo,
+                    MarkedAt = s.MarkedAt
+                })
+                .ToListAsync();
 
-            if (!seats.Any())
-                return NotFound($"Nenhum lugar encontrado para o Evento {eventId}.");
-
-            return Ok(seats);
+            // Retorna array vazio em vez de 404 para o Android não dar erro de HTTP no primeiro carregamento
+            return Ok(seats); 
         }
 
-        [HttpPut("{seatNumber}/status")]
-        public async Task<IActionResult> UpdateSeatStatus(string seatNumber, [FromBody] UpdateSeatStatusDto request)
+        [HttpPut("{id}")]
+        public async Task<IActionResult> UpdateSeatStatus(int id, [FromBody] UpdateSeatStatusDto request)
         {
-            if (string.IsNullOrWhiteSpace(request.Status))
-                return BadRequest("O estado é obrigatório.");
-
-            var seat = await _context.Seats.FirstOrDefaultAsync(s => s.SeatNumber == seatNumber);
-            if (seat == null) return NotFound($"Lugar '{seatNumber}' não encontrado.");
+            var seat = await _context.Seats.FindAsync(id);
+            if (seat == null) return NotFound("Lugar não encontrado.");
 
             if (!Enum.TryParse(request.Status, true, out SeatStatus statusEnum))
                 return BadRequest("Estado inválido.");
@@ -69,8 +74,7 @@ namespace SeatingManagement.API.Controllers
 
             await _context.SaveChangesAsync();
 
-            _ = _mqttService.PublishSeatUpdateAsync(seat.Id, (int)seat.Status);
-
+            _ = _mqttService.PublishSeatUpdateAsync(seat.EventId, seat.Id, (int)seat.Status);
             return Ok(new { version = seat.Version });
         }
 
@@ -78,23 +82,21 @@ namespace SeatingManagement.API.Controllers
         public async Task<IActionResult> ValidateTicket([FromBody] ValidateTicketDto request)
         {
             var seat = await _context.Seats
-                                     .FirstOrDefaultAsync(s => s.EventId == request.EventId 
-                                                            && s.SeatNumber == request.TicketHash);
+                .FirstOrDefaultAsync(s => s.EventId == request.EventId && s.SeatNumber == request.TicketHash);
 
             if (seat == null)
-                return NotFound(new { Message = "Lugar não encontrado ou bilhete inválido." });
+                return NotFound(new { Message = "Lugar não encontrado ou bilhete inválido para este evento." });
 
-            if (seat.Status != (SeatStatus)0)
+            if (seat.Status != SeatStatus.Vazio)
                 return BadRequest(new { Message = "Erro: Este lugar já está ocupado ou tratado!" });
 
-            seat.Status = (SeatStatus)1;
+            seat.Status = SeatStatus.Marcado;
             seat.MarkedAt = DateTime.UtcNow;
             seat.Version++;
 
             await _context.SaveChangesAsync();
 
-            // Avisa a rede MQTT em tempo real
-            _ = _mqttService.PublishSeatUpdateAsync(seat.Id, 1);
+            _ = _mqttService.PublishSeatUpdateAsync(seat.EventId, seat.Id, (int)seat.Status);
 
             return Ok(new { Message = "Bilhete validado com sucesso!", Seat = seat });
         }
