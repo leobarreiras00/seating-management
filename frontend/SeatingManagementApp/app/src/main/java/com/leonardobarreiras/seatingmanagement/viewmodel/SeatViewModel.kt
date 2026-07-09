@@ -36,78 +36,79 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     var jwtToken: String? = null
     var loginError by mutableStateOf<String?>(null)
 
+    var currentEventId by mutableStateOf<Int?>(null)
+    var qrFeedbackMessage by mutableStateOf<String?>(null)
+
     init {
-        val seatDao = AppDatabase.getDatabase(application).seatDao()
-        repository = SeatRepository(seatDao)
+        val db = AppDatabase.getDatabase(application)
+        repository = SeatRepository(db.seatDao())
         seatsFlow = repository.allSeats
 
-        mqttManager = MqttManager(
-            onSeatUpdated = { id, status ->
-                viewModelScope.launch {
-                    repository.updateSeatStatusLocally(id, status)
-                }
+        mqttManager = MqttManager { id, status ->
+            viewModelScope.launch {
+                repository.updateSeatStatusLocally(id, status)
             }
-        )
-        mqttManager.connectAndSubscribe()
+        }
+        mqttManager.connect()
     }
 
     fun authenticate(user: String, pass: String, onSuccess: () -> Unit) {
         viewModelScope.launch {
             try {
-                loginError = null
-                val response = RetrofitClient.apiService.login(LoginRequest(user, pass))
+                val request = LoginRequest(user, pass)
+                val response: AuthResponse = RetrofitClient.apiService.login(request)
                 jwtToken = response.token
-                Log.d("API", "Login efetuado! Token recebido.")
+                loginError = null
                 onSuccess()
             } catch (e: Exception) {
                 loginError = "Credenciais inválidas ou erro de rede."
-                Log.e("API", "Erro no login", e)
             }
         }
     }
 
-    fun fetchSeatsFromApi() {
-        if (jwtToken == null) {
-            Log.e("API", "Erro: Tentativa de sincronizar sem Token JWT.")
-            return
-        }
+    fun verifyPin(pin: String): Boolean {
+        return pin == "1234"
+    }
 
-        viewModelScope.launch {
-            try {
-                val seatsFromApi = RetrofitClient.apiService.getAllSeats("Bearer $jwtToken")
-                repository.deleteAllSeats()
-                repository.insertAll(seatsFromApi)
-                Log.d("API", "Sincronizados ${seatsFromApi.size} lugares com sucesso!")
-            } catch (e: Exception) {
-                Log.e("API", "Erro ao sincronizar com a API", e)
+    fun processRoomCheckIn(qrContent: String) {
+        if (qrContent.startsWith("EVENT:")) {
+            val idStr = qrContent.removePrefix("EVENT:")
+            val id = idStr.toIntOrNull()
+            if (id != null) {
+                currentEventId = id
+                qrFeedbackMessage = "✅ Check-in efetuado com sucesso na Sala $id!"
+                fetchSeatsFromApi() // Sincroniza com a BD mal faz o check-in na sala
+                mqttManager.subscribeToEventRoom(id)
+            } else {
+                qrFeedbackMessage = "❌ Erro: Formato de evento inválido."
             }
+        } else {
+            qrFeedbackMessage = "❌ Erro: Este QR Code não pertence a uma sala."
         }
     }
 
-    // VARIÁVEIS PARA O SCANNER
-    var qrFeedbackMessage by mutableStateOf<String?>(null)
-    var currentEventId = 101 // Hardcoded temporariamente
-
-    // FUNÇÃO PARA VALIDAR O BILHETE LIDO
     fun validateTicketFromQr(ticketHash: String) {
         if (jwtToken == null) {
-            qrFeedbackMessage = "Erro: Precisas de fazer login primeiro."
+            qrFeedbackMessage = "❌ Erro: Sessão expirada. Faz login."
+            return
+        }
+
+        val safeEventId = currentEventId
+        if (safeEventId == null) {
+            qrFeedbackMessage = "❌ Erro: Faz o Check-in na sala primeiro!"
             return
         }
 
         viewModelScope.launch {
             try {
-                val request = ValidateTicketRequest(eventId = currentEventId, ticketHash = ticketHash)
+                val request = ValidateTicketRequest(eventId = safeEventId, ticketHash = ticketHash)
                 val response = RetrofitClient.apiService.validateTicket("Bearer $jwtToken", request)
-
-                // Pede à API a grelha atualizada para garantir sincronização perfeita
                 fetchSeatsFromApi()
-
-                qrFeedbackMessage = "Sucesso: ${response.message} (${response.seat.seatNumber})"
+                qrFeedbackMessage = "✅ Sucesso! Bilhete válido."
             } catch (e: retrofit2.HttpException) {
-                qrFeedbackMessage = "Erro: Bilhete inválido ou lugar já ocupado!"
+                qrFeedbackMessage = "❌ Erro: Bilhete inválido, evento errado ou lugar já ocupado!"
             } catch (e: Exception) {
-                qrFeedbackMessage = "Erro de ligação ao servidor."
+                qrFeedbackMessage = "⚠️ Erro de ligação ao servidor."
             }
         }
     }
@@ -116,48 +117,75 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         qrFeedbackMessage = null
     }
 
-    // FUNÇÃO ATUALIZADA: Atualiza para QUALQUER estado (0, 1 ou 2)
-    fun updateSeatStatus(seat: SeatEntity, newStatus: Int) {
+    fun fetchSeatsFromApi() {
+        val safeEventId = currentEventId
+        if (safeEventId == null) {
+            qrFeedbackMessage = "⚠️ Faz o Check-in na sala antes de sincronizar!"
+            return
+        }
+        if (jwtToken == null) return
+
         viewModelScope.launch {
-            // 1. Atualiza localmente no Room
+            try {
+                // 👇 PUXA OS LUGARES APENAS DO EVENTO ONDE O STAFF ESTÁ LOGADO
+                val seatsFromApi = RetrofitClient.apiService.getSeatsByEvent("Bearer $jwtToken", safeEventId)
+                repository.deleteAllSeats()
+                repository.insertAll(seatsFromApi)
+                Log.d("API", "Sincronização concluída com ${seatsFromApi.size} lugares.")
+            } catch (e: retrofit2.HttpException) {
+                if (e.code() == 404) {
+                    qrFeedbackMessage = "⚠️ Nenhum dado encontrado no servidor para o Evento $safeEventId."
+                } else {
+                    Log.e("API", "Erro ao sincronizar: ${e.message}", e)
+                }
+            } catch (e: Exception) {
+                Log.e("API", "Erro ao sincronizar: ${e.message}", e)
+            }
+        }
+    }
+
+    fun updateSeatStatus(seat: SeatEntity, newStatus: Int) {
+        val safeEventId = currentEventId ?: return
+        viewModelScope.launch {
             repository.updateSeatStatusLocally(seat.id, newStatus)
-            // 2. Publica no Mosquitto para avisar o ecossistema
-            mqttManager.publishSeatUpdate(seat.id, newStatus)
+            mqttManager.publishSeatUpdate(safeEventId, seat.id, newStatus)
         }
     }
 
-    fun verifyPin(inputPin: String): Boolean {
-        if (inputPin == "1234") {
-            isAdminMode = true
-            return true
-        }
-        return false
-    }
-
+    // 👇 O IMPORTAR LOCAL (Agora o array de dados bate certo com as colunas!)
     fun importCsv(uri: Uri, context: Context) {
         viewModelScope.launch {
             try {
                 context.contentResolver.openInputStream(uri)?.use { inputStream ->
                     val reader = BufferedReader(InputStreamReader(inputStream))
                     val lines = reader.readLines()
+
                     if (lines.size > 1) {
-                        val seats = lines.drop(1).mapNotNull { line ->
-                            val parts = line.split(",")
+                        val seats = lines.drop(1).mapIndexedNotNull { index, line ->
+                            // Usa Expressão Regular para detetar ou Vírgula ou Ponto-e-Vírgula
+                            val parts = line.split(Regex("[,;]"))
+
                             if (parts.size >= 4) {
+                                val mesa = parts[0].trim()
+                                val lugar = parts[1].trim()
+
                                 SeatEntity(
-                                    id = parts[0].trim().toIntOrNull() ?: return@mapNotNull null,
-                                    seatNumber = parts[1].trim(),
-                                    eventName = parts[2].trim(),
-                                    status = parts[3].trim().toIntOrNull() ?: 0,
-                                    assignedTo = parts.getOrNull(4)?.trim()?.takeIf { it.isNotEmpty() },
+                                    id = index + 1,
+                                    // Junta a mesa ao lugar (ex: "A-A1") para bater certo com a Backend
+                                    seatNumber = "$mesa-$lugar",
+                                    eventName = parts[2].trim(), // Categoria
+                                    status = 0, // Livre
+                                    assignedTo = parts[3].trim().takeIf { it.isNotEmpty() }, // Nome da Pessoa
                                     version = 1
                                 )
                             } else null
                         }
+                        repository.deleteAllSeats()
                         repository.insertAll(seats)
+                        Log.d("CSV", "Importação Local bem-sucedida! Foram inseridos ${seats.size} registos.")
                     }
                 }
-            } catch (e: Exception) { Log.e("CSV", "Erro ao importar", e) }
+            } catch (e: Exception) { Log.e("CSV", "Erro ao importar: ${e.message}", e) }
         }
     }
 
