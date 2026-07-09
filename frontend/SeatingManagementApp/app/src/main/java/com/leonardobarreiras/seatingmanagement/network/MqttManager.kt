@@ -15,7 +15,10 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
         .serverPort(1883)
         .buildAsync()
 
-    fun connectAndSubscribe() {
+    // 👇 Guarda o tópico onde estamos ligados neste momento
+    private var currentTopic: String? = null
+
+    fun connect() {
         client.connectWith()
             .send()
             .whenComplete { _, throwable ->
@@ -23,41 +26,68 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
                     Log.e("MQTT", "Erro ao ligar ao broker Mosquitto", throwable)
                 } else {
                     Log.d("MQTT", "Ligado ao Mosquitto com sucesso!")
-                    subscribeToUpdates()
+                    // AVISO DE SÉNIOR: Já não subscrevemos nada aqui!
+                    // Esperamos que o utilizador faça Check-in na Sala primeiro.
                 }
             }
     }
 
-    private fun subscribeToUpdates() {
+    // 👇 NOVA FUNÇÃO: Sintoniza apenas na Sala Correta 👇
+    fun subscribeToEventRoom(eventId: Int) {
+        val novoTopico = "seating/events/$eventId/updates"
+
+        // Evita subscrever 2 vezes a mesma sala
+        if (currentTopic == novoTopico) return
+
+        // 1. Desliga-se do tópico anterior (se o Staff mudar de sala)
+        currentTopic?.let { topicoAntigo ->
+            client.unsubscribeWith().topicFilter(topicoAntigo).send()
+            Log.d("MQTT", "Rádio desligada da frequência antiga: $topicoAntigo")
+        }
+
+        // 2. Sintoniza a nova sala
         client.subscribeWith()
-            .topicFilter("seating/updates")
+            .topicFilter(novoTopico)
             .callback { publish ->
                 val payload = String(publish.payloadAsBytes)
                 try {
                     val json = JSONObject(payload)
-                    val id = json.getInt("id")
-                    val status = json.getInt("s")
-                    Log.d("MQTT", "Recebi atualização: Lugar $id -> Estado $status")
+
+                    // Proteção de JSON (lê o formato novo do .NET ou o formato antigo de teste)
+                    val id = if (json.has("SeatId")) json.getInt("SeatId") else json.getInt("id")
+                    val status = if (json.has("Status")) json.getInt("Status") else json.getInt("s")
+
+                    Log.d("MQTT", "Recebi atualização [Sala $eventId]: Lugar $id -> Estado $status")
                     onSeatUpdated(id, status)
                 } catch (e: Exception) {
-                    Log.e("MQTT", "Erro ao processar mensagem: $payload", e)
+                    Log.e("MQTT", "Erro ao processar mensagem MQTT: $payload", e)
                 }
             }
             .send()
+            .whenComplete { _, throwable ->
+                if (throwable == null) {
+                    Log.d("MQTT", "Sintonizado na Sala $eventId! (Tópico: $novoTopico)")
+                    currentTopic = novoTopico
+                } else {
+                    Log.e("MQTT", "Erro ao subscrever Sala $eventId", throwable)
+                }
+            }
     }
 
-    // NOVA FUNÇÃO: O Telemóvel agora também fala com o Servidor 👇
-    fun publishSeatUpdate(id: Int, status: Int) {
-        val payload = "{\"id\": $id, \"s\": $status}".toByteArray()
+    // 👇 A publicação também tem de ir para a Sala correta 👇
+    fun publishSeatUpdate(eventId: Int, id: Int, status: Int) {
+        val topic = "seating/events/$eventId/updates"
+        val payload = "{\"SeatId\": $id, \"Status\": $status}".toByteArray()
+
         client.publishWith()
-            .topic("seating/updates")
+            .topic(topic)
             .payload(payload)
             .send()
             .whenComplete { _, exception ->
                 if (exception != null) {
                     Log.e("MQTT", "Erro ao publicar: id=$id", exception)
                 } else {
-                    Log.d("MQTT", "Publicado com sucesso: id=$id, status=$status")
+                    Log.d("MQTT", "Publicado com sucesso no tópico $topic: id=$id, status=$status")
                 }
             }
     }

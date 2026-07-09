@@ -7,6 +7,7 @@ import retrofit2.http.Body
 import retrofit2.http.GET
 import retrofit2.http.Header
 import retrofit2.http.POST
+import retrofit2.http.Path
 
 // Modelos para o Login
 data class LoginRequest(val username: String, val password: String)
@@ -21,8 +22,11 @@ interface SeatingApiService {
     @POST("api/Auth/login")
     suspend fun login(@Body request: LoginRequest): AuthResponse
 
-    @GET("api/Seat")
-    suspend fun getAllSeats(@Header("Authorization") token: String): List<SeatEntity>
+    @GET("api/Seat/{eventId}")
+    suspend fun getSeatsByEvent(
+        @Header("Authorization") token: String,
+        @Path("eventId") eventId: Int
+    ): List<SeatEntity>
 
     // 👇 NOVA ROTA: Validar o Bilhete 👇
     @POST("api/Seat/validate-ticket")
