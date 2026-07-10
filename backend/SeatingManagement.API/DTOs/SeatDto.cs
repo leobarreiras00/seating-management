@@ -34,4 +34,9 @@ namespace SeatingManagement.API.DTOs
         /// </summary>
         public string? AssignedTo { get; set; }
     }
+
+    public class BulkUpdateDto
+    {
+        public string Status { get; set; } = string.Empty;
+    }
 }

@@ -35,17 +35,12 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
     // 👇 NOVA FUNÇÃO: Sintoniza apenas na Sala Correta 👇
     fun subscribeToEventRoom(eventId: Int) {
         val novoTopico = "seating/events/$eventId/updates"
-
-        // Evita subscrever 2 vezes a mesma sala
         if (currentTopic == novoTopico) return
 
-        // 1. Desliga-se do tópico anterior (se o Staff mudar de sala)
         currentTopic?.let { topicoAntigo ->
             client.unsubscribeWith().topicFilter(topicoAntigo).send()
-            Log.d("MQTT", "Rádio desligada da frequência antiga: $topicoAntigo")
         }
 
-        // 2. Sintoniza a nova sala
         client.subscribeWith()
             .topicFilter(novoTopico)
             .callback { publish ->
@@ -53,24 +48,26 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
                 try {
                     val json = JSONObject(payload)
 
-                    // Proteção de JSON (lê o formato novo do .NET ou o formato antigo de teste)
-                    val id = if (json.has("SeatId")) json.getInt("SeatId") else json.getInt("id")
-                    val status = if (json.has("Status")) json.getInt("Status") else json.getInt("s")
-
-                    Log.d("MQTT", "Recebi atualização [Sala $eventId]: Lugar $id -> Estado $status")
-                    onSeatUpdated(id, status)
+                    // LÓGICA DE ROUTING SÉNIOR: É um comando ou um update simples?
+                    if (json.has("cmd")) {
+                        val cmd = json.getString("cmd")
+                        if (cmd == "REFRESH") {
+                            Log.d("MQTT", "Comando recebido: Sincronização em massa necessária.")
+                            // Passamos um ID negativo especial (-1) para avisar o ViewModel que é um Refresh
+                            onSeatUpdated(-1, -1)
+                        }
+                    } else {
+                        val id = if (json.has("SeatId")) json.getInt("SeatId") else json.getInt("id")
+                        val status = if (json.has("Status")) json.getInt("Status") else json.getInt("s")
+                        onSeatUpdated(id, status)
+                    }
                 } catch (e: Exception) {
-                    Log.e("MQTT", "Erro ao processar mensagem MQTT: $payload", e)
+                    Log.e("MQTT", "Erro ao processar mensagem MQTT", e)
                 }
             }
             .send()
             .whenComplete { _, throwable ->
-                if (throwable == null) {
-                    Log.d("MQTT", "Sintonizado na Sala $eventId! (Tópico: $novoTopico)")
-                    currentTopic = novoTopico
-                } else {
-                    Log.e("MQTT", "Erro ao subscrever Sala $eventId", throwable)
-                }
+                if (throwable == null) currentTopic = novoTopico
             }
     }
 

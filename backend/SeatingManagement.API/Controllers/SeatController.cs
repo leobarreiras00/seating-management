@@ -100,5 +100,29 @@ namespace SeatingManagement.API.Controllers
 
             return Ok(new { Message = "Bilhete validado com sucesso!", Seat = seat });
         }
+
+        [HttpPut("{eventId}/bulk-status")]
+        public async Task<IActionResult> BulkUpdateStatus(int eventId, [FromBody] BulkUpdateDto request)
+        {
+            if (!Enum.TryParse(request.Status, true, out SeatStatus statusEnum))
+                return BadRequest(new { Message = "Estado inválido." });
+
+            // Vai buscar todos os lugares do evento e altera-os em memória
+            var seats = await _context.Seats.Where(s => s.EventId == eventId).ToListAsync();
+            foreach (var seat in seats)
+            {
+                seat.Status = statusEnum;
+                seat.MarkedAt = statusEnum != SeatStatus.Vazio ? DateTime.UtcNow : null;
+                seat.Version++;
+            }
+
+            // Grava tudo de uma vez (super rápido)
+            await _context.SaveChangesAsync();
+
+            // BROADCAST: Envia comando para todos os telemóveis atualizarem a vista
+            _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
+
+            return Ok(new { Message = $"{seats.Count} lugares atualizados com sucesso." });
+        }
     }
 }

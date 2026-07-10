@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
@@ -40,6 +42,8 @@ import androidx.navigation.compose.rememberNavController
 import com.journeyapps.barcodescanner.ScanContract
 import com.journeyapps.barcodescanner.ScanOptions
 import com.leonardobarreiras.seatingmanagement.data.SeatEntity
+import com.leonardobarreiras.seatingmanagement.viewmodel.AppFeedback
+import com.leonardobarreiras.seatingmanagement.viewmodel.FeedbackType
 import com.leonardobarreiras.seatingmanagement.viewmodel.SeatViewModel
 import kotlinx.coroutines.launch
 
@@ -73,6 +77,46 @@ fun getMesaFromSeat(seatNumber: String): String {
     val split = seatNumber.split("-")
     if (split.size > 1) return "Mesa ${split[0].trim()}"
     return "Mesa Geral"
+}
+
+// 👇 COMPONENTE DINÂMICO PARA TODOS OS DIÁLOGOS DE SUCESSO/ERRO/EXPORT 👇
+@Composable
+fun AppFeedbackDialog(feedback: AppFeedback, onDismiss: () -> Unit) {
+    val icon = when (feedback.type) {
+        FeedbackType.SUCCESS -> Icons.Default.CheckCircle
+        FeedbackType.ERROR -> Icons.Default.Cancel
+        FeedbackType.EXPORT -> Icons.Default.FileDownloadDone // Ícone nativo que indica Ficheiro Gerado!
+        FeedbackType.INFO -> Icons.Default.Info
+    }
+
+    val iconColor = when (feedback.type) {
+        FeedbackType.SUCCESS -> SuccessGreen
+        FeedbackType.ERROR -> ErrorRed
+        FeedbackType.EXPORT -> CorporateBlue // Cor profissional para ações de dados
+        FeedbackType.INFO -> AccentPurple
+    }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp)) {
+            Card(
+                shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(24.dp), modifier = Modifier.fillMaxWidth().padding(top = 40.dp)
+            ) {
+                Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 56.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Text(feedback.title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
+                    Spacer(modifier = Modifier.height(12.dp))
+                    Text(feedback.message, fontSize = 16.sp, color = Color.DarkGray, textAlign = TextAlign.Center, lineHeight = 22.sp)
+                    Spacer(modifier = Modifier.height(32.dp))
+                    Button(
+                        onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = iconColor)
+                    ) { Text("CONTINUAR", fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 1.sp) }
+                }
+            }
+            Box(modifier = Modifier.size(96.dp).align(Alignment.TopCenter).background(Color.White, CircleShape).padding(8.dp)) {
+                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.fillMaxSize())
+            }
+        }
+    }
 }
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -133,9 +177,11 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
 fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) {
     var manualEventId by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
+
     val roomScanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        if (result.contents != null) { viewModel.processRoomCheckIn(result.contents.trim()); if (viewModel.currentEventId != null) onEventSelected() }
+        if (result.contents != null) viewModel.processRoomCheckIn(result.contents.trim())
     }
+
     LaunchedEffect(viewModel.currentEventId) { if (viewModel.currentEventId != null) onEventSelected() }
 
     Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF1F5F9))) {
@@ -185,32 +231,10 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                 }
             }
         }
-    }
-}
 
-@Composable
-fun TicketFeedbackDialog(message: String, onDismiss: () -> Unit) {
-    val isSuccess = message.contains("Sucesso", ignoreCase = true) || message.contains("✅")
-    val icon = if (isSuccess) Icons.Default.CheckCircle else Icons.Default.Error
-    val iconColor = if (isSuccess) SuccessGreen else ErrorRed
-    val titleText = if (isSuccess) "Bilhete Válido!" else "Atenção!"
-
-    Dialog(onDismissRequest = onDismiss) {
-        Card(
-            shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(24.dp), modifier = Modifier.fillMaxWidth()
-        ) {
-            Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.size(72.dp))
-                Spacer(modifier = Modifier.height(16.dp))
-                Text(titleText, fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
-                Spacer(modifier = Modifier.height(8.dp))
-                Text(message, fontSize = 16.sp, color = Color.DarkGray, textAlign = TextAlign.Center, lineHeight = 22.sp)
-                Spacer(modifier = Modifier.height(32.dp))
-                Button(
-                    onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(50.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue)
-                ) { Text("CONTINUAR", fontWeight = FontWeight.Bold, fontSize = 14.sp) }
-            }
+        // Exibir Erro Dinâmico se o ID for inválido (Proteção nativa)
+        if (viewModel.appFeedback != null) {
+            AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
         }
     }
 }
@@ -241,6 +265,10 @@ fun SeatScreen(viewModel: SeatViewModel) {
         if (uri != null) { viewModel.importCsv(uri, context); showActionsSheet = false }
     }
 
+    val exportCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) { viewModel.exportCsv(uri, context); showActionsSheet = false }
+    }
+
     val totalSeats = seats.size
     val treatedSeats = seats.count { it.status != 0 }
     val pendingSeats = totalSeats - treatedSeats
@@ -269,13 +297,8 @@ fun SeatScreen(viewModel: SeatViewModel) {
         bottomBar = {
             Box(modifier = Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
                 Button(
-                    onClick = {
-                        val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.QR_CODE); setPrompt("Aponta para o Bilhete"); setBeepEnabled(true) }
-                        scanLauncher.launch(options)
-                    },
-                    modifier = Modifier.fillMaxWidth().height(64.dp), shape = RoundedCornerShape(16.dp),
-                    colors = ButtonDefaults.buttonColors(containerColor = AccentPurple),
-                    elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                    onClick = { val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.QR_CODE); setPrompt("Aponta para o Bilhete"); setBeepEnabled(true) }; scanLauncher.launch(options) },
+                    modifier = Modifier.fillMaxWidth().height(64.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple), elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                 ) {
                     Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
                     Spacer(modifier = Modifier.width(12.dp))
@@ -396,20 +419,44 @@ fun SeatScreen(viewModel: SeatViewModel) {
         )
     }
 
-    if (viewModel.qrFeedbackMessage != null) {
-        TicketFeedbackDialog(message = viewModel.qrFeedbackMessage!!) { viewModel.clearQrFeedback() }
+    // ACIONA O FEEDBACK DINÂMICO NO DASHBOARD
+    if (viewModel.appFeedback != null) {
+        AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
     }
 
     if (showActionsSheet) {
         ModalBottomSheet(onDismissRequest = { showActionsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
+            // 👇 ADICIONADO: verticalScroll para garantir que o utilizador pode deslizar o menu todo 👇
+            Column(modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState())
+                .padding(bottom = 56.dp)
+            ) {
                 Text("Gestão de Dados", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
 
-                BottomSheetItem(icon = Icons.Default.Add, title = "Importar Novo Ficheiro", subtitle = "Substituir dados locais com CSV", iconTint = SuccessGreen) { csvLauncher.launch("*/*") }
-                BottomSheetItem(icon = Icons.Default.Check, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconTint = Color.Gray) { coroutineScope.launch { seats.filter { it.status == 0 }.forEach { viewModel.updateSeatStatus(it, 1) } }; showActionsSheet = false }
-                BottomSheetItem(icon = Icons.Default.Clear, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconTint = Color.Gray) { coroutineScope.launch { seats.filter { it.status != 0 }.forEach { viewModel.updateSeatStatus(it, 0) } }; showActionsSheet = false }
-                BottomSheetItem(icon = Icons.Default.Delete, title = "Limpar Dados", subtitle = "Eliminar todos os registos do telemóvel", iconTint = ErrorRed) { viewModel.clearAllData(); showActionsSheet = false }
-                BottomSheetItem(icon = Icons.Default.Settings, title = "Configurações Locais", subtitle = "Preferências da aplicação", iconTint = AccentPurple) { showActionsSheet = false; showSettingsSheet = true }
+                BottomSheetItem(icon = Icons.Default.Share, title = "Exportar CSV", subtitle = "Guardar estado atual do evento no dispositivo", iconTint = PrimaryBlue) {
+                    exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv")
+                }
+                BottomSheetItem(icon = Icons.Default.Add, title = "Importar Novo Ficheiro", subtitle = "Substituir dados locais com CSV", iconTint = SuccessGreen) {
+                    csvLauncher.launch("*/*")
+                }
+                BottomSheetItem(icon = Icons.Default.Check, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconTint = Color.Gray) {
+                    viewModel.bulkUpdateStatus("Tratado")
+                    showActionsSheet = false
+                }
+                BottomSheetItem(icon = Icons.Default.Clear, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconTint = Color.Gray) {
+                    viewModel.bulkUpdateStatus("Vazio")
+                    showActionsSheet = false
+                }
+                BottomSheetItem(icon = Icons.Default.Delete, title = "Limpar Dados", subtitle = "Eliminar todos os registos do telemóvel", iconTint = ErrorRed) {
+                    viewModel.clearAllData()
+                    showActionsSheet = false
+                }
+                BottomSheetItem(icon = Icons.Default.Settings, title = "Configurações Locais", subtitle = "Preferências da aplicação", iconTint = AccentPurple) {
+                    showActionsSheet = false
+                    showSettingsSheet = true
+                }
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(onClick = { showActionsSheet = false }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = LightBg, contentColor = Color.Black)) { Text("Fechar Menu", fontWeight = FontWeight.Bold) }
@@ -420,7 +467,12 @@ fun SeatScreen(viewModel: SeatViewModel) {
 
     if (showSettingsSheet) {
         ModalBottomSheet(onDismissRequest = { showSettingsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).padding(bottom = 16.dp)) {
+            Column(modifier = Modifier
+                .fillMaxWidth()
+                .padding(horizontal = 24.dp)
+                .verticalScroll(rememberScrollState()) // 👇 Scroll também nas configurações
+                .padding(bottom = 56.dp)
+            ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 16.dp)) {
                     Icon(Icons.Default.Settings, contentDescription = null, tint = AccentPurple)
                     Spacer(modifier = Modifier.width(8.dp))

@@ -6,6 +6,7 @@ using Microsoft.EntityFrameworkCore;
 using SeatingManagement.API.Data;
 using SeatingManagement.API.DTOs;
 using SeatingManagement.API.Models;
+using SeatingManagement.API.Services;
 using System.Globalization;
 using System.Security.Claims;
 using System.Text.RegularExpressions;
@@ -18,11 +19,13 @@ namespace SeatingManagement.API.Controllers
     public class SeatCsvController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IMqttService _mqttService; 
         private const long MaxFileSizeBytes = 5 * 1024 * 1024; // Limite: 5MB
 
-        public SeatCsvController(AppDbContext context)
+        public SeatCsvController(AppDbContext context, IMqttService mqttService)
         {
             _context = context;
+            _mqttService = mqttService;
         }
 
         [HttpPost("import/{eventId}")]
@@ -34,7 +37,10 @@ namespace SeatingManagement.API.Controllers
             if (file.Length > MaxFileSizeBytes)
                 return BadRequest("O ficheiro excede o limite máximo de segurança de 5MB.");
 
-            var extension = Path.GetExtension(file.FileName).ToLowerInvariant();
+            // PROTEÇÃO 1: Evitar erro se o FileName for nulo
+            var fileName = file.FileName ?? "";
+            var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
+            
             if (extension != ".csv")
                 return BadRequest("Apenas ficheiros .csv são permitidos.");
 
@@ -43,15 +49,14 @@ namespace SeatingManagement.API.Controllers
                 using var stream = file.OpenReadStream();
                 using var reader = new StreamReader(stream);
                 
-                // 👇 A CORREÇÃO ESTÁ AQUI: Configuração robusta do CsvHelper
                 var config = new CsvConfiguration(CultureInfo.InvariantCulture)
                 {
                     HasHeaderRecord = true,
-                    Delimiter = ";", // Lemos o teu ficheiro separado por Ponto e Vírgula
+                    Delimiter = ";", 
                     MissingFieldFound = null,
-                    HeaderValidated = null, // Não falha se faltarem cabeçalhos esperados
-                    // MAGIA: Remove espaços e converte para minúsculas para o mapeamento não falhar!
-                    PrepareHeaderForMatch = args => args.Header.ToLower().Replace(" ", "").Trim()
+                    HeaderValidated = null, 
+                    // PROTEÇÃO 2: Tratar cabeçalhos nulos (colunas extra vazias) e remover BOM invisível
+                    PrepareHeaderForMatch = args => args.Header?.ToLower().Replace("\ufeff", "").Replace(" ", "").Trim() ?? string.Empty
                 };
 
                 using var csv = new CsvReader(reader, config);
@@ -64,17 +69,19 @@ namespace SeatingManagement.API.Controllers
 
                 foreach (var record in records)
                 {
+                    // PROTEÇÃO 3: Ignorar linhas completamente nulas devolvidas pelo CsvHelper
+                    if (record == null) continue;
+
                     var mesa = SanitizeInput(record.Mesa);
                     var lugar = SanitizeInput(record.Lugar);
                     var categoria = SanitizeInput(record.Categoria);
                     var nome = SanitizeInput(record.Nome);
 
-                    // Formata para "A-A1" para corresponder exatamente à lógica móvel
                     var seatNumber = string.IsNullOrEmpty(mesa) ? lugar : $"{mesa}-{lugar}";
 
                     seatsToInsert.Add(new Seat
                     {
-                        EventId = eventId, // Associa ao Evento que passaste no Swagger!
+                        EventId = eventId, 
                         SeatNumber = seatNumber,
                         EventName = categoria,
                         AssignedTo = string.IsNullOrWhiteSpace(nome) ? null : nome,
@@ -86,11 +93,18 @@ namespace SeatingManagement.API.Controllers
                 _context.Seats.AddRange(seatsToInsert);
                 await _context.SaveChangesAsync();
 
+                // PROTEÇÃO 4: Garantir que se a Injeção de Dependência falhar, não quebra o import
+                if (_mqttService != null)
+                {
+                    _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
+                }
+
                 return Ok(new { message = $"{seatsToInsert.Count} lugares importados com sucesso para o Evento {eventId}." });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro interno ao processar o ficheiro: {ex.Message}");
+                // DEBUG PROFUNDO: Devolve o StackTrace para sabermos exatamente qual foi a linha que falhou
+                return StatusCode(500, $"Erro interno ao processar o ficheiro: {ex.Message} | Detalhe: {ex.StackTrace}");
             }
         }
 
@@ -108,6 +122,11 @@ namespace SeatingManagement.API.Controllers
 
             _context.Seats.RemoveRange(_context.Seats);
             await _context.SaveChangesAsync();
+
+            if (_mqttService != null)
+            {
+                _ = _mqttService.PublishCommandAsync(0, "REFRESH");
+            }
 
             return Ok(new { Message = "Base de dados limpa com sucesso!" });
         }

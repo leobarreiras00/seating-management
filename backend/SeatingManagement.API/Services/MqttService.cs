@@ -6,6 +6,7 @@ namespace SeatingManagement.API.Services
     public interface IMqttService
     {
         Task PublishSeatUpdateAsync(int eventId, int seatId, int status);
+        Task PublishCommandAsync(int eventId, string command);
     }
 
     public class MqttService : IMqttService, IHostedService
@@ -43,6 +44,23 @@ namespace SeatingManagement.API.Services
             // O Tópico é dinâmico e isolado por Evento!
             var topic = $"seating/events/{eventId}/updates"; 
             var payload = $"{{\"SeatId\": {seatId}, \"Status\": {status}}}";
+
+            var message = new MqttApplicationMessageBuilder()
+                .WithTopic(topic)
+                .WithPayload(payload)
+                .WithQualityOfServiceLevel(MQTTnet.Protocol.MqttQualityOfServiceLevel.AtLeastOnce)
+                .Build();
+
+            if (_mqttClient != null && _mqttClient.IsConnected)
+            {
+                await _mqttClient.PublishAsync(message);
+            }
+        }
+
+        public async Task PublishCommandAsync(int eventId, string command)
+        {
+            var topic = $"seating/events/{eventId}/updates";
+            var payload = $"{{\"cmd\": \"{command}\"}}";
 
             var message = new MqttApplicationMessageBuilder()
                 .WithTopic(topic)
