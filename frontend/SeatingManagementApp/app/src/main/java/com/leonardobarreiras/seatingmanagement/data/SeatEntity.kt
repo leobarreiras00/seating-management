@@ -10,5 +10,6 @@ data class SeatEntity(
     val eventName: String,
     val status: Int,
     val assignedTo: String?,
-    val version: Long
+    val version: Long,
+    val isPendingSync: Boolean = false
 )

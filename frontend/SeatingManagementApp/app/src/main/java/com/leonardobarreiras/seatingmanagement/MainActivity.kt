@@ -6,17 +6,17 @@ import androidx.activity.compose.setContent
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
+import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
@@ -45,7 +45,6 @@ import com.leonardobarreiras.seatingmanagement.data.SeatEntity
 import com.leonardobarreiras.seatingmanagement.viewmodel.AppFeedback
 import com.leonardobarreiras.seatingmanagement.viewmodel.FeedbackType
 import com.leonardobarreiras.seatingmanagement.viewmodel.SeatViewModel
-import kotlinx.coroutines.launch
 
 val CorporateBlue = Color(0xFF1C2536)
 val PrimaryBlue = Color(0xFF293950)
@@ -53,6 +52,7 @@ val SuccessGreen = Color(0xFF10B981)
 val ErrorRed = Color(0xFFEF4444)
 val LightBg = Color(0xFFF8FAFC)
 val AccentPurple = Color(0xFF8B5CF6)
+val OfflineGray = Color(0xFF94A3B8)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -79,21 +79,22 @@ fun getMesaFromSeat(seatNumber: String): String {
     return "Mesa Geral"
 }
 
-// 👇 COMPONENTE DINÂMICO PARA TODOS OS DIÁLOGOS DE SUCESSO/ERRO/EXPORT 👇
 @Composable
 fun AppFeedbackDialog(feedback: AppFeedback, onDismiss: () -> Unit) {
     val icon = when (feedback.type) {
         FeedbackType.SUCCESS -> Icons.Default.CheckCircle
         FeedbackType.ERROR -> Icons.Default.Cancel
-        FeedbackType.EXPORT -> Icons.Default.FileDownloadDone // Ícone nativo que indica Ficheiro Gerado!
+        FeedbackType.EXPORT -> Icons.Default.FileDownloadDone
         FeedbackType.INFO -> Icons.Default.Info
+        FeedbackType.OFFLINE -> Icons.Default.CloudOff
     }
 
     val iconColor = when (feedback.type) {
         FeedbackType.SUCCESS -> SuccessGreen
         FeedbackType.ERROR -> ErrorRed
-        FeedbackType.EXPORT -> CorporateBlue // Cor profissional para ações de dados
+        FeedbackType.EXPORT -> CorporateBlue
         FeedbackType.INFO -> AccentPurple
+        FeedbackType.OFFLINE -> OfflineGray
     }
 
     Dialog(onDismissRequest = onDismiss) {
@@ -188,7 +189,7 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
         Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
 
             Box(modifier = Modifier.size(80.dp).background(Color.White, CircleShape), contentAlignment = Alignment.Center) {
-                Icon(Icons.Default.QrCode, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(40.dp))
+                Icon(if (viewModel.isOffline) Icons.Default.CloudOff else Icons.Default.QrCode, contentDescription = null, tint = if(viewModel.isOffline) OfflineGray else AccentPurple, modifier = Modifier.size(40.dp))
             }
             Spacer(modifier = Modifier.height(24.dp))
             Text("Configuração de Sala", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = CorporateBlue)
@@ -232,7 +233,6 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
             }
         }
 
-        // Exibir Erro Dinâmico se o ID for inválido (Proteção nativa)
         if (viewModel.appFeedback != null) {
             AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
         }
@@ -244,7 +244,6 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
 fun SeatScreen(viewModel: SeatViewModel) {
     val seats by viewModel.seatsFlow.collectAsState(initial = emptyList())
     val context = LocalContext.current
-    val coroutineScope = rememberCoroutineScope()
 
     var searchQuery by remember { mutableStateOf("") }
     var showFilters by remember { mutableStateOf(false) }
@@ -257,38 +256,59 @@ fun SeatScreen(viewModel: SeatViewModel) {
     var selectedTable by remember { mutableStateOf("Todas") }
     var selectedStatus by remember { mutableStateOf("Todos") }
 
-    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        if (result.contents != null) viewModel.validateTicketFromQr(result.contents.trim())
-    }
-
-    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
-        if (uri != null) { viewModel.importCsv(uri, context); showActionsSheet = false }
-    }
-
-    val exportCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        if (uri != null) { viewModel.exportCsv(uri, context); showActionsSheet = false }
-    }
+    var pendingCsvUri by remember { mutableStateOf<android.net.Uri?>(null) }
+    var showCsvModeDialog by remember { mutableStateOf(false) }
+    var confirmActionType by remember { mutableStateOf<String?>(null) }
+    var validatedAdminPin by remember { mutableStateOf("1234") }
 
     val totalSeats = seats.size
     val treatedSeats = seats.count { it.status != 0 }
     val pendingSeats = totalSeats - treatedSeats
     val progress = if (totalSeats > 0) treatedSeats.toFloat() / totalSeats else 0f
 
+    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
+        if (result.contents != null) viewModel.validateTicketFromQr(result.contents.trim())
+    }
+
+    val exportCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+        if (uri != null) { viewModel.exportCsv(uri, context); showActionsSheet = false }
+    }
+
+    val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
+        if (uri != null) {
+            if (seats.isNotEmpty()) {
+                pendingCsvUri = uri
+                showCsvModeDialog = true
+            } else {
+                viewModel.uploadCsvToServer(uri, context, "replace")
+            }
+            showActionsSheet = false
+        }
+    }
+
     Scaffold(
         topBar = {
             TopAppBar(
                 title = {
                     Column {
-                        Text("Gestão de Entradas", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                        Row(verticalAlignment = Alignment.CenterVertically) {
+                            Text("Gestão de Entradas", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
+                            if (viewModel.isOffline) {
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(modifier = Modifier.background(ErrorRed, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                    Text("OFFLINE", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+                                }
+                            }
+                        }
                         Text("Evento: ${viewModel.currentEventId ?: "Nenhum"}", color = Color.LightGray, fontSize = 12.sp)
                     }
                 },
                 navigationIcon = { IconButton(onClick = { showPinDialog = true }) { Icon(Icons.Default.Lock, contentDescription = "Admin", tint = Color.White) } },
                 actions = {
-                    TextButton(onClick = { viewModel.fetchSeatsFromApi() }) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Sync", tint = Color.White)
+                    TextButton(onClick = { viewModel.fetchSeatsFromApi() }, enabled = !viewModel.isOffline) {
+                        Icon(Icons.Default.Refresh, contentDescription = "Sync", tint = if (viewModel.isOffline) Color.Gray else Color.White)
                         Spacer(Modifier.width(4.dp))
-                        Text("Sync DB", color = Color.White, fontWeight = FontWeight.Bold)
+                        Text("Sync DB", color = if (viewModel.isOffline) Color.Gray else Color.White, fontWeight = FontWeight.Bold)
                     }
                 },
                 colors = TopAppBarDefaults.topAppBarColors(containerColor = CorporateBlue)
@@ -401,7 +421,12 @@ fun SeatScreen(viewModel: SeatViewModel) {
                     Spacer(modifier = Modifier.height(32.dp))
                     Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
                         TextButton(onClick = { showPinDialog = false }) { Text("Cancelar", color = Color.Gray) }
-                        Button(onClick = { if (viewModel.verifyPin(pin)) { showPinDialog = false; showActionsSheet = true } else isError = true }, colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue), shape = RoundedCornerShape(12.dp)) { Text("Desbloquear") }
+                        Button(onClick = {
+                            if (viewModel.verifyPin(pin)) {
+                                validatedAdminPin = pin
+                                showPinDialog = false; showActionsSheet = true
+                            } else isError = true
+                        }, colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue), shape = RoundedCornerShape(12.dp)) { Text("Desbloquear") }
                     }
                 }
             }
@@ -419,14 +444,68 @@ fun SeatScreen(viewModel: SeatViewModel) {
         )
     }
 
-    // ACIONA O FEEDBACK DINÂMICO NO DASHBOARD
+    if (showCsvModeDialog && pendingCsvUri != null) {
+        AlertDialog(
+            onDismissRequest = { showCsvModeDialog = false; pendingCsvUri = null },
+            title = { Text("Atenção: Sala Ocupada", fontWeight = FontWeight.Bold, color = CorporateBlue) },
+            text = { Text("Esta sala já possui $totalSeats convidados. Queres SUBSTITUIR a lista atual apagando tudo, ou ADICIONAR estas pessoas à lista existente?") },
+            confirmButton = {
+                Button(
+                    onClick = { viewModel.uploadCsvToServer(pendingCsvUri!!, context, "replace"); showCsvModeDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                ) { Text("SUBSTITUIR") }
+            },
+            dismissButton = {
+                Button(
+                    onClick = { viewModel.uploadCsvToServer(pendingCsvUri!!, context, "append"); showCsvModeDialog = false },
+                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
+                ) { Text("ADICIONAR") }
+            }
+        )
+    }
+
+    if (confirmActionType != null) {
+        val title = when (confirmActionType) {
+            "MARK_ALL" -> "Validar Todos"
+            "UNMARK_ALL" -> "Desmarcar Todos"
+            "CLEAR" -> "Limpar Dados da Sala"
+            else -> ""
+        }
+        val msg = when (confirmActionType) {
+            "MARK_ALL" -> "Tens a certeza? Isto marcará os $pendingSeats lugares pendentes como Tratados."
+            "UNMARK_ALL" -> "Atenção: Vais remover a validação de $treatedSeats convidados. Continuar?"
+            "CLEAR" -> "PERIGO: Isto vai APAGAR toda a base de dados desta sala no servidor. Irreversível!"
+            else -> ""
+        }
+        val btnColor = if (confirmActionType == "MARK_ALL") SuccessGreen else ErrorRed
+
+        AlertDialog(
+            onDismissRequest = { confirmActionType = null },
+            title = { Text(title, fontWeight = FontWeight.Bold, color = CorporateBlue) },
+            text = { Text(msg) },
+            confirmButton = {
+                Button(
+                    onClick = {
+                        when (confirmActionType) {
+                            "MARK_ALL" -> viewModel.bulkUpdateStatus("Tratado")
+                            "UNMARK_ALL" -> viewModel.bulkUpdateStatus("Vazio")
+                            "CLEAR" -> viewModel.clearEventData(validatedAdminPin)
+                        }
+                        confirmActionType = null
+                    },
+                    colors = ButtonDefaults.buttonColors(containerColor = btnColor)
+                ) { Text("Confirmar Ação") }
+            },
+            dismissButton = { TextButton(onClick = { confirmActionType = null }) { Text("Cancelar") } }
+        )
+    }
+
     if (viewModel.appFeedback != null) {
         AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
     }
 
     if (showActionsSheet) {
         ModalBottomSheet(onDismissRequest = { showActionsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
-            // 👇 ADICIONADO: verticalScroll para garantir que o utilizador pode deslizar o menu todo 👇
             Column(modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
@@ -435,28 +514,12 @@ fun SeatScreen(viewModel: SeatViewModel) {
             ) {
                 Text("Gestão de Dados", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
 
-                BottomSheetItem(icon = Icons.Default.Share, title = "Exportar CSV", subtitle = "Guardar estado atual do evento no dispositivo", iconTint = PrimaryBlue) {
-                    exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv")
-                }
-                BottomSheetItem(icon = Icons.Default.Add, title = "Importar Novo Ficheiro", subtitle = "Substituir dados locais com CSV", iconTint = SuccessGreen) {
-                    csvLauncher.launch("*/*")
-                }
-                BottomSheetItem(icon = Icons.Default.Check, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconTint = Color.Gray) {
-                    viewModel.bulkUpdateStatus("Tratado")
-                    showActionsSheet = false
-                }
-                BottomSheetItem(icon = Icons.Default.Clear, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconTint = Color.Gray) {
-                    viewModel.bulkUpdateStatus("Vazio")
-                    showActionsSheet = false
-                }
-                BottomSheetItem(icon = Icons.Default.Delete, title = "Limpar Dados", subtitle = "Eliminar todos os registos do telemóvel", iconTint = ErrorRed) {
-                    viewModel.clearAllData()
-                    showActionsSheet = false
-                }
-                BottomSheetItem(icon = Icons.Default.Settings, title = "Configurações Locais", subtitle = "Preferências da aplicação", iconTint = AccentPurple) {
-                    showActionsSheet = false
-                    showSettingsSheet = true
-                }
+                BottomSheetItem(icon = Icons.Default.Share, title = "Exportar CSV", subtitle = "Guardar estado atual do evento no dispositivo", iconTint = PrimaryBlue) { exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
+                BottomSheetItem(icon = Icons.Default.Add, title = "Importar Novo Ficheiro", subtitle = "Substituir dados locais com CSV", iconTint = SuccessGreen) { csvLauncher.launch("*/*") }
+                BottomSheetItem(icon = Icons.Default.Check, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconTint = Color.Gray) { confirmActionType = "MARK_ALL"; showActionsSheet = false }
+                BottomSheetItem(icon = Icons.Default.Clear, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconTint = Color.Gray) { confirmActionType = "UNMARK_ALL"; showActionsSheet = false }
+                BottomSheetItem(icon = Icons.Default.Delete, title = "Limpar Dados", subtitle = "Eliminar todos os registos do telemóvel e servidor", iconTint = ErrorRed) { confirmActionType = "CLEAR"; showActionsSheet = false }
+                BottomSheetItem(icon = Icons.Default.Settings, title = "Configurações Locais", subtitle = "Preferências da aplicação", iconTint = AccentPurple) { showActionsSheet = false; showSettingsSheet = true }
 
                 Spacer(modifier = Modifier.height(16.dp))
                 Button(onClick = { showActionsSheet = false }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = LightBg, contentColor = Color.Black)) { Text("Fechar Menu", fontWeight = FontWeight.Bold) }
@@ -470,7 +533,7 @@ fun SeatScreen(viewModel: SeatViewModel) {
             Column(modifier = Modifier
                 .fillMaxWidth()
                 .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState()) // 👇 Scroll também nas configurações
+                .verticalScroll(rememberScrollState())
                 .padding(bottom = 56.dp)
             ) {
                 Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 16.dp)) {

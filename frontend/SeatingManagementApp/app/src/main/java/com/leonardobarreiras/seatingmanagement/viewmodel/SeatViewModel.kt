@@ -12,38 +12,29 @@ import androidx.lifecycle.viewModelScope
 import com.leonardobarreiras.seatingmanagement.data.AppDatabase
 import com.leonardobarreiras.seatingmanagement.data.SeatEntity
 import com.leonardobarreiras.seatingmanagement.data.SeatRepository
-import com.leonardobarreiras.seatingmanagement.network.AuthResponse
-import com.leonardobarreiras.seatingmanagement.network.BulkUpdateStatusRequest
-import com.leonardobarreiras.seatingmanagement.network.LoginRequest
-import com.leonardobarreiras.seatingmanagement.network.MqttManager
-import com.leonardobarreiras.seatingmanagement.network.RetrofitClient
-import com.leonardobarreiras.seatingmanagement.network.ValidateTicketRequest
+import com.leonardobarreiras.seatingmanagement.network.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
-import java.io.BufferedReader
 import java.io.BufferedWriter
-import java.io.InputStreamReader
 import java.io.OutputStreamWriter
 
-// 👇 O NOVO SISTEMA DINÂMICO DE FEEDBACK PARA A UI 👇
-enum class FeedbackType { SUCCESS, ERROR, EXPORT, INFO }
+enum class FeedbackType { SUCCESS, ERROR, EXPORT, INFO, OFFLINE }
 data class AppFeedback(val type: FeedbackType, val title: String, val message: String)
 
 class SeatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: SeatRepository
     private val mqttManager: MqttManager
+    private val networkMonitor = NetworkMonitor(application) // 👈 O Olheiro de Rede
 
     val seatsFlow: Flow<List<SeatEntity>>
     var isAdminMode by mutableStateOf(false)
+    var isOffline by mutableStateOf(false) // 👈 Estado global de rede
 
     var jwtToken: String? = null
     var loginError by mutableStateOf<String?>(null)
-
     var currentEventId by mutableStateOf<Int?>(null)
-
-    // Substituímos o qrFeedbackMessage pela nova classe robusta
     var appFeedback by mutableStateOf<AppFeedback?>(null)
 
     init {
@@ -51,13 +42,22 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         repository = SeatRepository(db.seatDao())
         seatsFlow = repository.allSeats
 
+        // 👇 MOTOR OFFLINE: Escuta a rede continuamente 👇
+        viewModelScope.launch {
+            networkMonitor.isConnected.collect { connected ->
+                isOffline = !connected
+                if (connected && currentEventId != null) {
+                    syncPendingSeats() // REDE VOLTOU! Envia a Fila de Espera
+                }
+            }
+        }
+
         mqttManager = MqttManager { id, status ->
             viewModelScope.launch {
                 if (id == -1 && status == -1) {
-                    Log.d("ViewModel", "Comando de Broadcast recebido! A atualizar lista toda...")
                     fetchSeatsFromApi()
                 } else {
-                    repository.updateSeatStatusLocally(id, status)
+                    repository.updateSeatStatusLocally(id, status, isPendingSync = false)
                 }
             }
         }
@@ -65,10 +65,13 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun authenticate(user: String, pass: String, onSuccess: () -> Unit) {
+        if (isOffline) {
+            loginError = "Sem ligação à internet."
+            return
+        }
         viewModelScope.launch {
             try {
-                val request = LoginRequest(user, pass)
-                val response: AuthResponse = RetrofitClient.apiService.login(request)
+                val response: AuthResponse = RetrofitClient.apiService.login(LoginRequest(user, pass))
                 jwtToken = response.token
                 loginError = null
                 onSuccess()
@@ -78,75 +81,120 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun verifyPin(pin: String): Boolean {
-        return pin == "1234"
-    }
+    fun verifyPin(pin: String): Boolean = pin == "1234"
 
-    // 👇 O NOVO CHECK-IN SEGURO 👇
     fun processRoomCheckIn(qrContent: String) {
+        if (isOffline) {
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Modo Offline", "Precisas de internet para configurar uma sala.")
+            return
+        }
         if (qrContent.startsWith("EVENT:")) {
-            val idStr = qrContent.removePrefix("EVENT:")
-            val id = idStr.toIntOrNull()
-
+            val id = qrContent.removePrefix("EVENT:").toIntOrNull()
             if (id != null) {
                 if (jwtToken == null) {
-                    appFeedback = AppFeedback(FeedbackType.ERROR, "Sessão Expirada", "Por favor faz login novamente.")
+                    appFeedback = AppFeedback(FeedbackType.ERROR, "Sessão Expirada", "Por favor faz login.")
                     return
                 }
-
                 viewModelScope.launch {
                     try {
                         val seatsFromApi = RetrofitClient.apiService.getSeatsByEvent("Bearer $jwtToken", id)
-
-                        // 👇 A CORREÇÃO DE SEGURANÇA: Bloqueia se o Evento não existir ou não tiver dados
                         if (seatsFromApi.isEmpty()) {
-                            appFeedback = AppFeedback(FeedbackType.ERROR, "ID Inválido", "O Evento $id não existe ou não tem lugares atribuídos.")
+                            appFeedback = AppFeedback(FeedbackType.ERROR, "ID Inválido", "O Evento $id não existe.")
                             return@launch
                         }
-
                         currentEventId = id
                         repository.deleteAllSeats()
                         repository.insertAll(seatsFromApi)
                         mqttManager.subscribeToEventRoom(id)
-
                         appFeedback = AppFeedback(FeedbackType.SUCCESS, "Acesso Permitido", "Entraste no Evento $id com sucesso.")
-                    } catch (e: retrofit2.HttpException) {
-                        appFeedback = AppFeedback(FeedbackType.ERROR, "Erro no Servidor", "Não foi possível validar o evento (Code: ${e.code()}).")
                     } catch (e: Exception) {
-                        appFeedback = AppFeedback(FeedbackType.ERROR, "Erro de Rede", "Verifica a tua ligação à Internet.")
+                        appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Verifica a tua ligação.")
                     }
                 }
-            } else {
-                appFeedback = AppFeedback(FeedbackType.ERROR, "Formato Inválido", "O ID do evento deve ser um número.")
-            }
-        } else {
-            appFeedback = AppFeedback(FeedbackType.ERROR, "QR Inválido", "O código não pertence a uma configuração de sala.")
-        }
+            } else appFeedback = AppFeedback(FeedbackType.ERROR, "Formato Inválido", "O ID deve ser numérico.")
+        } else appFeedback = AppFeedback(FeedbackType.ERROR, "QR Inválido", "Código não pertence a uma sala.")
     }
 
     fun validateTicketFromQr(ticketHash: String) {
-        val safeEventId = currentEventId
-        if (safeEventId == null || jwtToken == null) return
+        if (isOffline) {
+            appFeedback = AppFeedback(FeedbackType.OFFLINE, "Sem Rede", "Leitura QR bloqueada em modo Offline.")
+            return
+        }
+        val safeEventId = currentEventId ?: return
+        if (jwtToken == null) return
 
         viewModelScope.launch {
             try {
-                val request = ValidateTicketRequest(eventId = safeEventId, ticketHash = ticketHash)
-                RetrofitClient.apiService.validateTicket("Bearer $jwtToken", request)
+                RetrofitClient.apiService.validateTicket("Bearer $jwtToken", ValidateTicketRequest(safeEventId, ticketHash))
                 fetchSeatsFromApi()
-                appFeedback = AppFeedback(FeedbackType.SUCCESS, "Bilhete Válido!", "A entrada foi registada com sucesso.")
-            } catch (e: retrofit2.HttpException) {
-                appFeedback = AppFeedback(FeedbackType.ERROR, "Acesso Negado!", "Bilhete inválido, de outro evento ou já ocupado.")
+                appFeedback = AppFeedback(FeedbackType.SUCCESS, "Bilhete Válido!", "Entrada registada.")
             } catch (e: Exception) {
-                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro de Comunicação", "Falha de ligação ao servidor.")
+                appFeedback = AppFeedback(FeedbackType.ERROR, "Acesso Negado", "Bilhete inválido ou já ocupado.")
             }
         }
     }
 
-    fun clearFeedback() {
-        appFeedback = null
+    // 👇 O MOTOR DE ATRIBUIÇÃO CORRIGIDO 👇
+    fun updateSeatStatus(seat: SeatEntity, newStatus: Int) {
+        val safeEventId = currentEventId ?: return
+        viewModelScope.launch {
+            if (isOffline) {
+                // OFFLINE: Vai para a Fila de Espera
+                repository.updateSeatStatusLocally(seat.id, newStatus, isPendingSync = true)
+                appFeedback = AppFeedback(FeedbackType.OFFLINE, "Modo Offline", "Gravado no telemóvel. Será enviado quando houver rede.")
+            } else {
+                // ONLINE: 1. Atualiza ecrã 2. MQTT (Rápido) 3. Grava no Servidor (Permanente)
+                repository.updateSeatStatusLocally(seat.id, newStatus, isPendingSync = false)
+                mqttManager.publishSeatUpdate(safeEventId, seat.id, newStatus)
+
+                try {
+                    // O ELO PERDIDO: Avisar o .NET para gravar no SQL Server!
+                    RetrofitClient.apiService.updateSingleSeat(
+                        "Bearer $jwtToken", safeEventId, seat.id, UpdateSingleSeatRequest(newStatus)
+                    )
+                } catch (e: Exception) {
+                    // Se a net falhar milissegundos antes de enviar ao servidor, vai para a fila!
+                    repository.updateSeatStatusLocally(seat.id, newStatus, isPendingSync = true)
+                }
+            }
+        }
+    }
+
+    // 👇 O MOTOR DE SINCRONIZAÇÃO DA FILA DE ESPERA 👇
+    private suspend fun syncPendingSeats() {
+        val safeEventId = currentEventId ?: return
+        val pendingSeats = repository.getPendingSyncSeats()
+
+        if (pendingSeats.isNotEmpty()) {
+            Log.d("SYNC", "A sincronizar ${pendingSeats.size} registos offline...")
+            var successCount = 0
+
+            pendingSeats.forEach { seat ->
+                try {
+                    // 1. Grava na BD Central primeiro
+                    val response = RetrofitClient.apiService.updateSingleSeat(
+                        "Bearer $jwtToken", safeEventId, seat.id, UpdateSingleSeatRequest(seat.status)
+                    )
+
+                    if (response.isSuccessful) {
+                        // 2. Avisa os outros telemóveis e retira a flag
+                        mqttManager.publishSeatUpdate(safeEventId, seat.id, seat.status)
+                        repository.updateSeatStatusLocally(seat.id, seat.status, isPendingSync = false)
+                        successCount++
+                    }
+                } catch (e: Exception) {
+                    Log.e("SYNC", "Falha ao enviar lugar ${seat.id}, continua na fila.")
+                }
+            }
+
+            if (successCount > 0) {
+                appFeedback = AppFeedback(FeedbackType.SUCCESS, "Rede Restabelecida", "$successCount lugares offline gravados na BD Central.")
+            }
+        }
     }
 
     fun fetchSeatsFromApi() {
+        if (isOffline) return
         val safeEventId = currentEventId ?: return
         if (jwtToken == null) return
 
@@ -155,68 +203,60 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 val seatsFromApi = RetrofitClient.apiService.getSeatsByEvent("Bearer $jwtToken", safeEventId)
                 repository.deleteAllSeats()
                 repository.insertAll(seatsFromApi)
-            } catch (e: retrofit2.HttpException) {
-                if (e.code() == 404) {
-                    appFeedback = AppFeedback(FeedbackType.INFO, "Aviso", "A sala $safeEventId foi limpa ou não tem dados.")
-                }
-            } catch (e: Exception) {
-                Log.e("API", "Erro ao sincronizar: ${e.message}")
-            }
-        }
-    }
-
-    fun updateSeatStatus(seat: SeatEntity, newStatus: Int) {
-        val safeEventId = currentEventId ?: return
-        viewModelScope.launch {
-            repository.updateSeatStatusLocally(seat.id, newStatus)
-            mqttManager.publishSeatUpdate(safeEventId, seat.id, newStatus)
+            } catch (e: Exception) { Log.e("API", "Erro ao sincronizar") }
         }
     }
 
     fun bulkUpdateStatus(novoEstado: String) {
+        if (isOffline) {
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "As ações em massa requerem internet.")
+            return
+        }
+        val safeEventId = currentEventId ?: return
+        if (jwtToken == null) return
+
+        viewModelScope.launch {
+            try { RetrofitClient.apiService.bulkUpdateStatus("Bearer $jwtToken", safeEventId, BulkUpdateStatusRequest(novoEstado)) }
+            catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha na atualização em massa.") }
+        }
+    }
+
+    fun uploadCsvToServer(uri: Uri, context: Context, mode: String) {
+        if (isOffline) {
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "Upload requer internet.")
+            return
+        }
         val safeEventId = currentEventId ?: return
         if (jwtToken == null) return
 
         viewModelScope.launch {
             try {
-                RetrofitClient.apiService.bulkUpdateStatus("Bearer $jwtToken", safeEventId, BulkUpdateStatusRequest(status = novoEstado))
-            } catch (e: Exception) {
-                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro de Gestão", "Não foi possível atualizar em massa.")
-            }
+                appFeedback = AppFeedback(FeedbackType.INFO, "A enviar...", "A processar o ficheiro para o servidor.")
+                val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("Erro a ler ficheiro")
+                val tempFile = java.io.File(context.cacheDir, "upload_temp.csv")
+                tempFile.outputStream().use { inputStream.copyTo(it) }
+
+                val requestFile = okhttp3.RequestBody.create(okhttp3.MediaType.parse("text/csv"), tempFile)
+                val body = okhttp3.MultipartBody.Part.createFormData("file", "upload.csv", requestFile)
+
+                val response = RetrofitClient.apiService.uploadCsv("Bearer $jwtToken", safeEventId, mode, body)
+                if (response.isSuccessful) appFeedback = AppFeedback(FeedbackType.SUCCESS, "Concluído", "Dados enviados para o servidor.")
+                else appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Servidor rejeitou o ficheiro.")
+            } catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de comunicação.") }
         }
     }
 
-    fun importCsv(uri: Uri, context: Context) {
+    fun clearEventData(pin: String) {
+        if (isOffline) return
+        val safeEventId = currentEventId ?: return
+        if (jwtToken == null) return
+
         viewModelScope.launch {
             try {
-                context.contentResolver.openInputStream(uri)?.use { inputStream ->
-                    val reader = BufferedReader(InputStreamReader(inputStream))
-                    val lines = reader.readLines()
-
-                    if (lines.size > 1) {
-                        val seats = lines.drop(1).mapIndexedNotNull { index, line ->
-                            val parts = line.split(Regex("[,;]"))
-                            if (parts.size >= 4) {
-                                val mesa = parts[0].trim()
-                                val lugar = parts[1].trim()
-                                SeatEntity(
-                                    id = index + 1,
-                                    seatNumber = "$mesa-$lugar",
-                                    eventName = parts[2].trim(),
-                                    status = 0,
-                                    assignedTo = parts[3].trim().takeIf { it.isNotEmpty() },
-                                    version = 1
-                                )
-                            } else null
-                        }
-                        repository.deleteAllSeats()
-                        repository.insertAll(seats)
-                        appFeedback = AppFeedback(FeedbackType.SUCCESS, "Importação Concluída", "${seats.size} lugares foram carregados localmente.")
-                    }
-                }
-            } catch (e: Exception) {
-                appFeedback = AppFeedback(FeedbackType.ERROR, "Falha ao Importar", "O ficheiro tem um formato inválido.")
-            }
+                RetrofitClient.apiService.clearEventData("Bearer $jwtToken", safeEventId, ClearDatabaseDto(pin))
+                repository.deleteAllSeats()
+                appFeedback = AppFeedback(FeedbackType.SUCCESS, "Dados Limpos", "A sala foi esvaziada.")
+            } catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de validação.") }
         }
     }
 
@@ -229,11 +269,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                     writer.write("MESA;LUGAR;CATEGORIA;ESTADO;NOME\n")
                     currentSeats.forEach { seat ->
                         val assigned = seat.assignedTo ?: ""
-                        val statusText = when(seat.status) {
-                            1 -> "Validado"
-                            2 -> "Tratado"
-                            else -> "Pendente"
-                        }
+                        val statusText = when(seat.status) { 1 -> "Validado"; 2 -> "Tratado"; else -> "Pendente" }
                         val partes = seat.seatNumber.split("-")
                         val mesa = if (partes.size > 1) partes[0] else ""
                         val lugar = if (partes.size > 1) partes[1] else seat.seatNumber
@@ -241,17 +277,12 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                     }
                     writer.flush()
                 }
-                // 👇 MENSAGEM ESPECÍFICA COM ÍCONE DE EXPORTAÇÃO 👇
-                appFeedback = AppFeedback(FeedbackType.EXPORT, "Ficheiro Exportado", "O estado da sala foi gravado com sucesso na pasta Downloads.")
-            } catch (e: Exception) {
-                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro ao Exportar", "Falha ao gravar o ficheiro no telemóvel.")
-            }
+                appFeedback = AppFeedback(FeedbackType.EXPORT, "Ficheiro Exportado", "Guardado nos Downloads do dispositivo.")
+            } catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha ao gravar.") }
         }
     }
 
-    fun clearAllData() {
-        viewModelScope.launch { repository.deleteAllSeats() }
-    }
+    fun clearFeedback() { appFeedback = null }
 
     override fun onCleared() {
         super.onCleared()

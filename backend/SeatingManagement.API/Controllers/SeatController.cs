@@ -8,6 +8,12 @@ using SeatingManagement.API.Services;
 
 namespace SeatingManagement.API.Controllers
 {
+    // 👇 NOVO DTO PARA ATUALIZAR 1 LUGAR 👇
+    public class UpdateSingleSeatDto
+    {
+        public int Status { get; set; }
+    }
+
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
@@ -76,6 +82,25 @@ namespace SeatingManagement.API.Controllers
 
             _ = _mqttService.PublishSeatUpdateAsync(seat.EventId, seat.Id, (int)seat.Status);
             return Ok(new { version = seat.Version });
+        }
+
+        // 👇 O NOVO ENDPOINT DE GRAVAÇÃO INDIVIDUAL 👇
+        [HttpPut("{eventId}/update/{seatId}")]
+        public async Task<IActionResult> UpdateSingleSeat(int eventId, int seatId, [FromBody] UpdateSingleSeatDto request)
+        {
+            var seat = await _context.Seats.FirstOrDefaultAsync(s => s.EventId == eventId && s.Id == seatId);
+            
+            if (seat == null) 
+                return NotFound(new { Message = "Lugar não encontrado." });
+
+            // Atualiza a Base de Dados Central (O SQL Server)
+            seat.Status = (SeatStatus)request.Status;
+            seat.MarkedAt = request.Status != 0 ? DateTime.UtcNow : null;
+            seat.Version++;
+
+            await _context.SaveChangesAsync();
+            
+            return Ok(new { Message = "Gravado permanentemente na BD Central." });
         }
 
         [HttpPost("validate-ticket")]

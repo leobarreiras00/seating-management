@@ -20,7 +20,7 @@ namespace SeatingManagement.API.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IMqttService _mqttService; 
-        private const long MaxFileSizeBytes = 5 * 1024 * 1024; // Limite: 5MB
+        private const long MaxFileSizeBytes = 5 * 1024 * 1024; 
 
         public SeatCsvController(AppDbContext context, IMqttService mqttService)
         {
@@ -28,21 +28,16 @@ namespace SeatingManagement.API.Controllers
             _mqttService = mqttService;
         }
 
+        // 👇 ROTA ATUALIZADA: Suporta Receção de Ficheiros do Telemóvel e Modo Replace/Append
         [HttpPost("import/{eventId}")]
-        public async Task<IActionResult> ImportCsv(int eventId, IFormFile file)
+        public async Task<IActionResult> ImportCsv(int eventId, IFormFile file, [FromQuery] string mode = "replace")
         {
-            if (file == null || file.Length == 0)
-                return BadRequest("Por favor, envie um ficheiro CSV válido.");
+            if (file == null || file.Length == 0) return BadRequest("Ficheiro inválido.");
+            if (file.Length > MaxFileSizeBytes) return BadRequest("O ficheiro excede 5MB.");
 
-            if (file.Length > MaxFileSizeBytes)
-                return BadRequest("O ficheiro excede o limite máximo de segurança de 5MB.");
-
-            // PROTEÇÃO 1: Evitar erro se o FileName for nulo
             var fileName = file.FileName ?? "";
             var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
-            
-            if (extension != ".csv")
-                return BadRequest("Apenas ficheiros .csv são permitidos.");
+            if (extension != ".csv") return BadRequest("Apenas ficheiros .csv são permitidos.");
 
             try
             {
@@ -55,21 +50,24 @@ namespace SeatingManagement.API.Controllers
                     Delimiter = ";", 
                     MissingFieldFound = null,
                     HeaderValidated = null, 
-                    // PROTEÇÃO 2: Tratar cabeçalhos nulos (colunas extra vazias) e remover BOM invisível
                     PrepareHeaderForMatch = args => args.Header?.ToLower().Replace("\ufeff", "").Replace(" ", "").Trim() ?? string.Empty
                 };
 
                 using var csv = new CsvReader(reader, config);
                 var records = csv.GetRecords<SeatCsvRecord>().ToList();
 
-                if (!records.Any())
-                    return BadRequest("O ficheiro CSV está vazio ou não pôde ser lido.");
+                if (!records.Any()) return BadRequest("Ficheiro vazio.");
+
+                // LÓGICA SÉNIOR: Substituir vs Adicionar
+                if (mode.ToLower() == "replace")
+                {
+                    var existingSeats = await _context.Seats.Where(s => s.EventId == eventId).ToListAsync();
+                    _context.Seats.RemoveRange(existingSeats);
+                }
 
                 var seatsToInsert = new List<Seat>();
-
                 foreach (var record in records)
                 {
-                    // PROTEÇÃO 3: Ignorar linhas completamente nulas devolvidas pelo CsvHelper
                     if (record == null) continue;
 
                     var mesa = SanitizeInput(record.Mesa);
@@ -93,42 +91,35 @@ namespace SeatingManagement.API.Controllers
                 _context.Seats.AddRange(seatsToInsert);
                 await _context.SaveChangesAsync();
 
-                // PROTEÇÃO 4: Garantir que se a Injeção de Dependência falhar, não quebra o import
-                if (_mqttService != null)
-                {
-                    _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
-                }
+                if (_mqttService != null) _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
 
-                return Ok(new { message = $"{seatsToInsert.Count} lugares importados com sucesso para o Evento {eventId}." });
+                return Ok(new { message = $"{seatsToInsert.Count} lugares importados." });
             }
             catch (Exception ex)
             {
-                // DEBUG PROFUNDO: Devolve o StackTrace para sabermos exatamente qual foi a linha que falhou
-                return StatusCode(500, $"Erro interno ao processar o ficheiro: {ex.Message} | Detalhe: {ex.StackTrace}");
+                return StatusCode(500, $"Erro interno: {ex.Message}");
             }
         }
 
-        [HttpPost("clear")]
-        public async Task<IActionResult> ClearDatabase([FromBody] ClearDatabaseDto request)
+        // 👇 ROTA ATUALIZADA: Limpa APENAS os dados do Evento selecionado!
+        [HttpPost("clear/{eventId}")]
+        public async Task<IActionResult> ClearDatabase(int eventId, [FromBody] ClearDatabaseDto request)
         {
             var userGuidStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userGuidStr)) return Unauthorized();
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserGuid == Guid.Parse(userGuidStr));
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Pin, user.PinHash))
-            {
                 return Forbid("PIN de gestão inválido.");
-            }
 
-            _context.Seats.RemoveRange(_context.Seats);
+            // Apaga SÓ os dados deste evento, não a BD toda!
+            var seatsToDelete = await _context.Seats.Where(s => s.EventId == eventId).ToListAsync();
+            _context.Seats.RemoveRange(seatsToDelete);
             await _context.SaveChangesAsync();
 
-            if (_mqttService != null)
-            {
-                _ = _mqttService.PublishCommandAsync(0, "REFRESH");
-            }
+            if (_mqttService != null) _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
 
-            return Ok(new { Message = "Base de dados limpa com sucesso!" });
+            return Ok(new { Message = "Dados do evento limpos com sucesso!" });
         }
 
         private string SanitizeInput(string? input)
@@ -136,9 +127,7 @@ namespace SeatingManagement.API.Controllers
             if (string.IsNullOrEmpty(input)) return string.Empty;
             input = input.Trim();
             if (input.StartsWith("=") || input.StartsWith("+") || input.StartsWith("-") || input.StartsWith("@"))
-            {
                 input = Regex.Replace(input, @"^[=\+\-\@]+", "");
-            }
             return input;
         }
     }
