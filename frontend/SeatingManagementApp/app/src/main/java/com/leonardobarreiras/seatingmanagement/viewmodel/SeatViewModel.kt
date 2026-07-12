@@ -216,8 +216,18 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         if (jwtToken == null) return
 
         viewModelScope.launch {
-            try { RetrofitClient.apiService.bulkUpdateStatus("Bearer $jwtToken", safeEventId, BulkUpdateStatusRequest(novoEstado)) }
-            catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha na atualização em massa.") }
+            try {
+                val response = RetrofitClient.apiService.bulkUpdateStatus("Bearer $jwtToken", safeEventId, BulkUpdateStatusRequest(novoEstado))
+
+                if (response.isSuccessful) {
+                    // A LINHA MÁGICA: Força o telemóvel a descarregar os dados novos imediatamente!
+                    fetchSeatsFromApi()
+                    appFeedback = AppFeedback(FeedbackType.SUCCESS, "Sucesso", "Registos atualizados com sucesso.")
+                } else {
+                    appFeedback = AppFeedback(FeedbackType.ERROR, "Erro no Servidor", "O servidor recusou a atualização. (Código: ${response.code()})")
+                }
+            }
+            catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha na comunicação com o servidor.") }
         }
     }
 
@@ -247,16 +257,14 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     }
 
     fun clearEventData(pin: String) {
-        if (isOffline) return
-        val safeEventId = currentEventId ?: return
-        if (jwtToken == null) return
-
         viewModelScope.launch {
-            try {
-                RetrofitClient.apiService.clearEventData("Bearer $jwtToken", safeEventId, ClearDatabaseDto(pin))
-                repository.deleteAllSeats()
-                appFeedback = AppFeedback(FeedbackType.SUCCESS, "Dados Limpos", "A sala foi esvaziada.")
-            } catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de validação.") }
+            // Apaga apenas o SQLite (memória) do telemóvel. O servidor fica intocável.
+            repository.deleteAllSeats()
+            appFeedback = AppFeedback(
+                FeedbackType.INFO,
+                "Ecrã Limpo",
+                "Os dados foram removidos deste dispositivo. Clica em 'Sync DB' para os recuperar do servidor."
+            )
         }
     }
 

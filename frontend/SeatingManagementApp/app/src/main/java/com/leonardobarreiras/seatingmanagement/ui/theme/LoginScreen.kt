@@ -56,7 +56,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
                     Text("🎟️", fontSize = 32.sp)
                 }
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Seating Management", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1C2536))
+                Text("Seatly App", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = Color(0xFF1C2536))
                 Text("Acesso Reservado", fontSize = 14.sp, color = Color.Gray)
 
                 Spacer(modifier = Modifier.height(32.dp))

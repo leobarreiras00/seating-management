@@ -7,7 +7,9 @@ import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
+import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -15,11 +17,13 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
+import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.automirrored.filled.List
 import androidx.compose.material.icons.filled.*
+import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -28,6 +32,8 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.res.painterResource
+import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
@@ -46,13 +52,18 @@ import com.leonardobarreiras.seatingmanagement.viewmodel.AppFeedback
 import com.leonardobarreiras.seatingmanagement.viewmodel.FeedbackType
 import com.leonardobarreiras.seatingmanagement.viewmodel.SeatViewModel
 
-val CorporateBlue = Color(0xFF1C2536)
-val PrimaryBlue = Color(0xFF293950)
-val SuccessGreen = Color(0xFF10B981)
-val ErrorRed = Color(0xFFEF4444)
+// Paleta de Cores Modernizada (Estilo Pastel/Liquid)
+val CorporateBlue = Color(0xFF1E293B)
 val LightBg = Color(0xFFF8FAFC)
-val AccentPurple = Color(0xFF8B5CF6)
+val PrimaryBlue = Color(0xFF3B82F6)
+val AccentPurple = Color(0xFFA855F7)
+val AccentPurpleLight = Color(0xFFF3E8FF)
+val SuccessGreen = Color(0xFF22C55E)
+val SuccessGreenLight = Color(0xFFDCFCE7)
+val ErrorRed = Color(0xFFEF4444)
+val ErrorRedLight = Color(0xFFFEE2E2)
 val OfflineGray = Color(0xFF94A3B8)
+val TextGray = Color(0xFF64748B)
 
 class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
@@ -75,50 +86,112 @@ class MainActivity : ComponentActivity() {
 
 fun getMesaFromSeat(seatNumber: String): String {
     val split = seatNumber.split("-")
-    if (split.size > 1) return "Mesa ${split[0].trim()}"
-    return "Mesa Geral"
+    if (split.size > 1) return split[0].trim()
+    return "Geral"
+}
+
+// ==========================================
+// COMPONENTES UI MODERNIZADOS (SQUIRCLES & LIQUID)
+// ==========================================
+
+// 👇 DIÁLOGO MODERNIZADO 👇
+@Composable
+fun ModernAlertDialog(
+    title: String,
+    message: String,
+    icon: ImageVector,
+    iconTint: Color,
+    iconBg: Color,
+    confirmText: String = "Confirmar",
+    cancelText: String? = "Cancelar",
+    confirmColor: Color = AccentPurple,
+    content: @Composable (() -> Unit)? = null,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit
+) {
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(32.dp),
+            colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+        ) {
+            Column(
+                modifier = Modifier.padding(24.dp),
+                horizontalAlignment = Alignment.CenterHorizontally
+            ) {
+                Box(
+                    modifier = Modifier.size(64.dp).background(iconBg, RoundedCornerShape(20.dp)),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(32.dp))
+                }
+
+                Spacer(modifier = Modifier.height(20.dp))
+                Text(title, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = CorporateBlue, textAlign = TextAlign.Center)
+                Spacer(modifier = Modifier.height(8.dp))
+                Text(message, fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
+
+                if (content != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    content()
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
+                // 👇 BOTÕES CORRIGIDOS: Menor padding horizontal para caber "Desbloquear" perfeitamente 👇
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                    if (cancelText != null) {
+                        OutlinedButton(
+                            onClick = onDismiss, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(16.dp),
+                            border = BorderStroke(1.dp, Color(0xFFE2E8F0)), colors = ButtonDefaults.outlinedButtonColors(contentColor = TextGray),
+                            contentPadding = PaddingValues(horizontal = 4.dp)
+                        ) { Text(cancelText, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1) }
+                    }
+                    Button(
+                        onClick = onConfirm, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = confirmColor),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) { Text(confirmText, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1) }
+                }
+            }
+        }
+    }
 }
 
 @Composable
 fun AppFeedbackDialog(feedback: AppFeedback, onDismiss: () -> Unit) {
     val icon = when (feedback.type) {
-        FeedbackType.SUCCESS -> Icons.Default.CheckCircle
-        FeedbackType.ERROR -> Icons.Default.Cancel
-        FeedbackType.EXPORT -> Icons.Default.FileDownloadDone
-        FeedbackType.INFO -> Icons.Default.Info
-        FeedbackType.OFFLINE -> Icons.Default.CloudOff
+        FeedbackType.SUCCESS -> Icons.Rounded.CheckCircle
+        FeedbackType.ERROR -> Icons.Rounded.Warning
+        FeedbackType.EXPORT -> Icons.Rounded.Download
+        FeedbackType.INFO -> Icons.Rounded.Info
+        FeedbackType.OFFLINE -> Icons.Rounded.CloudOff
     }
-
     val iconColor = when (feedback.type) {
         FeedbackType.SUCCESS -> SuccessGreen
         FeedbackType.ERROR -> ErrorRed
-        FeedbackType.EXPORT -> CorporateBlue
+        FeedbackType.EXPORT -> PrimaryBlue
         FeedbackType.INFO -> AccentPurple
         FeedbackType.OFFLINE -> OfflineGray
     }
-
-    Dialog(onDismissRequest = onDismiss) {
-        Box(modifier = Modifier.fillMaxWidth().padding(top = 40.dp)) {
-            Card(
-                shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(24.dp), modifier = Modifier.fillMaxWidth().padding(top = 40.dp)
-            ) {
-                Column(modifier = Modifier.padding(start = 24.dp, end = 24.dp, bottom = 24.dp, top = 56.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Text(feedback.title, fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
-                    Spacer(modifier = Modifier.height(12.dp))
-                    Text(feedback.message, fontSize = 16.sp, color = Color.DarkGray, textAlign = TextAlign.Center, lineHeight = 22.sp)
-                    Spacer(modifier = Modifier.height(32.dp))
-                    Button(
-                        onClick = onDismiss, modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = iconColor)
-                    ) { Text("CONTINUAR", fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 1.sp) }
-                }
-            }
-            Box(modifier = Modifier.size(96.dp).align(Alignment.TopCenter).background(Color.White, CircleShape).padding(8.dp)) {
-                Icon(icon, contentDescription = null, tint = iconColor, modifier = Modifier.fillMaxSize())
-            }
-        }
+    val iconBg = when (feedback.type) {
+        FeedbackType.SUCCESS -> SuccessGreenLight
+        FeedbackType.ERROR -> ErrorRedLight
+        FeedbackType.EXPORT -> Color(0xFFEFF6FF)
+        FeedbackType.INFO -> AccentPurpleLight
+        FeedbackType.OFFLINE -> Color(0xFFF1F5F9)
     }
+
+    ModernAlertDialog(
+        title = feedback.title, message = feedback.message, icon = icon, iconTint = iconColor, iconBg = iconBg,
+        confirmText = "Continuar", cancelText = null, confirmColor = iconColor, onConfirm = onDismiss, onDismiss = onDismiss
+    )
 }
+
+// ==========================================
+// ECRÃS PRINCIPAIS
+// ==========================================
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -137,24 +210,32 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
             shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(12.dp)
         ) {
             Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(modifier = Modifier.size(72.dp).background(CorporateBlue, RoundedCornerShape(18.dp)), contentAlignment = Alignment.Center) {
-                    Icon(Icons.Default.Lock, contentDescription = null, tint = Color.White, modifier = Modifier.size(36.dp))
-                }
+
+                Image(
+                    painter = painterResource(id = R.drawable.seatly_icon),
+                    contentDescription = "Seatly Logo",
+                    modifier = Modifier.height(72.dp).clip(RoundedCornerShape(16.dp))
+                )
+
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("Seating Management", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
-                Text("Acesso Restrito", fontSize = 14.sp, color = Color.Gray)
+                // 👇 TÍTULO ATUALIZADO 👇
+                Text("Seatly", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
+                Text("Acesso Restrito", fontSize = 14.sp, color = TextGray)
                 Spacer(modifier = Modifier.height(32.dp))
+
                 OutlinedTextField(
                     value = username, onValueChange = { username = it }, label = { Text("Utilizador") },
-                    leadingIcon = { Icon(Icons.Default.Person, contentDescription = null, tint = Color.Gray) },
-                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), singleLine = true
+                    leadingIcon = { Icon(Icons.Rounded.Person, contentDescription = null, tint = Color.Gray) },
+                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
                 OutlinedTextField(
                     value = password, onValueChange = { password = it }, label = { Text("Palavra-passe") },
-                    leadingIcon = { Icon(Icons.Default.Lock, contentDescription = null, tint = Color.Gray) },
+                    leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null, tint = Color.Gray) },
                     visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), singleLine = true
+                    modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
+                    colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
                 )
                 if (viewModel.loginError != null) {
                     Spacer(modifier = Modifier.height(8.dp))
@@ -163,7 +244,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
                 Spacer(modifier = Modifier.height(32.dp))
                 Button(
                     onClick = { isLoading = true; viewModel.authenticate(username, password) { isLoading = false; onLoginSuccess() } },
-                    modifier = Modifier.fillMaxWidth().height(54.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
+                    modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
                 ) {
                     if (isLoading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     else Text("ENTRAR", fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 1.sp)
@@ -185,24 +266,27 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
 
     LaunchedEffect(viewModel.currentEventId) { if (viewModel.currentEventId != null) onEventSelected() }
 
-    Box(modifier = Modifier.fillMaxSize().background(Color(0xFFF1F5F9))) {
+    Box(modifier = Modifier.fillMaxSize().background(LightBg)) {
         Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
 
-            Box(modifier = Modifier.size(80.dp).background(Color.White, CircleShape), contentAlignment = Alignment.Center) {
-                Icon(if (viewModel.isOffline) Icons.Default.CloudOff else Icons.Default.QrCode, contentDescription = null, tint = if(viewModel.isOffline) OfflineGray else AccentPurple, modifier = Modifier.size(40.dp))
-            }
+            Image(
+                painter = painterResource(id = R.drawable.seatly_icon),
+                contentDescription = "Seatly Logo",
+                modifier = Modifier.height(88.dp).clip(RoundedCornerShape(20.dp))
+            )
+
             Spacer(modifier = Modifier.height(24.dp))
             Text("Configuração de Sala", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = CorporateBlue)
-            Text("Sintoniza o dispositivo no evento", color = Color.Gray, modifier = Modifier.padding(bottom = 32.dp))
+            Text("Sintoniza o dispositivo no evento", color = TextGray, modifier = Modifier.padding(bottom = 32.dp))
 
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(16.dp)) {
+            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(24.dp)) {
                 Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
 
                     Button(
                         onClick = { val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.QR_CODE); setPrompt("Aponta para o QR Code da Sala"); setBeepEnabled(true) }; roomScanLauncher.launch(options) },
-                        modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue)
+                        modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue)
                     ) {
-                        Icon(Icons.Default.PhotoCamera, contentDescription = null, tint = Color.White)
+                        Icon(Icons.Rounded.PhotoCamera, contentDescription = null, tint = Color.White)
                         Spacer(modifier = Modifier.width(12.dp))
                         Text("Ler QR Code da Porta", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
@@ -219,7 +303,7 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                         value = manualEventId, onValueChange = { manualEventId = it; localError = null },
                         label = { Text("ID do Evento (ex: 101)") },
                         keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(12.dp), singleLine = true, isError = localError != null,
+                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, isError = localError != null,
                         colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
                     )
                     if (localError != null) Text(text = localError!!, color = ErrorRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
@@ -227,7 +311,7 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                     Spacer(modifier = Modifier.height(16.dp))
                     Button(
                         onClick = { if (manualEventId.isNotBlank()) viewModel.processRoomCheckIn("EVENT:${manualEventId.trim()}") else localError = "Insere um ID." },
-                        modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFF64748B))
+                        modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9), contentColor = CorporateBlue)
                     ) { Text("Aceder Manualmente", fontWeight = FontWeight.Bold) }
                 }
             }
@@ -239,7 +323,7 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
     }
 }
 
-@OptIn(ExperimentalMaterial3Api::class, ExperimentalLayoutApi::class)
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun SeatScreen(viewModel: SeatViewModel) {
     val seats by viewModel.seatsFlow.collectAsState(initial = emptyList())
@@ -288,41 +372,68 @@ fun SeatScreen(viewModel: SeatViewModel) {
 
     Scaffold(
         topBar = {
-            TopAppBar(
-                title = {
-                    Column {
-                        Row(verticalAlignment = Alignment.CenterVertically) {
-                            Text("Gestão de Entradas", color = Color.White, fontSize = 18.sp, fontWeight = FontWeight.Bold)
-                            if (viewModel.isOffline) {
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Box(modifier = Modifier.background(ErrorRed, RoundedCornerShape(4.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                                    Text("OFFLINE", color = Color.White, fontSize = 10.sp, fontWeight = FontWeight.Bold)
+            Surface(
+                color = Color.Transparent,
+                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
+            ) {
+                Card(
+                    shape = RoundedCornerShape(24.dp),
+                    colors = CardDefaults.cardColors(containerColor = CorporateBlue),
+                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                    modifier = Modifier.fillMaxWidth()
+                ) {
+                    Row(
+                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                        verticalAlignment = Alignment.CenterVertically,
+                        horizontalArrangement = Arrangement.SpaceBetween
+                    ) {
+                        IconButton(
+                            onClick = { showPinDialog = true },
+                            modifier = Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
+                        ) { Icon(Icons.Rounded.Lock, contentDescription = "Admin", tint = Color.White, modifier = Modifier.size(22.dp)) }
+
+                        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text("Seatly", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                                if (viewModel.isOffline) {
+                                    Spacer(modifier = Modifier.width(6.dp))
+                                    Box(modifier = Modifier.background(ErrorRed, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                        Text("OFFLINE", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
+                                    }
                                 }
                             }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text("Evento: ${viewModel.currentEventId ?: "Nenhum"}", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         }
-                        Text("Evento: ${viewModel.currentEventId ?: "Nenhum"}", color = Color.LightGray, fontSize = 12.sp)
+
+                        val syncAlpha = if (viewModel.isOffline) 0.05f else 0.15f
+                        val syncColor = if (viewModel.isOffline) Color.Gray else Color.White
+
+                        Row(
+                            modifier = Modifier
+                                .clip(RoundedCornerShape(20.dp))
+                                .background(Color.White.copy(alpha = syncAlpha))
+                                .clickable(enabled = !viewModel.isOffline) { viewModel.fetchSeatsFromApi() }
+                                .padding(horizontal = 14.dp, vertical = 12.dp),
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Icon(Icons.Rounded.Refresh, contentDescription = "Sync", tint = syncColor, modifier = Modifier.size(18.dp))
+                            Spacer(Modifier.width(6.dp))
+                            Text("Sync", color = syncColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+                        }
                     }
-                },
-                navigationIcon = { IconButton(onClick = { showPinDialog = true }) { Icon(Icons.Default.Lock, contentDescription = "Admin", tint = Color.White) } },
-                actions = {
-                    TextButton(onClick = { viewModel.fetchSeatsFromApi() }, enabled = !viewModel.isOffline) {
-                        Icon(Icons.Default.Refresh, contentDescription = "Sync", tint = if (viewModel.isOffline) Color.Gray else Color.White)
-                        Spacer(Modifier.width(4.dp))
-                        Text("Sync DB", color = if (viewModel.isOffline) Color.Gray else Color.White, fontWeight = FontWeight.Bold)
-                    }
-                },
-                colors = TopAppBarDefaults.topAppBarColors(containerColor = CorporateBlue)
-            )
+                }
+            }
         },
         bottomBar = {
-            Box(modifier = Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
+            Box(modifier = Modifier.fillMaxWidth().background(LightBg).padding(16.dp)) {
                 Button(
                     onClick = { val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.QR_CODE); setPrompt("Aponta para o Bilhete"); setBeepEnabled(true) }; scanLauncher.launch(options) },
-                    modifier = Modifier.fillMaxWidth().height(64.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple), elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
+                    modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(20.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple), elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                 ) {
-                    Icon(Icons.Default.QrCodeScanner, contentDescription = null, tint = Color.White, modifier = Modifier.size(28.dp))
+                    Icon(Icons.Rounded.QrCodeScanner, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
                     Spacer(modifier = Modifier.width(12.dp))
-                    Text("LER BILHETE (QR)", fontWeight = FontWeight.Bold, fontSize = 18.sp, letterSpacing = 1.sp)
+                    Text("LER BILHETE (QR)", fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 1.sp)
                 }
             }
         },
@@ -330,31 +441,58 @@ fun SeatScreen(viewModel: SeatViewModel) {
     ) { paddingValues ->
         Column(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp)) {
 
-            Spacer(modifier = Modifier.height(16.dp))
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("Progresso Geral", fontWeight = FontWeight.Bold, color = Color.DarkGray)
-                Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = Color.DarkGray)
+            Card(
+                shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
+                elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()
+            ) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text("Progresso", fontWeight = FontWeight.Bold, color = TextGray, fontSize = 14.sp)
+                        Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = CorporateBlue, fontSize = 14.sp)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), color = SuccessGreen, trackColor = Color(0xFFF1F5F9))
+                    Spacer(modifier = Modifier.height(20.dp))
+                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                        StatCard(modifier = Modifier.weight(1f), title = "Total", count = totalSeats, iconColor = AccentPurple, bgTint = AccentPurpleLight, icon = Icons.Rounded.Groups)
+                        StatCard(modifier = Modifier.weight(1f), title = "Tratados", count = treatedSeats, iconColor = SuccessGreen, bgTint = SuccessGreenLight, icon = Icons.Rounded.CheckCircleOutline)
+                        StatCard(modifier = Modifier.weight(1f), title = "Pendentes", count = pendingSeats, iconColor = ErrorRed, bgTint = ErrorRedLight, icon = Icons.Rounded.Schedule)
+                    }
+                }
             }
-            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().padding(top = 4.dp, bottom = 16.dp).height(8.dp).clip(RoundedCornerShape(4.dp)), color = SuccessGreen, trackColor = Color(0xFFE2E8F0))
-
-            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                StatCard(modifier = Modifier.weight(1f), title = "Total", count = totalSeats, iconColor = AccentPurple, bgTint = Color(0xFFEEF2FF), icon = Icons.Default.Person)
-                StatCard(modifier = Modifier.weight(1f), title = "Tratados", count = treatedSeats, iconColor = SuccessGreen, bgTint = Color(0xFFECFDF5), icon = Icons.Default.CheckCircle)
-                StatCard(modifier = Modifier.weight(1f), title = "Pendentes", count = pendingSeats, iconColor = ErrorRed, bgTint = Color(0xFFFEF2F2), icon = Icons.Default.Info)
-            }
 
             Spacer(modifier = Modifier.height(16.dp))
 
+            // 👇 BARRA DE PESQUISA COM TEXTO PERFEITAMENTE CENTRADO 👇
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                OutlinedTextField(
-                    value = searchQuery, onValueChange = { searchQuery = it }, placeholder = { Text("Pesquisar pessoa, mesa...") },
-                    leadingIcon = { Icon(Icons.Default.Search, tint = Color.Gray, contentDescription = null) },
-                    modifier = Modifier.weight(1f).height(52.dp), shape = RoundedCornerShape(12.dp), singleLine = true,
-                    colors = OutlinedTextFieldDefaults.colors(unfocusedContainerColor = Color.White, focusedContainerColor = Color.White, unfocusedBorderColor = Color(0xFFE2E8F0))
-                )
+                Row(
+                    modifier = Modifier
+                        .weight(1f)
+                        .height(48.dp)
+                        .background(Color.White, RoundedCornerShape(16.dp))
+                        .padding(horizontal = 16.dp),
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Icon(Icons.Rounded.Search, tint = Color.Gray, contentDescription = null, modifier = Modifier.size(20.dp))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    BasicTextField(
+                        value = searchQuery,
+                        onValueChange = { searchQuery = it },
+                        singleLine = true,
+                        textStyle = TextStyle(fontSize = 14.sp, color = CorporateBlue),
+                        decorationBox = { innerTextField ->
+                            if (searchQuery.isEmpty()) {
+                                Text("Pesquisar por nome, mesa...", fontSize = 14.sp, color = Color.Gray)
+                            }
+                            innerTextField()
+                        },
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                }
+
                 Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = { showFilters = !showFilters }, modifier = Modifier.size(52.dp).background(Color.White, RoundedCornerShape(12.dp))) {
-                    Icon(Icons.AutoMirrored.Filled.List, contentDescription = "Filtros", tint = AccentPurple)
+                IconButton(onClick = { showFilters = !showFilters }, modifier = Modifier.size(48.dp).background(Color.White, RoundedCornerShape(16.dp))) {
+                    Icon(Icons.Rounded.Tune, contentDescription = "Filtros", tint = TextGray)
                 }
             }
 
@@ -385,118 +523,121 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 matchesSearch && matchesTable && matchesStatus
             }
 
-            Text("${filteredSeats.size} convidados", color = Color.Gray, fontSize = 14.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 8.dp))
-
-            LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                items(filteredSeats) { seat ->
-                    GuestListItem(
-                        seat = seat,
-                        onAssignClick = {
-                            val novoEstado = if (seat.status == 0) 1 else 0
-                            if (requireConfirmation) seatToConfirmClick = seat else viewModel.updateSeatStatus(seat, novoEstado)
-                        }
-                    )
-                }
+            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                Text("${filteredSeats.size} registos", color = CorporateBlue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                Text("Toque para validar", color = Color.Gray, fontSize = 12.sp)
             }
-        }
-    }
 
-    if (showPinDialog) {
-        var pin by remember { mutableStateOf("") }
-        var isError by remember { mutableStateOf(false) }
-
-        Dialog(onDismissRequest = { showPinDialog = false }) {
-            Card(shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(16.dp)) {
-                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(modifier = Modifier.size(64.dp).background(Color(0xFFFEF2F2), CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Default.Lock, contentDescription = "Admin", tint = ErrorRed, modifier = Modifier.size(32.dp)) }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("Área Restrita", fontSize = 22.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
-                    Text("Insere o PIN de Gestão", fontSize = 14.sp, color = Color.Gray)
+            if (seats.isEmpty()) {
+                Column(modifier = Modifier.fillMaxSize().padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                    Box(modifier = Modifier.size(96.dp).background(AccentPurpleLight, RoundedCornerShape(32.dp)), contentAlignment = Alignment.Center) {
+                        Icon(Icons.Rounded.Description, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(48.dp))
+                    }
                     Spacer(modifier = Modifier.height(24.dp))
-                    OutlinedTextField(
-                        value = pin, onValueChange = { pin = it; isError = false }, visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        singleLine = true, shape = RoundedCornerShape(12.dp), isError = isError, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
-                    )
-                    if (isError) Text("PIN Incorreto", color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp))
+                    Text("Sem dados carregados", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text("Importe um ficheiro CSV com separador \";\"\npara começar a gerir os seus dados.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
                     Spacer(modifier = Modifier.height(32.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween) {
-                        TextButton(onClick = { showPinDialog = false }) { Text("Cancelar", color = Color.Gray) }
-                        Button(onClick = {
-                            if (viewModel.verifyPin(pin)) {
-                                validatedAdminPin = pin
-                                showPinDialog = false; showActionsSheet = true
-                            } else isError = true
-                        }, colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue), shape = RoundedCornerShape(12.dp)) { Text("Desbloquear") }
+                    Button(
+                        onClick = { csvLauncher.launch("*/*") },
+                        modifier = Modifier.fillMaxWidth(0.8f).height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
+                    ) {
+                        Icon(Icons.Rounded.Upload, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Importar Ficheiro", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                    }
+                }
+            } else {
+                LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                    items(filteredSeats) { seat ->
+                        GuestListItem(
+                            seat = seat,
+                            onAssignClick = {
+                                val novoEstado = if (seat.status == 0) 1 else 0
+                                if (requireConfirmation) seatToConfirmClick = seat else viewModel.updateSeatStatus(seat, novoEstado)
+                            }
+                        )
                     }
                 }
             }
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
+    if (showPinDialog) {
+        var pin by remember { mutableStateOf("") }
+        var isError by remember { mutableStateOf(false) }
+
+        ModernAlertDialog(
+            title = "Área Restrita",
+            message = "Insere o PIN de Gestão para acederes às definições.",
+            icon = Icons.Rounded.Lock,
+            iconTint = CorporateBlue,
+            iconBg = Color(0xFFF1F5F9),
+            confirmText = "Desbloquear",
+            confirmColor = CorporateBlue,
+            content = {
+                OutlinedTextField(
+                    value = pin,
+                    onValueChange = { pin = it; isError = false },
+                    visualTransformation = PasswordVisualTransformation(),
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    singleLine = true,
+                    shape = RoundedCornerShape(16.dp),
+                    isError = isError,
+                    colors = OutlinedTextFieldDefaults.colors(
+                        focusedBorderColor = AccentPurple,
+                        unfocusedBorderColor = Color(0xFFE2E8F0)
+                    ),
+                    modifier = Modifier.fillMaxWidth()
+                )
+                if (isError) {
+                    Text("PIN Incorreto", color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp).fillMaxWidth(), textAlign = TextAlign.Start)
+                }
+            },
+            onConfirm = {
+                if (viewModel.verifyPin(pin)) { validatedAdminPin = pin; showPinDialog = false; showActionsSheet = true } else isError = true
+            },
+            onDismiss = { showPinDialog = false }
+        )
+    }
+
     if (seatToConfirmClick != null) {
         val novoEstado = if (seatToConfirmClick!!.status == 0) 1 else 0
         val acao = if (novoEstado == 1) "ATRIBUIR entrada a" else "REMOVER entrada de"
         val nomeConvidado = seatToConfirmClick!!.assignedTo ?: "Convite Sem Nome"
-        AlertDialog(
-            onDismissRequest = { seatToConfirmClick = null }, title = { Text("Confirmação", fontWeight = FontWeight.Bold) }, text = { Text("Queres $acao $nomeConvidado?") },
-            confirmButton = { Button(onClick = { viewModel.updateSeatStatus(seatToConfirmClick!!, novoEstado); seatToConfirmClick = null }, colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue)) { Text("Confirmar") } },
-            dismissButton = { TextButton(onClick = { seatToConfirmClick = null }) { Text("Cancelar", color = Color.Gray) } }
+        ModernAlertDialog(
+            title = "Confirmação", message = "Queres $acao $nomeConvidado?",
+            icon = Icons.Rounded.HelpOutline, iconTint = CorporateBlue, iconBg = Color(0xFFF1F5F9),
+            onConfirm = { viewModel.updateSeatStatus(seatToConfirmClick!!, novoEstado); seatToConfirmClick = null },
+            onDismiss = { seatToConfirmClick = null }
         )
     }
 
     if (showCsvModeDialog && pendingCsvUri != null) {
-        AlertDialog(
-            onDismissRequest = { showCsvModeDialog = false; pendingCsvUri = null },
-            title = { Text("Atenção: Sala Ocupada", fontWeight = FontWeight.Bold, color = CorporateBlue) },
-            text = { Text("Esta sala já possui $totalSeats convidados. Queres SUBSTITUIR a lista atual apagando tudo, ou ADICIONAR estas pessoas à lista existente?") },
-            confirmButton = {
-                Button(
-                    onClick = { viewModel.uploadCsvToServer(pendingCsvUri!!, context, "replace"); showCsvModeDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                ) { Text("SUBSTITUIR") }
-            },
-            dismissButton = {
-                Button(
-                    onClick = { viewModel.uploadCsvToServer(pendingCsvUri!!, context, "append"); showCsvModeDialog = false },
-                    colors = ButtonDefaults.buttonColors(containerColor = SuccessGreen)
-                ) { Text("ADICIONAR") }
-            }
+        ModernAlertDialog(
+            title = "Atenção: Sala Ocupada", message = "Esta sala já possui $totalSeats convidados. Queres SUBSTITUIR a lista apagando tudo, ou ADICIONAR à lista?",
+            icon = Icons.Rounded.Warning, iconTint = ErrorRed, iconBg = ErrorRedLight,
+            confirmText = "Substituir", confirmColor = ErrorRed,
+            onConfirm = { viewModel.uploadCsvToServer(pendingCsvUri!!, context, "replace"); showCsvModeDialog = false },
+            onDismiss = { viewModel.uploadCsvToServer(pendingCsvUri!!, context, "append"); showCsvModeDialog = false; pendingCsvUri = null },
+            cancelText = "Adicionar"
         )
     }
 
     if (confirmActionType != null) {
-        val title = when (confirmActionType) {
-            "MARK_ALL" -> "Validar Todos"
-            "UNMARK_ALL" -> "Desmarcar Todos"
-            "CLEAR" -> "Limpar Dados da Sala"
-            else -> ""
-        }
-        val msg = when (confirmActionType) {
-            "MARK_ALL" -> "Tens a certeza? Isto marcará os $pendingSeats lugares pendentes como Tratados."
-            "UNMARK_ALL" -> "Atenção: Vais remover a validação de $treatedSeats convidados. Continuar?"
-            "CLEAR" -> "PERIGO: Isto vai APAGAR toda a base de dados desta sala no servidor. Irreversível!"
-            else -> ""
-        }
+        val title = when (confirmActionType) { "MARK_ALL" -> "Validar Todos"; "UNMARK_ALL" -> "Desmarcar Todos"; "CLEAR" -> "Limpar Ecrã"; else -> "" }
+        val msg = when (confirmActionType) { "MARK_ALL" -> "Isto marcará $pendingSeats pendentes como Tratados."; "UNMARK_ALL" -> "Vais remover a validação de $treatedSeats convidados."; "CLEAR" -> "Isto vai limpar o ecrã. Usa o Sync para recuperar os dados."; else -> "" }
         val btnColor = if (confirmActionType == "MARK_ALL") SuccessGreen else ErrorRed
+        val icon = if (confirmActionType == "MARK_ALL") Icons.Rounded.CheckCircle else Icons.Rounded.Warning
+        val bg = if (confirmActionType == "MARK_ALL") SuccessGreenLight else ErrorRedLight
 
-        AlertDialog(
-            onDismissRequest = { confirmActionType = null },
-            title = { Text(title, fontWeight = FontWeight.Bold, color = CorporateBlue) },
-            text = { Text(msg) },
-            confirmButton = {
-                Button(
-                    onClick = {
-                        when (confirmActionType) {
-                            "MARK_ALL" -> viewModel.bulkUpdateStatus("Tratado")
-                            "UNMARK_ALL" -> viewModel.bulkUpdateStatus("Vazio")
-                            "CLEAR" -> viewModel.clearEventData(validatedAdminPin)
-                        }
-                        confirmActionType = null
-                    },
-                    colors = ButtonDefaults.buttonColors(containerColor = btnColor)
-                ) { Text("Confirmar Ação") }
-            },
-            dismissButton = { TextButton(onClick = { confirmActionType = null }) { Text("Cancelar") } }
+        ModernAlertDialog(
+            title = title, message = msg, icon = icon, iconTint = btnColor, iconBg = bg, confirmText = "Confirmar", confirmColor = btnColor,
+            onConfirm = {
+                when (confirmActionType) { "MARK_ALL" -> viewModel.bulkUpdateStatus("Tratado"); "UNMARK_ALL" -> viewModel.bulkUpdateStatus("Vazio"); "CLEAR" -> viewModel.clearEventData(validatedAdminPin) }
+                confirmActionType = null
+            }, onDismiss = { confirmActionType = null }
         )
     }
 
@@ -504,54 +645,46 @@ fun SeatScreen(viewModel: SeatViewModel) {
         AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     if (showActionsSheet) {
         ModalBottomSheet(onDismissRequest = { showActionsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
-            Column(modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 56.dp)
-            ) {
-                Text("Gestão de Dados", fontSize = 24.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(bottom = 16.dp))
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
+                Text("Ações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
 
-                BottomSheetItem(icon = Icons.Default.Share, title = "Exportar CSV", subtitle = "Guardar estado atual do evento no dispositivo", iconTint = PrimaryBlue) { exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
-                BottomSheetItem(icon = Icons.Default.Add, title = "Importar Novo Ficheiro", subtitle = "Substituir dados locais com CSV", iconTint = SuccessGreen) { csvLauncher.launch("*/*") }
-                BottomSheetItem(icon = Icons.Default.Check, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconTint = Color.Gray) { confirmActionType = "MARK_ALL"; showActionsSheet = false }
-                BottomSheetItem(icon = Icons.Default.Clear, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconTint = Color.Gray) { confirmActionType = "UNMARK_ALL"; showActionsSheet = false }
-                BottomSheetItem(icon = Icons.Default.Delete, title = "Limpar Dados", subtitle = "Eliminar todos os registos do telemóvel e servidor", iconTint = ErrorRed) { confirmActionType = "CLEAR"; showActionsSheet = false }
-                BottomSheetItem(icon = Icons.Default.Settings, title = "Configurações Locais", subtitle = "Preferências da aplicação", iconTint = AccentPurple) { showActionsSheet = false; showSettingsSheet = true }
+                Text("EXPORTAR", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
+                BottomSheetItem(icon = Icons.Rounded.Download, title = "Exportar CSV", subtitle = "$totalSeats registos com estado atual", iconColor = PrimaryBlue, iconBg = Color(0xFFEFF6FF)) { exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Button(onClick = { showActionsSheet = false }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = LightBg, contentColor = Color.Black)) { Text("Fechar Menu", fontWeight = FontWeight.Bold) }
+                Text("GESTÃO DE DADOS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
+                BottomSheetItem(icon = Icons.Rounded.Upload, title = "Importar Novo Ficheiro", subtitle = "Substituir ou adicionar dados", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { csvLauncher.launch("*/*") }
+                BottomSheetItem(icon = Icons.Rounded.CheckCircle, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { confirmActionType = "MARK_ALL"; showActionsSheet = false }
+                BottomSheetItem(icon = Icons.Rounded.Cancel, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconColor = TextGray, iconBg = Color(0xFFF1F5F9)) { confirmActionType = "UNMARK_ALL"; showActionsSheet = false }
+                BottomSheetItem(icon = Icons.Rounded.Delete, title = "Limpar Ecrã", subtitle = "Remover dados locais", iconColor = ErrorRed, iconBg = ErrorRedLight) { confirmActionType = "CLEAR"; showActionsSheet = false }
+                BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) { showActionsSheet = false; showSettingsSheet = true }
+
+                Spacer(modifier = Modifier.height(24.dp))
+                OutlinedButton(onClick = { showActionsSheet = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) { Text("Cancelar", color = TextGray, fontWeight = FontWeight.Bold) }
                 Spacer(modifier = Modifier.navigationBarsPadding())
             }
         }
     }
 
+    @OptIn(ExperimentalMaterial3Api::class)
     if (showSettingsSheet) {
         ModalBottomSheet(onDismissRequest = { showSettingsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
-            Column(modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 24.dp)
-                .verticalScroll(rememberScrollState())
-                .padding(bottom = 56.dp)
-            ) {
-                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.padding(bottom = 16.dp)) {
-                    Icon(Icons.Default.Settings, contentDescription = null, tint = AccentPurple)
-                    Spacer(modifier = Modifier.width(8.dp))
-                    Text("Configurações", fontSize = 20.sp, fontWeight = FontWeight.Bold)
-                }
-                Card(colors = CardDefaults.cardColors(containerColor = Color.White), border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
+                Text("Configurações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
+                Card(colors = CardDefaults.cardColors(containerColor = LightBg), border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                     Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                         Column(modifier = Modifier.weight(1f)) {
-                            Text("Confirmar ao atribuir", fontWeight = FontWeight.Bold)
-                            Text("Será apresentado um modal antes de alterar o estado na lista.", color = Color.Gray, fontSize = 12.sp, lineHeight = 16.sp)
+                            Text("Confirmar ao atribuir", fontWeight = FontWeight.Bold, color = CorporateBlue)
+                            Text("Apresentar modal antes de alterar estado.", color = TextGray, fontSize = 12.sp, lineHeight = 16.sp)
                         }
                         Switch(checked = requireConfirmation, onCheckedChange = { requireConfirmation = it }, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = AccentPurple))
                     }
                 }
                 Spacer(modifier = Modifier.height(24.dp))
-                Button(onClick = { showSettingsSheet = false }, modifier = Modifier.fillMaxWidth().height(50.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)) { Text("Guardar e Fechar", fontWeight = FontWeight.Bold) }
+                Button(onClick = { showSettingsSheet = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)) { Text("Guardar e Fechar", fontWeight = FontWeight.Bold) }
                 Spacer(modifier = Modifier.navigationBarsPadding())
             }
         }
@@ -560,59 +693,94 @@ fun SeatScreen(viewModel: SeatViewModel) {
 
 @Composable
 fun StatCard(modifier: Modifier = Modifier, title: String, count: Int, iconColor: Color, bgTint: Color, icon: ImageVector) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(16.dp)) {
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(0.dp), border = BorderStroke(1.dp, Color(0xFFF1F5F9)), shape = RoundedCornerShape(20.dp)) {
         Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(modifier = Modifier.size(44.dp).background(bgTint, CircleShape), contentAlignment = Alignment.Center) { Icon(icon, contentDescription = title, tint = iconColor, modifier = Modifier.size(24.dp)) }
+            Box(modifier = Modifier.size(40.dp).background(bgTint, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) { Icon(icon, contentDescription = title, tint = iconColor, modifier = Modifier.size(20.dp)) }
             Spacer(modifier = Modifier.height(12.dp))
-            Text(text = count.toString(), fontWeight = FontWeight.Bold, fontSize = 24.sp, color = iconColor)
-            Text(text = title, fontSize = 13.sp, color = iconColor, fontWeight = FontWeight.Medium)
+            Text(text = count.toString(), fontWeight = FontWeight.Bold, fontSize = 22.sp, color = CorporateBlue)
+            Text(text = title, fontSize = 12.sp, color = iconColor, fontWeight = FontWeight.Bold)
         }
     }
 }
 
 @Composable
-fun BottomSheetItem(icon: ImageVector, title: String, subtitle: String, iconTint: Color, onClick: () -> Unit) {
-    Row(modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp, horizontal = 8.dp), verticalAlignment = Alignment.CenterVertically) {
-        Icon(icon, contentDescription = title, tint = iconTint, modifier = Modifier.size(26.dp))
+fun BottomSheetItem(icon: ImageVector, title: String, subtitle: String, iconColor: Color, iconBg: Color, onClick: () -> Unit) {
+    Row(modifier = Modifier.fillMaxWidth().clickable { onClick() }.padding(vertical = 12.dp), verticalAlignment = Alignment.CenterVertically) {
+        Box(modifier = Modifier.size(44.dp).background(iconBg, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) {
+            Icon(icon, contentDescription = title, tint = iconColor, modifier = Modifier.size(22.dp))
+        }
         Spacer(modifier = Modifier.width(16.dp))
         Column(modifier = Modifier.weight(1f)) {
-            Text(title, fontWeight = FontWeight.Bold, fontSize = 16.sp, color = CorporateBlue)
-            Text(subtitle, color = Color.Gray, fontSize = 12.sp)
+            Text(title, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = CorporateBlue)
+            Text(subtitle, color = TextGray, fontSize = 12.sp)
         }
+        Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = Color(0xFFCBD5E1), modifier = Modifier.size(20.dp))
     }
 }
 
 @Composable
 fun FilterChipCustom(text: String, isSelected: Boolean, onClick: () -> Unit) {
     val bgColor = if (isSelected) AccentPurple else Color.White
-    val textColor = if (isSelected) Color.White else Color.DarkGray
-    Box(modifier = Modifier.clip(RoundedCornerShape(16.dp)).background(bgColor).clickable { onClick() }.padding(horizontal = 16.dp, vertical = 8.dp)) {
+    val textColor = if (isSelected) Color.White else TextGray
+    Box(modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(bgColor).clickable { onClick() }.padding(horizontal = 16.dp, vertical = 8.dp)) {
         Text(text, color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
     }
 }
 
 @Composable
 fun GuestListItem(seat: SeatEntity, onAssignClick: () -> Unit) {
-    val statusColor = if (seat.status != 0) SuccessGreen else ErrorRed
-    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(defaultElevation = 2.dp), shape = RoundedCornerShape(16.dp)) {
+    val isAssigned = seat.status != 0
+    val statusColor = if (isAssigned) SuccessGreen else ErrorRed
+    val statusBg = if (isAssigned) SuccessGreenLight else ErrorRedLight
+
+    Card(modifier = Modifier.fillMaxWidth().clickable { onAssignClick() }, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(1.dp), shape = RoundedCornerShape(20.dp)) {
         Row(modifier = Modifier.height(IntrinsicSize.Min)) {
             Box(modifier = Modifier.fillMaxHeight().width(6.dp).background(statusColor))
-            Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                val name = seat.assignedTo ?: "Convite / Sem Nome"
-                val initial = name.takeIf { it.isNotBlank() }?.take(1)?.uppercase() ?: "?"
-                Box(modifier = Modifier.size(48.dp).background(LightBg, CircleShape), contentAlignment = Alignment.Center) { Text(initial, color = CorporateBlue, fontWeight = FontWeight.Bold, fontSize = 18.sp) }
-                Spacer(modifier = Modifier.width(12.dp))
+
+            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+
                 Column(modifier = Modifier.weight(1f)) {
-                    Text(name, fontWeight = FontWeight.Bold, fontSize = 15.sp, color = CorporateBlue)
-                    Text("Lugar: ${seat.seatNumber}", fontSize = 13.sp, color = Color.Gray)
-                    Spacer(modifier = Modifier.height(6.dp))
-                    Box(modifier = Modifier.background(Color(0xFFE2E8F0), RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) { Text(seat.eventName, color = PrimaryBlue, fontSize = 10.sp, fontWeight = FontWeight.Bold) }
+                    val name = seat.assignedTo ?: "Convite / Sem Nome"
+                    Text(name, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = CorporateBlue)
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Box(modifier = Modifier.background(AccentPurpleLight, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
+                        Text(seat.eventName, color = AccentPurple, fontSize = 9.sp, fontWeight = FontWeight.Bold)
+                    }
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Icon(Icons.Rounded.GridView, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Mesa", fontSize = 12.sp, color = Color.Gray)
+                        Text(" ${getMesaFromSeat(seat.seatNumber)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
+
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Icon(Icons.Rounded.Place, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Lugar", fontSize = 12.sp, color = Color.Gray)
+                        val lugarStr = seat.seatNumber.split("-").let { if (it.size > 1) it[1] else seat.seatNumber }
+                        Text(" $lugarStr", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
+                    }
                 }
-                Spacer(modifier = Modifier.width(8.dp))
-                val isAssigned = seat.status != 0
-                val buttonColor = if (!isAssigned) CorporateBlue else SuccessGreen
-                val buttonText = if (!isAssigned) "ATRIBUIR" else "VALIDADO"
-                Button(onClick = onAssignClick, colors = ButtonDefaults.buttonColors(containerColor = buttonColor), shape = RoundedCornerShape(8.dp), contentPadding = PaddingValues(horizontal = 16.dp, vertical = 0.dp), modifier = Modifier.height(36.dp)) { Text(buttonText, fontSize = 12.sp, fontWeight = FontWeight.Bold) }
+
+                Spacer(modifier = Modifier.width(12.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    if (isAssigned) {
+                        Text("Validado", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 8.dp))
+                    }
+                    Box(
+                        modifier = Modifier
+                            .size(28.dp)
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(if (isAssigned) SuccessGreen else Color.Transparent)
+                            .border(if (isAssigned) 0.dp else 2.dp, if (isAssigned) Color.Transparent else Color(0xFFE2E8F0), RoundedCornerShape(8.dp)),
+                        contentAlignment = Alignment.Center
+                    ) {
+                        if (isAssigned) {
+                            Icon(Icons.Rounded.Check, contentDescription = "Validado", tint = Color.White, modifier = Modifier.size(18.dp))
+                        }
+                    }
+                }
             }
         }
     }
