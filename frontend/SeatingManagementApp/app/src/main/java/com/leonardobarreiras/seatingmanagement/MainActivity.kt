@@ -94,7 +94,6 @@ fun getMesaFromSeat(seatNumber: String): String {
 // COMPONENTES UI MODERNIZADOS (SQUIRCLES & LIQUID)
 // ==========================================
 
-// 👇 DIÁLOGO MODERNIZADO 👇
 @Composable
 fun ModernAlertDialog(
     title: String,
@@ -139,7 +138,6 @@ fun ModernAlertDialog(
 
                 Spacer(modifier = Modifier.height(24.dp))
 
-                // 👇 BOTÕES CORRIGIDOS: Menor padding horizontal para caber "Desbloquear" perfeitamente 👇
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
                     if (cancelText != null) {
                         OutlinedButton(
@@ -218,7 +216,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
                 )
 
                 Spacer(modifier = Modifier.height(16.dp))
-                // 👇 TÍTULO ATUALIZADO 👇
                 Text("Seatly", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
                 Text("Acesso Restrito", fontSize = 14.sp, color = TextGray)
                 Spacer(modifier = Modifier.height(32.dp))
@@ -345,6 +342,9 @@ fun SeatScreen(viewModel: SeatViewModel) {
     var confirmActionType by remember { mutableStateOf<String?>(null) }
     var validatedAdminPin by remember { mutableStateOf("1234") }
 
+    // 👇 A MAGIA ACONTECE AQUI: Ação pendente para quando o PIN for correto 👇
+    var pendingAdminAction by remember { mutableStateOf<(() -> Unit)?>(null) }
+
     val totalSeats = seats.size
     val treatedSeats = seats.count { it.status != 0 }
     val pendingSeats = totalSeats - treatedSeats
@@ -388,7 +388,11 @@ fun SeatScreen(viewModel: SeatViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         IconButton(
-                            onClick = { showPinDialog = true },
+                            // 👇 ATUALIZADO: O cadeado diz ao PIN o que fazer depois 👇
+                            onClick = {
+                                pendingAdminAction = { showActionsSheet = true }
+                                showPinDialog = true
+                            },
                             modifier = Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
                         ) { Icon(Icons.Rounded.Lock, contentDescription = "Admin", tint = Color.White, modifier = Modifier.size(22.dp)) }
 
@@ -463,7 +467,6 @@ fun SeatScreen(viewModel: SeatViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            // 👇 BARRA DE PESQUISA COM TEXTO PERFEITAMENTE CENTRADO 👇
             Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                 Row(
                     modifier = Modifier
@@ -538,8 +541,13 @@ fun SeatScreen(viewModel: SeatViewModel) {
                     Spacer(modifier = Modifier.height(8.dp))
                     Text("Importe um ficheiro CSV com separador \";\"\npara começar a gerir os seus dados.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
                     Spacer(modifier = Modifier.height(32.dp))
+
+                    // 👇 ATUALIZADO: O Botão agora chama o PIN e só depois é que abre a importação 👇
                     Button(
-                        onClick = { csvLauncher.launch("*/*") },
+                        onClick = {
+                            pendingAdminAction = { csvLauncher.launch("*/*") }
+                            showPinDialog = true
+                        },
                         modifier = Modifier.fillMaxWidth(0.8f).height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
                     ) {
                         Icon(Icons.Rounded.Upload, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
@@ -563,6 +571,7 @@ fun SeatScreen(viewModel: SeatViewModel) {
         }
     }
 
+    // 👇 O DIÁLOGO DO PIN INTELIGENTE 👇
     @OptIn(ExperimentalMaterial3Api::class)
     if (showPinDialog) {
         var pin by remember { mutableStateOf("") }
@@ -596,9 +605,20 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 }
             },
             onConfirm = {
-                if (viewModel.verifyPin(pin)) { validatedAdminPin = pin; showPinDialog = false; showActionsSheet = true } else isError = true
+                if (viewModel.verifyPin(pin)) {
+                    validatedAdminPin = pin
+                    showPinDialog = false
+                    // Executa o que quer que estivesse à espera (Abrir Menu ou Abrir Importação)
+                    pendingAdminAction?.invoke()
+                    pendingAdminAction = null
+                } else {
+                    isError = true
+                }
             },
-            onDismiss = { showPinDialog = false }
+            onDismiss = {
+                showPinDialog = false
+                pendingAdminAction = null // Limpa a ação pendente se o utilizador fechar a janela
+            }
         )
     }
 

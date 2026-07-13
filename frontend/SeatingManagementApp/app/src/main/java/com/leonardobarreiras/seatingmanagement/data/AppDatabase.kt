@@ -6,7 +6,7 @@ import androidx.room.Room
 import androidx.room.RoomDatabase
 
 // 1. Declaramos que esta base de dados tem a tabela SeatEntity
-@Database(entities = [SeatEntity::class], version = 1, exportSchema = false)
+@Database(entities = [SeatEntity::class], version = 2, exportSchema = false)
 abstract class AppDatabase : RoomDatabase() {
 
     // 2. Ligamos a base de dados ao nosso DAO
@@ -23,7 +23,9 @@ abstract class AppDatabase : RoomDatabase() {
                     context.applicationContext,
                     AppDatabase::class.java,
                     "seating_database" // O nome do ficheiro físico no telemóvel
-                ).build()
+                )
+                    .fallbackToDestructiveMigration()
+                    .build()
                 INSTANCE = instance
                 instance
             }

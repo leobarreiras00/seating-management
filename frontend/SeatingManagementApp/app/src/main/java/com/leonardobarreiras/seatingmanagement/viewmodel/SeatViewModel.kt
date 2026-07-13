@@ -18,6 +18,9 @@ import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 
 enum class FeedbackType { SUCCESS, ERROR, EXPORT, INFO, OFFLINE }
 data class AppFeedback(val type: FeedbackType, val title: String, val message: String)
@@ -26,13 +29,14 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: SeatRepository
     private val mqttManager: MqttManager
-    private val networkMonitor = NetworkMonitor(application) // 👈 O Olheiro de Rede
+    private val networkMonitor = NetworkMonitor(application)
 
     val seatsFlow: Flow<List<SeatEntity>>
     var isAdminMode by mutableStateOf(false)
-    var isOffline by mutableStateOf(false) // 👈 Estado global de rede
+    var isOffline by mutableStateOf(false)
 
     var jwtToken: String? = null
+    var dynamicAdminPin by mutableStateOf("1234") // Guarda o PIN em memória (default 1234 por segurança)
     var loginError by mutableStateOf<String?>(null)
     var currentEventId by mutableStateOf<Int?>(null)
     var appFeedback by mutableStateOf<AppFeedback?>(null)
@@ -42,12 +46,11 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         repository = SeatRepository(db.seatDao())
         seatsFlow = repository.allSeats
 
-        // 👇 MOTOR OFFLINE: Escuta a rede continuamente 👇
         viewModelScope.launch {
             networkMonitor.isConnected.collect { connected ->
                 isOffline = !connected
                 if (connected && currentEventId != null) {
-                    syncPendingSeats() // REDE VOLTOU! Envia a Fila de Espera
+                    syncPendingSeats()
                 }
             }
         }
@@ -57,7 +60,9 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 if (id == -1 && status == -1) {
                     fetchSeatsFromApi()
                 } else {
-                    repository.updateSeatStatusLocally(id, status, isPendingSync = false)
+                    // Se o MQTT nos avisar de uma mudança, guardamos com a hora atual
+                    val timestamp = if (status != 0) SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()) else null
+                    repository.updateSeatStatusLocally(id, status, isPendingSync = false, markedAt = timestamp)
                 }
             }
         }
@@ -73,6 +78,12 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
             try {
                 val response: AuthResponse = RetrofitClient.apiService.login(LoginRequest(user, pass))
                 jwtToken = response.token
+
+                // GUARDA O PIN VERDADEIRO RECEBIDO DO C#
+                if (response.pin != null) {
+                    dynamicAdminPin = response.pin
+                }
+
                 loginError = null
                 onSuccess()
             } catch (e: Exception) {
@@ -81,7 +92,17 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun verifyPin(pin: String): Boolean = pin == "1234"
+    fun verifyPin(pin: String): Boolean {
+        // Se a app acabou de instalar e ainda não fez login, usa o 1234 de segurança
+        if (dynamicAdminPin == "1234") return pin == "1234"
+
+        return try {
+            // A MAGIA: O Android desencripta e valida o PIN recebido do servidor!
+            org.mindrot.jbcrypt.BCrypt.checkpw(pin, dynamicAdminPin)
+        } catch (e: Exception) {
+            false
+        }
+    }
 
     fun processRoomCheckIn(qrContent: String) {
         if (isOffline) {
@@ -134,33 +155,30 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // 👇 O MOTOR DE ATRIBUIÇÃO CORRIGIDO 👇
     fun updateSeatStatus(seat: SeatEntity, newStatus: Int) {
         val safeEventId = currentEventId ?: return
         viewModelScope.launch {
+            // Gera a Data/Hora local exata em que o botão foi clicado
+            val timestamp = if (newStatus != 0) SimpleDateFormat("yyyy-MM-dd HH:mm:ss", Locale.getDefault()).format(Date()) else null
+
             if (isOffline) {
-                // OFFLINE: Vai para a Fila de Espera
-                repository.updateSeatStatusLocally(seat.id, newStatus, isPendingSync = true)
+                repository.updateSeatStatusLocally(seat.id, newStatus, isPendingSync = true, markedAt = timestamp)
                 appFeedback = AppFeedback(FeedbackType.OFFLINE, "Modo Offline", "Gravado no telemóvel. Será enviado quando houver rede.")
             } else {
-                // ONLINE: 1. Atualiza ecrã 2. MQTT (Rápido) 3. Grava no Servidor (Permanente)
-                repository.updateSeatStatusLocally(seat.id, newStatus, isPendingSync = false)
+                repository.updateSeatStatusLocally(seat.id, newStatus, isPendingSync = false, markedAt = timestamp)
                 mqttManager.publishSeatUpdate(safeEventId, seat.id, newStatus)
 
                 try {
-                    // O ELO PERDIDO: Avisar o .NET para gravar no SQL Server!
                     RetrofitClient.apiService.updateSingleSeat(
                         "Bearer $jwtToken", safeEventId, seat.id, UpdateSingleSeatRequest(newStatus)
                     )
                 } catch (e: Exception) {
-                    // Se a net falhar milissegundos antes de enviar ao servidor, vai para a fila!
-                    repository.updateSeatStatusLocally(seat.id, newStatus, isPendingSync = true)
+                    repository.updateSeatStatusLocally(seat.id, newStatus, isPendingSync = true, markedAt = timestamp)
                 }
             }
         }
     }
 
-    // 👇 O MOTOR DE SINCRONIZAÇÃO DA FILA DE ESPERA 👇
     private suspend fun syncPendingSeats() {
         val safeEventId = currentEventId ?: return
         val pendingSeats = repository.getPendingSyncSeats()
@@ -171,15 +189,14 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
 
             pendingSeats.forEach { seat ->
                 try {
-                    // 1. Grava na BD Central primeiro
                     val response = RetrofitClient.apiService.updateSingleSeat(
                         "Bearer $jwtToken", safeEventId, seat.id, UpdateSingleSeatRequest(seat.status)
                     )
 
                     if (response.isSuccessful) {
-                        // 2. Avisa os outros telemóveis e retira a flag
                         mqttManager.publishSeatUpdate(safeEventId, seat.id, seat.status)
-                        repository.updateSeatStatusLocally(seat.id, seat.status, isPendingSync = false)
+                        // Mantemos o markedAt que estava na fila, apenas removemos a flag de pendente
+                        repository.updateSeatStatusLocally(seat.id, seat.status, isPendingSync = false, markedAt = seat.markedAt)
                         successCount++
                     }
                 } catch (e: Exception) {
@@ -218,9 +235,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         viewModelScope.launch {
             try {
                 val response = RetrofitClient.apiService.bulkUpdateStatus("Bearer $jwtToken", safeEventId, BulkUpdateStatusRequest(novoEstado))
-
                 if (response.isSuccessful) {
-                    // A LINHA MÁGICA: Força o telemóvel a descarregar os dados novos imediatamente!
                     fetchSeatsFromApi()
                     appFeedback = AppFeedback(FeedbackType.SUCCESS, "Sucesso", "Registos atualizados com sucesso.")
                 } else {
@@ -258,30 +273,37 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearEventData(pin: String) {
         viewModelScope.launch {
-            // Apaga apenas o SQLite (memória) do telemóvel. O servidor fica intocável.
             repository.deleteAllSeats()
             appFeedback = AppFeedback(
                 FeedbackType.INFO,
                 "Ecrã Limpo",
-                "Os dados foram removidos deste dispositivo. Clica em 'Sync DB' para os recuperar do servidor."
+                "Os dados foram removidos deste dispositivo. Clica em 'Sync' para os recuperar do servidor."
             )
         }
     }
 
+    // 👇 EXPORTAÇÃO CORRIGIDA (Adiciona a 6ª Coluna de DATA_HORA) 👇
     fun exportCsv(uri: Uri, context: Context) {
         viewModelScope.launch {
             try {
                 val currentSeats = seatsFlow.first()
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                     val writer = BufferedWriter(OutputStreamWriter(outputStream))
-                    writer.write("MESA;LUGAR;CATEGORIA;ESTADO;NOME\n")
+
+                    // Cabeçalho atualizado
+                    writer.write("MESA;LUGAR;CATEGORIA;ESTADO;NOME;DATA_HORA\n")
+
                     currentSeats.forEach { seat ->
                         val assigned = seat.assignedTo ?: ""
                         val statusText = when(seat.status) { 1 -> "Validado"; 2 -> "Tratado"; else -> "Pendente" }
                         val partes = seat.seatNumber.split("-")
                         val mesa = if (partes.size > 1) partes[0] else ""
                         val lugar = if (partes.size > 1) partes[1] else seat.seatNumber
-                        writer.write("${mesa};${lugar};${seat.eventName};${statusText};${assigned}\n")
+
+                        // Limpa os milissegundos e o 'T' que a API C# devolve para ficar limpo (Ex: 2026-07-12 10:10:53)
+                        val dataHora = seat.markedAt?.replace("T", " ")?.substringBefore(".") ?: ""
+
+                        writer.write("${mesa};${lugar};${seat.eventName};${statusText};${assigned};${dataHora}\n")
                     }
                     writer.flush()
                 }

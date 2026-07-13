@@ -17,5 +17,6 @@ namespace SeatingManagement.API.DTOs
     {
         public string Token { get; set; } = string.Empty;
         public Guid UserGuid { get; set; }
+        public string? Pin { get; set; }
     }
 }

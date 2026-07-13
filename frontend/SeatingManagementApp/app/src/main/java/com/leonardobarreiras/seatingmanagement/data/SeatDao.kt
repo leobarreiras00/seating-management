@@ -15,8 +15,8 @@ interface SeatDao {
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertAll(seats: List<SeatEntity>)
 
-    @Query("UPDATE seats SET status = :newStatus, isPendingSync = :isPending WHERE id = :seatId")
-    suspend fun updateSeatStatus(seatId: Int, newStatus: Int, isPending: Boolean)
+    @Query("UPDATE seats SET status = :newStatus, isPendingSync = :isPending, markedAt = :markedAt WHERE id = :seatId")
+    suspend fun updateSeatStatus(seatId: Int, newStatus: Int, isPending: Boolean, markedAt: String?)
 
     @Query("SELECT * FROM seats WHERE isPendingSync = 1")
     suspend fun getPendingSyncSeats(): List<SeatEntity>

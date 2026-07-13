@@ -6,6 +6,7 @@ using SeatingManagement.API.Data;
 using SeatingManagement.API.DTOs;
 using SeatingManagement.API.Models;
 using System.IdentityModel.Tokens.Jwt;
+using System.Net.NetworkInformation;
 using System.Security.Claims;
 using System.Text;
 
@@ -58,7 +59,11 @@ namespace SeatingManagement.API.Controllers
 
             var token = GenerateJwtToken(user);
 
-            return Ok(new AuthResponseDto { Token = token, UserGuid = user.UserGuid });
+            return Ok(new AuthResponseDto { 
+                Token = token, 
+                UserGuid = user.UserGuid,
+                Pin = user.PinHash
+            });
         }
 
         private string GenerateJwtToken(User user)

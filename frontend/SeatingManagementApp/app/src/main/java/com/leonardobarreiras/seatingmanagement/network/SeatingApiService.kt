@@ -16,7 +16,7 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 data class LoginRequest(val username: String, val password: String)
-data class AuthResponse(val token: String)
+data class AuthResponse(val token: String, val pin: String? = null)
 data class ValidateTicketRequest(val eventId: Int, val ticketHash: String)
 data class ValidateTicketResponse(val message: String, val seat: SeatEntity)
 data class BulkUpdateStatusRequest(val status: String)

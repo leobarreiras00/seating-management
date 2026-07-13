@@ -6,8 +6,8 @@ class SeatRepository(private val seatDao: SeatDao) {
 
     val allSeats: Flow<List<SeatEntity>> = seatDao.getAllSeats()
 
-    suspend fun updateSeatStatusLocally(id: Int, status: Int, isPendingSync: Boolean = false) {
-        seatDao.updateSeatStatus(id, status, isPendingSync)
+    suspend fun updateSeatStatusLocally(id: Int, status: Int, isPendingSync: Boolean = false, markedAt: String? = null) {
+        seatDao.updateSeatStatus(id, status, isPendingSync, markedAt)
     }
 
     suspend fun insertAll(seats: List<SeatEntity>) {

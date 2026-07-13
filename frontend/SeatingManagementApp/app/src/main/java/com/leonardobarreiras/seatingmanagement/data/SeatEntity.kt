@@ -11,5 +11,6 @@ data class SeatEntity(
     val status: Int,
     val assignedTo: String?,
     val version: Long,
-    val isPendingSync: Boolean = false
+    val isPendingSync: Boolean = false,
+    val markedAt: String? = null
 )
