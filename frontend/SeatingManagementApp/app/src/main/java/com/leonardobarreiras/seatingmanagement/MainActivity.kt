@@ -342,7 +342,6 @@ fun SeatScreen(viewModel: SeatViewModel) {
     var confirmActionType by remember { mutableStateOf<String?>(null) }
     var validatedAdminPin by remember { mutableStateOf("1234") }
 
-    // 👇 A MAGIA ACONTECE AQUI: Ação pendente para quando o PIN for correto 👇
     var pendingAdminAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     val totalSeats = seats.size
@@ -388,7 +387,6 @@ fun SeatScreen(viewModel: SeatViewModel) {
                         horizontalArrangement = Arrangement.SpaceBetween
                     ) {
                         IconButton(
-                            // 👇 ATUALIZADO: O cadeado diz ao PIN o que fazer depois 👇
                             onClick = {
                                 pendingAdminAction = { showActionsSheet = true }
                                 showPinDialog = true
@@ -542,7 +540,6 @@ fun SeatScreen(viewModel: SeatViewModel) {
                     Text("Importe um ficheiro CSV com separador \";\"\npara começar a gerir os seus dados.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
                     Spacer(modifier = Modifier.height(32.dp))
 
-                    // 👇 ATUALIZADO: O Botão agora chama o PIN e só depois é que abre a importação 👇
                     Button(
                         onClick = {
                             pendingAdminAction = { csvLauncher.launch("*/*") }
@@ -571,7 +568,6 @@ fun SeatScreen(viewModel: SeatViewModel) {
         }
     }
 
-    // 👇 O DIÁLOGO DO PIN INTELIGENTE 👇
     @OptIn(ExperimentalMaterial3Api::class)
     if (showPinDialog) {
         var pin by remember { mutableStateOf("") }
@@ -608,7 +604,6 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 if (viewModel.verifyPin(pin)) {
                     validatedAdminPin = pin
                     showPinDialog = false
-                    // Executa o que quer que estivesse à espera (Abrir Menu ou Abrir Importação)
                     pendingAdminAction?.invoke()
                     pendingAdminAction = null
                 } else {
@@ -617,7 +612,7 @@ fun SeatScreen(viewModel: SeatViewModel) {
             },
             onDismiss = {
                 showPinDialog = false
-                pendingAdminAction = null // Limpa a ação pendente se o utilizador fechar a janela
+                pendingAdminAction = null
             }
         )
     }
@@ -645,17 +640,35 @@ fun SeatScreen(viewModel: SeatViewModel) {
         )
     }
 
+    // 👇 O BLOCO DO ALERTA AGORA SUPORTA A REMOÇÃO DE DUPLICADOS 👇
     if (confirmActionType != null) {
-        val title = when (confirmActionType) { "MARK_ALL" -> "Validar Todos"; "UNMARK_ALL" -> "Desmarcar Todos"; "CLEAR" -> "Limpar Ecrã"; else -> "" }
-        val msg = when (confirmActionType) { "MARK_ALL" -> "Isto marcará $pendingSeats pendentes como Tratados."; "UNMARK_ALL" -> "Vais remover a validação de $treatedSeats convidados."; "CLEAR" -> "Isto vai limpar o ecrã. Usa o Sync para recuperar os dados."; else -> "" }
-        val btnColor = if (confirmActionType == "MARK_ALL") SuccessGreen else ErrorRed
-        val icon = if (confirmActionType == "MARK_ALL") Icons.Rounded.CheckCircle else Icons.Rounded.Warning
-        val bg = if (confirmActionType == "MARK_ALL") SuccessGreenLight else ErrorRedLight
+        val title = when (confirmActionType) {
+            "MARK_ALL" -> "Validar Todos"
+            "UNMARK_ALL" -> "Desmarcar Todos"
+            "CLEAR" -> "Limpar Ecrã"
+            "REMOVE_DUPS" -> "Remover Duplicados"
+            else -> ""
+        }
+        val msg = when (confirmActionType) {
+            "MARK_ALL" -> "Isto marcará $pendingSeats pendentes como Tratados."
+            "UNMARK_ALL" -> "Vais remover a validação de $treatedSeats convidados."
+            "CLEAR" -> "Isto vai limpar o ecrã. Usa o Sync para recuperar os dados."
+            "REMOVE_DUPS" -> "O sistema irá analisar a sala e remover registos duplicados no mesmo lugar, preservando os convidados validados."
+            else -> ""
+        }
+        val btnColor = if (confirmActionType == "MARK_ALL" || confirmActionType == "REMOVE_DUPS") SuccessGreen else ErrorRed
+        val icon = if (confirmActionType == "REMOVE_DUPS") Icons.Rounded.CleaningServices else if (confirmActionType == "MARK_ALL") Icons.Rounded.CheckCircle else Icons.Rounded.Warning
+        val bg = if (confirmActionType == "MARK_ALL" || confirmActionType == "REMOVE_DUPS") SuccessGreenLight else ErrorRedLight
 
         ModernAlertDialog(
             title = title, message = msg, icon = icon, iconTint = btnColor, iconBg = bg, confirmText = "Confirmar", confirmColor = btnColor,
             onConfirm = {
-                when (confirmActionType) { "MARK_ALL" -> viewModel.bulkUpdateStatus("Tratado"); "UNMARK_ALL" -> viewModel.bulkUpdateStatus("Vazio"); "CLEAR" -> viewModel.clearEventData(validatedAdminPin) }
+                when (confirmActionType) {
+                    "MARK_ALL" -> viewModel.bulkUpdateStatus("Tratado")
+                    "UNMARK_ALL" -> viewModel.bulkUpdateStatus("Vazio")
+                    "CLEAR" -> viewModel.clearEventData(validatedAdminPin)
+                    "REMOVE_DUPS" -> viewModel.removeDuplicateSeats(validatedAdminPin)
+                }
                 confirmActionType = null
             }, onDismiss = { confirmActionType = null }
         )
@@ -680,6 +693,10 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 BottomSheetItem(icon = Icons.Rounded.CheckCircle, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { confirmActionType = "MARK_ALL"; showActionsSheet = false }
                 BottomSheetItem(icon = Icons.Rounded.Cancel, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconColor = TextGray, iconBg = Color(0xFFF1F5F9)) { confirmActionType = "UNMARK_ALL"; showActionsSheet = false }
                 BottomSheetItem(icon = Icons.Rounded.Delete, title = "Limpar Ecrã", subtitle = "Remover dados locais", iconColor = ErrorRed, iconBg = ErrorRedLight) { confirmActionType = "CLEAR"; showActionsSheet = false }
+
+                // 👇 NOVO BOTÃO ADICIONADO AO MENU (COM VISUAL CLEAN & PREMIUM) 👇
+                BottomSheetItem(icon = Icons.Rounded.CleaningServices, title = "Remover Registos Duplicados", subtitle = "Limpeza inteligente da base de dados", iconColor = AccentPurple, iconBg = AccentPurpleLight) { confirmActionType = "REMOVE_DUPS"; showActionsSheet = false }
+
                 BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) { showActionsSheet = false; showSettingsSheet = true }
 
                 Spacer(modifier = Modifier.height(24.dp))

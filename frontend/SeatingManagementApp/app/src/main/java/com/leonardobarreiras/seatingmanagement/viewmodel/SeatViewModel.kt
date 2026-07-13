@@ -246,6 +246,31 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun removeDuplicateSeats(pin: String) {
+        if (isOffline) {
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "A remoção de duplicados requer internet.")
+            return
+        }
+        val safeEventId = currentEventId ?: return
+        if (jwtToken == null) return
+
+        viewModelScope.launch {
+            try {
+                appFeedback = AppFeedback(FeedbackType.INFO, "A Processar", "A limpar registos duplicados no servidor...")
+                val response = RetrofitClient.apiService.removeDuplicates("Bearer $jwtToken", safeEventId, ClearDatabaseDto(pin))
+
+                if (response.isSuccessful) {
+                    fetchSeatsFromApi() // Recarrega os dados locais já limpos
+                    appFeedback = AppFeedback(FeedbackType.SUCCESS, "Limpeza Concluída", "Registos duplicados removidos com sucesso.")
+                } else {
+                    appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha ao processar a limpeza no servidor.")
+                }
+            } catch (e: Exception) {
+                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de comunicação com o servidor.")
+            }
+        }
+    }
+
     fun uploadCsvToServer(uri: Uri, context: Context, mode: String) {
         if (isOffline) {
             appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "Upload requer internet.")
