@@ -344,10 +344,11 @@ fun SeatScreen(viewModel: SeatViewModel) {
 
     var pendingAdminAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
-    val totalSeats = seats.size
-    val treatedSeats = seats.count { it.status != 0 }
-    val pendingSeats = totalSeats - treatedSeats
-    val progress = if (totalSeats > 0) treatedSeats.toFloat() / totalSeats else 0f
+    // 👇 OTIMIZAÇÃO: Estatísticas em Cache (Só recalculam quando a BD muda, não no typing!) 👇
+    val totalSeats by remember(seats) { derivedStateOf { seats.size } }
+    val treatedSeats by remember(seats) { derivedStateOf { seats.count { it.status != 0 } } }
+    val pendingSeats by remember(totalSeats, treatedSeats) { derivedStateOf { totalSeats - treatedSeats } }
+    val progress by remember(totalSeats, treatedSeats) { derivedStateOf { if (totalSeats > 0) treatedSeats.toFloat() / totalSeats else 0f } }
 
     val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
         if (result.contents != null) viewModel.validateTicketFromQr(result.contents.trim())
@@ -497,13 +498,17 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 }
             }
 
+            // 👇 OTIMIZAÇÃO: Cálculo de mesas apenas é feito se a base de dados mudar 👇
+            val mesasUnicas by remember(seats) {
+                derivedStateOf { seats.map { getMesaFromSeat(it.seatNumber) }.distinct().sorted() }
+            }
+
             AnimatedVisibility(visible = showFilters) {
                 Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
                     Text("MESA", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
                     Spacer(modifier = Modifier.height(8.dp))
                     FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
                         FilterChipCustom("Todas", selectedTable == "Todas") { selectedTable = "Todas" }
-                        val mesasUnicas = seats.map { getMesaFromSeat(it.seatNumber) }.distinct().sorted()
                         mesasUnicas.forEach { mesa -> FilterChipCustom(mesa, selectedTable == mesa) { selectedTable = mesa } }
                     }
                     Spacer(modifier = Modifier.height(16.dp))
@@ -517,11 +522,16 @@ fun SeatScreen(viewModel: SeatViewModel) {
 
             Spacer(modifier = Modifier.height(16.dp))
 
-            val filteredSeats = seats.filter { seat ->
-                val matchesSearch = seat.assignedTo?.contains(searchQuery, ignoreCase = true) == true || seat.seatNumber.contains(searchQuery, ignoreCase = true) || seat.eventName.contains(searchQuery, ignoreCase = true)
-                val matchesTable = if (selectedTable == "Todas") true else getMesaFromSeat(seat.seatNumber) == selectedTable
-                val matchesStatus = when (selectedStatus) { "Tratados" -> seat.status != 0; "Pendentes" -> seat.status == 0; else -> true }
-                matchesSearch && matchesTable && matchesStatus
+            // 👇 OTIMIZAÇÃO: A filtragem super pesada agora está em Cache total! 👇
+            val filteredSeats by remember(seats, searchQuery, selectedTable, selectedStatus) {
+                derivedStateOf {
+                    seats.filter { seat ->
+                        val matchesSearch = seat.assignedTo?.contains(searchQuery, ignoreCase = true) == true || seat.seatNumber.contains(searchQuery, ignoreCase = true) || seat.eventName.contains(searchQuery, ignoreCase = true)
+                        val matchesTable = if (selectedTable == "Todas") true else getMesaFromSeat(seat.seatNumber) == selectedTable
+                        val matchesStatus = when (selectedStatus) { "Tratados" -> seat.status != 0; "Pendentes" -> seat.status == 0; else -> true }
+                        matchesSearch && matchesTable && matchesStatus
+                    }
+                }
             }
 
             Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -554,7 +564,11 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 }
             } else {
                 LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    items(filteredSeats) { seat ->
+                    // 👇 OTIMIZAÇÃO: A Mágica do "Key" impede recreação de UI ao validar lugares 👇
+                    items(
+                        items = filteredSeats,
+                        key = { seat -> seat.id }
+                    ) { seat ->
                         GuestListItem(
                             seat = seat,
                             onAssignClick = {
@@ -640,7 +654,6 @@ fun SeatScreen(viewModel: SeatViewModel) {
         )
     }
 
-    // 👇 O BLOCO DO ALERTA AGORA SUPORTA A REMOÇÃO DE DUPLICADOS 👇
     if (confirmActionType != null) {
         val title = when (confirmActionType) {
             "MARK_ALL" -> "Validar Todos"
@@ -693,8 +706,6 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 BottomSheetItem(icon = Icons.Rounded.CheckCircle, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { confirmActionType = "MARK_ALL"; showActionsSheet = false }
                 BottomSheetItem(icon = Icons.Rounded.Cancel, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconColor = TextGray, iconBg = Color(0xFFF1F5F9)) { confirmActionType = "UNMARK_ALL"; showActionsSheet = false }
                 BottomSheetItem(icon = Icons.Rounded.Delete, title = "Limpar Ecrã", subtitle = "Remover dados locais", iconColor = ErrorRed, iconBg = ErrorRedLight) { confirmActionType = "CLEAR"; showActionsSheet = false }
-
-                // 👇 NOVO BOTÃO ADICIONADO AO MENU (COM VISUAL CLEAN & PREMIUM) 👇
                 BottomSheetItem(icon = Icons.Rounded.CleaningServices, title = "Remover Registos Duplicados", subtitle = "Limpeza inteligente da base de dados", iconColor = AccentPurple, iconBg = AccentPurpleLight) { confirmActionType = "REMOVE_DUPS"; showActionsSheet = false }
 
                 BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) { showActionsSheet = false; showSettingsSheet = true }

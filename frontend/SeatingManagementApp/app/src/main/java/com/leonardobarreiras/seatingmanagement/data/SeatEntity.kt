@@ -1,9 +1,15 @@
 package com.leonardobarreiras.seatingmanagement.data
 
 import androidx.room.Entity
+import androidx.room.Index
 import androidx.room.PrimaryKey
 
-@Entity(tableName = "seats")
+@Entity(
+    tableName = "seats",
+    indices = [
+        Index(value = ["seatNumber"])
+    ]
+)
 data class SeatEntity(
     @PrimaryKey val id: Int,
     val seatNumber: String,
