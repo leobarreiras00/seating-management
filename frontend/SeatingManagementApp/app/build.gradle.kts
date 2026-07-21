@@ -72,13 +72,21 @@ dependencies {
     implementation("androidx.compose.material:material-icons-extended")
 
     implementation("androidx.navigation:navigation-compose:2.8.0")
-    implementation("com.journeyapps:zxing-android-embedded:4.3.0")
 
-    // --- ROOM DATABASE (Usando KSP) ---
+    val camerax_version = "1.3.2"
+    implementation("androidx.camera:camera-core:$camerax_version")
+    implementation("androidx.camera:camera-camera2:$camerax_version")
+    implementation("androidx.camera:camera-lifecycle:$camerax_version")
+    implementation("androidx.camera:camera-view:$camerax_version")
+
+    implementation("com.google.mlkit:barcode-scanning:17.2.0")
+
+    implementation("androidx.compose.material:material-icons-extended:1.6.0")
+
     val room_version = "2.6.1"
     implementation("androidx.room:room-runtime:$room_version")
     implementation("androidx.room:room-ktx:$room_version")
-    ksp("androidx.room:room-compiler:$room_version") // <-- AQUI USAMOS KSP EM VEZ DE KAPT
+    ksp("androidx.room:room-compiler:$room_version")
 
     // --- MQTT ---
     implementation("com.hivemq:hivemq-mqtt-client:1.3.3")

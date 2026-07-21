@@ -3,8 +3,8 @@ package com.leonardobarreiras.seatingmanagement
 import android.os.Bundle
 import androidx.activity.ComponentActivity
 import androidx.activity.compose.setContent
-import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
@@ -45,8 +45,6 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
-import com.journeyapps.barcodescanner.ScanContract
-import com.journeyapps.barcodescanner.ScanOptions
 import com.leonardobarreiras.seatingmanagement.data.SeatEntity
 import com.leonardobarreiras.seatingmanagement.viewmodel.AppFeedback
 import com.leonardobarreiras.seatingmanagement.viewmodel.FeedbackType
@@ -257,9 +255,8 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
     var manualEventId by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
 
-    val roomScanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        if (result.contents != null) viewModel.processRoomCheckIn(result.contents.trim())
-    }
+    // Estado para o nosso novo Scanner Moderno ML Kit
+    var showModernScanner by remember { mutableStateOf(false) }
 
     LaunchedEffect(viewModel.currentEventId) { if (viewModel.currentEventId != null) onEventSelected() }
 
@@ -280,7 +277,7 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                 Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
 
                     Button(
-                        onClick = { val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.QR_CODE); setPrompt("Aponta para o QR Code da Sala"); setBeepEnabled(true) }; roomScanLauncher.launch(options) },
+                        onClick = { showModernScanner = true }, // Abre a nova câmara
                         modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue)
                     ) {
                         Icon(Icons.Rounded.PhotoCamera, contentDescription = null, tint = Color.White)
@@ -317,6 +314,17 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
         if (viewModel.appFeedback != null) {
             AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
         }
+
+        // Overlay do Scanner de Ecrã Inteiro
+        if (showModernScanner) {
+            ModernQrScanner(
+                onQrCodeScanned = { result ->
+                    showModernScanner = false
+                    viewModel.processRoomCheckIn(result.trim())
+                },
+                onClose = { showModernScanner = false }
+            )
+        }
     }
 }
 
@@ -344,15 +352,14 @@ fun SeatScreen(viewModel: SeatViewModel) {
 
     var pendingAdminAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
-    // 👇 OTIMIZAÇÃO: Estatísticas em Cache (Só recalculam quando a BD muda, não no typing!) 👇
+    // Estado do Scanner de Bilhetes
+    var showModernScanner by remember { mutableStateOf(false) }
+
+    // 👇 OTIMIZAÇÃO: Estatísticas em Cache 👇
     val totalSeats by remember(seats) { derivedStateOf { seats.size } }
     val treatedSeats by remember(seats) { derivedStateOf { seats.count { it.status != 0 } } }
     val pendingSeats by remember(totalSeats, treatedSeats) { derivedStateOf { totalSeats - treatedSeats } }
     val progress by remember(totalSeats, treatedSeats) { derivedStateOf { if (totalSeats > 0) treatedSeats.toFloat() / totalSeats else 0f } }
-
-    val scanLauncher = rememberLauncherForActivityResult(ScanContract()) { result ->
-        if (result.contents != null) viewModel.validateTicketFromQr(result.contents.trim())
-    }
 
     val exportCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
         if (uri != null) { viewModel.exportCsv(uri, context); showActionsSheet = false }
@@ -370,371 +377,387 @@ fun SeatScreen(viewModel: SeatViewModel) {
         }
     }
 
-    Scaffold(
-        topBar = {
-            Surface(
-                color = Color.Transparent,
-                modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
-            ) {
-                Card(
-                    shape = RoundedCornerShape(24.dp),
-                    colors = CardDefaults.cardColors(containerColor = CorporateBlue),
-                    elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                    modifier = Modifier.fillMaxWidth()
+    Box(modifier = Modifier.fillMaxSize()) {
+        Scaffold(
+            topBar = {
+                Surface(
+                    color = Color.Transparent,
+                    modifier = Modifier.padding(start = 16.dp, end = 16.dp, top = 16.dp, bottom = 8.dp)
                 ) {
-                    Row(
-                        modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween
+                    Card(
+                        shape = RoundedCornerShape(24.dp),
+                        colors = CardDefaults.cardColors(containerColor = CorporateBlue),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
+                        modifier = Modifier.fillMaxWidth()
                     ) {
-                        IconButton(
-                            onClick = {
-                                pendingAdminAction = { showActionsSheet = true }
-                                showPinDialog = true
-                            },
-                            modifier = Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
-                        ) { Icon(Icons.Rounded.Lock, contentDescription = "Admin", tint = Color.White, modifier = Modifier.size(22.dp)) }
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            IconButton(
+                                onClick = {
+                                    pendingAdminAction = { showActionsSheet = true }
+                                    showPinDialog = true
+                                },
+                                modifier = Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
+                            ) { Icon(Icons.Rounded.Lock, contentDescription = "Admin", tint = Color.White, modifier = Modifier.size(22.dp)) }
 
-                        Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                            Row(verticalAlignment = Alignment.CenterVertically) {
-                                Text("Seatly", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
-                                if (viewModel.isOffline) {
-                                    Spacer(modifier = Modifier.width(6.dp))
-                                    Box(modifier = Modifier.background(ErrorRed, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
-                                        Text("OFFLINE", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
+                            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
+                                Row(verticalAlignment = Alignment.CenterVertically) {
+                                    Text("Seatly", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                                    if (viewModel.isOffline) {
+                                        Spacer(modifier = Modifier.width(6.dp))
+                                        Box(modifier = Modifier.background(ErrorRed, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
+                                            Text("OFFLINE", color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.ExtraBold)
+                                        }
                                     }
                                 }
+                                Spacer(modifier = Modifier.height(2.dp))
+                                Text("Evento: ${viewModel.currentEventId ?: "Nenhum"}", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.Medium)
                             }
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text("Evento: ${viewModel.currentEventId ?: "Nenhum"}", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.Medium)
-                        }
 
-                        val syncAlpha = if (viewModel.isOffline) 0.05f else 0.15f
-                        val syncColor = if (viewModel.isOffline) Color.Gray else Color.White
+                            val syncAlpha = if (viewModel.isOffline) 0.05f else 0.15f
+                            val syncColor = if (viewModel.isOffline) Color.Gray else Color.White
 
-                        Row(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(20.dp))
-                                .background(Color.White.copy(alpha = syncAlpha))
-                                .clickable(enabled = !viewModel.isOffline) { viewModel.fetchSeatsFromApi() }
-                                .padding(horizontal = 14.dp, vertical = 12.dp),
-                            verticalAlignment = Alignment.CenterVertically
-                        ) {
-                            Icon(Icons.Rounded.Refresh, contentDescription = "Sync", tint = syncColor, modifier = Modifier.size(18.dp))
-                            Spacer(Modifier.width(6.dp))
-                            Text("Sync", color = syncColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
-                        }
-                    }
-                }
-            }
-        },
-        bottomBar = {
-            Box(modifier = Modifier.fillMaxWidth().background(LightBg).padding(16.dp)) {
-                Button(
-                    onClick = { val options = ScanOptions().apply { setDesiredBarcodeFormats(ScanOptions.QR_CODE); setPrompt("Aponta para o Bilhete"); setBeepEnabled(true) }; scanLauncher.launch(options) },
-                    modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(20.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple), elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
-                ) {
-                    Icon(Icons.Rounded.QrCodeScanner, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
-                    Spacer(modifier = Modifier.width(12.dp))
-                    Text("LER BILHETE (QR)", fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 1.sp)
-                }
-            }
-        },
-        containerColor = LightBg
-    ) { paddingValues ->
-        Column(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp)) {
-
-            Card(
-                shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
-                elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()
-            ) {
-                Column(modifier = Modifier.padding(16.dp)) {
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Text("Progresso", fontWeight = FontWeight.Bold, color = TextGray, fontSize = 14.sp)
-                        Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = CorporateBlue, fontSize = 14.sp)
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), color = SuccessGreen, trackColor = Color(0xFFF1F5F9))
-                    Spacer(modifier = Modifier.height(20.dp))
-                    Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                        StatCard(modifier = Modifier.weight(1f), title = "Total", count = totalSeats, iconColor = AccentPurple, bgTint = AccentPurpleLight, icon = Icons.Rounded.Groups)
-                        StatCard(modifier = Modifier.weight(1f), title = "Tratados", count = treatedSeats, iconColor = SuccessGreen, bgTint = SuccessGreenLight, icon = Icons.Rounded.CheckCircleOutline)
-                        StatCard(modifier = Modifier.weight(1f), title = "Pendentes", count = pendingSeats, iconColor = ErrorRed, bgTint = ErrorRedLight, icon = Icons.Rounded.Schedule)
-                    }
-                }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-                Row(
-                    modifier = Modifier
-                        .weight(1f)
-                        .height(48.dp)
-                        .background(Color.White, RoundedCornerShape(16.dp))
-                        .padding(horizontal = 16.dp),
-                    verticalAlignment = Alignment.CenterVertically
-                ) {
-                    Icon(Icons.Rounded.Search, tint = Color.Gray, contentDescription = null, modifier = Modifier.size(20.dp))
-                    Spacer(modifier = Modifier.width(8.dp))
-                    BasicTextField(
-                        value = searchQuery,
-                        onValueChange = { searchQuery = it },
-                        singleLine = true,
-                        textStyle = TextStyle(fontSize = 14.sp, color = CorporateBlue),
-                        decorationBox = { innerTextField ->
-                            if (searchQuery.isEmpty()) {
-                                Text("Pesquisar por nome, mesa...", fontSize = 14.sp, color = Color.Gray)
+                            Row(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color.White.copy(alpha = syncAlpha))
+                                    .clickable(enabled = !viewModel.isOffline) { viewModel.fetchSeatsFromApi() }
+                                    .padding(horizontal = 14.dp, vertical = 12.dp),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Icon(Icons.Rounded.Refresh, contentDescription = "Sync", tint = syncColor, modifier = Modifier.size(18.dp))
+                                Spacer(Modifier.width(6.dp))
+                                Text("Sync", color = syncColor, fontWeight = FontWeight.Bold, fontSize = 13.sp)
                             }
-                            innerTextField()
-                        },
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                }
-
-                Spacer(modifier = Modifier.width(8.dp))
-                IconButton(onClick = { showFilters = !showFilters }, modifier = Modifier.size(48.dp).background(Color.White, RoundedCornerShape(16.dp))) {
-                    Icon(Icons.Rounded.Tune, contentDescription = "Filtros", tint = TextGray)
-                }
-            }
-
-            // 👇 OTIMIZAÇÃO: Cálculo de mesas apenas é feito se a base de dados mudar 👇
-            val mesasUnicas by remember(seats) {
-                derivedStateOf { seats.map { getMesaFromSeat(it.seatNumber) }.distinct().sorted() }
-            }
-
-            AnimatedVisibility(visible = showFilters) {
-                Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                    Text("MESA", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                        FilterChipCustom("Todas", selectedTable == "Todas") { selectedTable = "Todas" }
-                        mesasUnicas.forEach { mesa -> FilterChipCustom(mesa, selectedTable == mesa) { selectedTable = mesa } }
-                    }
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("ESTADO", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                        listOf("Todos", "Tratados", "Pendentes").forEach { status -> FilterChipCustom(status, selectedStatus == status) { selectedStatus = status } }
+                        }
                     }
                 }
-            }
-
-            Spacer(modifier = Modifier.height(16.dp))
-
-            // 👇 OTIMIZAÇÃO: A filtragem super pesada agora está em Cache total! 👇
-            val filteredSeats by remember(seats, searchQuery, selectedTable, selectedStatus) {
-                derivedStateOf {
-                    seats.filter { seat ->
-                        val matchesSearch = seat.assignedTo?.contains(searchQuery, ignoreCase = true) == true || seat.seatNumber.contains(searchQuery, ignoreCase = true) || seat.eventName.contains(searchQuery, ignoreCase = true)
-                        val matchesTable = if (selectedTable == "Todas") true else getMesaFromSeat(seat.seatNumber) == selectedTable
-                        val matchesStatus = when (selectedStatus) { "Tratados" -> seat.status != 0; "Pendentes" -> seat.status == 0; else -> true }
-                        matchesSearch && matchesTable && matchesStatus
-                    }
-                }
-            }
-
-            Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                Text("${filteredSeats.size} registos", color = CorporateBlue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                Text("Toque para validar", color = Color.Gray, fontSize = 12.sp)
-            }
-
-            if (seats.isEmpty()) {
-                Column(modifier = Modifier.fillMaxSize().padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                    Box(modifier = Modifier.size(96.dp).background(AccentPurpleLight, RoundedCornerShape(32.dp)), contentAlignment = Alignment.Center) {
-                        Icon(Icons.Rounded.Description, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(48.dp))
-                    }
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Text("Sem dados carregados", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text("Importe um ficheiro CSV com separador \";\"\npara começar a gerir os seus dados.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
-                    Spacer(modifier = Modifier.height(32.dp))
-
+            },
+            bottomBar = {
+                Box(modifier = Modifier.fillMaxWidth().background(LightBg).padding(16.dp)) {
                     Button(
-                        onClick = {
-                            pendingAdminAction = { csvLauncher.launch("*/*") }
-                            showPinDialog = true
-                        },
-                        modifier = Modifier.fillMaxWidth(0.8f).height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
+                        onClick = { showModernScanner = true }, // Abre a nova câmara
+                        modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(20.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple), elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                     ) {
-                        Icon(Icons.Rounded.Upload, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("Importar Ficheiro", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        Icon(Icons.Rounded.QrCodeScanner, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Text("LER BILHETE (QR)", fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 1.sp)
                     }
                 }
-            } else {
-                LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                    // 👇 OTIMIZAÇÃO: A Mágica do "Key" impede recreação de UI ao validar lugares 👇
-                    items(
-                        items = filteredSeats,
-                        key = { seat -> seat.id }
-                    ) { seat ->
-                        GuestListItem(
-                            seat = seat,
-                            onAssignClick = {
-                                val novoEstado = if (seat.status == 0) 1 else 0
-                                if (requireConfirmation) seatToConfirmClick = seat else viewModel.updateSeatStatus(seat, novoEstado)
-                            }
-                        )
+            },
+            containerColor = LightBg
+        ) { paddingValues ->
+            Column(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp)) {
+
+                Card(
+                    shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()
+                ) {
+                    Column(modifier = Modifier.padding(16.dp)) {
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("Progresso", fontWeight = FontWeight.Bold, color = TextGray, fontSize = 14.sp)
+                            Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = CorporateBlue, fontSize = 14.sp)
+                        }
+                        Spacer(modifier = Modifier.height(8.dp))
+                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), color = SuccessGreen, trackColor = Color(0xFFF1F5F9))
+                        Spacer(modifier = Modifier.height(20.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                            StatCard(modifier = Modifier.weight(1f), title = "Total", count = totalSeats, iconColor = AccentPurple, bgTint = AccentPurpleLight, icon = Icons.Rounded.Groups)
+                            StatCard(modifier = Modifier.weight(1f), title = "Tratados", count = treatedSeats, iconColor = SuccessGreen, bgTint = SuccessGreenLight, icon = Icons.Rounded.CheckCircleOutline)
+                            StatCard(modifier = Modifier.weight(1f), title = "Pendentes", count = pendingSeats, iconColor = ErrorRed, bgTint = ErrorRedLight, icon = Icons.Rounded.Schedule)
+                        }
                     }
                 }
-            }
-        }
-    }
-
-    @OptIn(ExperimentalMaterial3Api::class)
-    if (showPinDialog) {
-        var pin by remember { mutableStateOf("") }
-        var isError by remember { mutableStateOf(false) }
-
-        ModernAlertDialog(
-            title = "Área Restrita",
-            message = "Insere o PIN de Gestão para acederes às definições.",
-            icon = Icons.Rounded.Lock,
-            iconTint = CorporateBlue,
-            iconBg = Color(0xFFF1F5F9),
-            confirmText = "Desbloquear",
-            confirmColor = CorporateBlue,
-            content = {
-                OutlinedTextField(
-                    value = pin,
-                    onValueChange = { pin = it; isError = false },
-                    visualTransformation = PasswordVisualTransformation(),
-                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                    singleLine = true,
-                    shape = RoundedCornerShape(16.dp),
-                    isError = isError,
-                    colors = OutlinedTextFieldDefaults.colors(
-                        focusedBorderColor = AccentPurple,
-                        unfocusedBorderColor = Color(0xFFE2E8F0)
-                    ),
-                    modifier = Modifier.fillMaxWidth()
-                )
-                if (isError) {
-                    Text("PIN Incorreto", color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp).fillMaxWidth(), textAlign = TextAlign.Start)
-                }
-            },
-            onConfirm = {
-                if (viewModel.verifyPin(pin)) {
-                    validatedAdminPin = pin
-                    showPinDialog = false
-                    pendingAdminAction?.invoke()
-                    pendingAdminAction = null
-                } else {
-                    isError = true
-                }
-            },
-            onDismiss = {
-                showPinDialog = false
-                pendingAdminAction = null
-            }
-        )
-    }
-
-    if (seatToConfirmClick != null) {
-        val novoEstado = if (seatToConfirmClick!!.status == 0) 1 else 0
-        val acao = if (novoEstado == 1) "ATRIBUIR entrada a" else "REMOVER entrada de"
-        val nomeConvidado = seatToConfirmClick!!.assignedTo ?: "Convite Sem Nome"
-        ModernAlertDialog(
-            title = "Confirmação", message = "Queres $acao $nomeConvidado?",
-            icon = Icons.Rounded.HelpOutline, iconTint = CorporateBlue, iconBg = Color(0xFFF1F5F9),
-            onConfirm = { viewModel.updateSeatStatus(seatToConfirmClick!!, novoEstado); seatToConfirmClick = null },
-            onDismiss = { seatToConfirmClick = null }
-        )
-    }
-
-    if (showCsvModeDialog && pendingCsvUri != null) {
-        ModernAlertDialog(
-            title = "Atenção: Sala Ocupada", message = "Esta sala já possui $totalSeats convidados. Queres SUBSTITUIR a lista apagando tudo, ou ADICIONAR à lista?",
-            icon = Icons.Rounded.Warning, iconTint = ErrorRed, iconBg = ErrorRedLight,
-            confirmText = "Substituir", confirmColor = ErrorRed,
-            onConfirm = { viewModel.uploadCsvToServer(pendingCsvUri!!, context, "replace"); showCsvModeDialog = false },
-            onDismiss = { viewModel.uploadCsvToServer(pendingCsvUri!!, context, "append"); showCsvModeDialog = false; pendingCsvUri = null },
-            cancelText = "Adicionar"
-        )
-    }
-
-    if (confirmActionType != null) {
-        val title = when (confirmActionType) {
-            "MARK_ALL" -> "Validar Todos"
-            "UNMARK_ALL" -> "Desmarcar Todos"
-            "CLEAR" -> "Limpar Ecrã"
-            "REMOVE_DUPS" -> "Remover Duplicados"
-            else -> ""
-        }
-        val msg = when (confirmActionType) {
-            "MARK_ALL" -> "Isto marcará $pendingSeats pendentes como Tratados."
-            "UNMARK_ALL" -> "Vais remover a validação de $treatedSeats convidados."
-            "CLEAR" -> "Isto vai limpar o ecrã. Usa o Sync para recuperar os dados."
-            "REMOVE_DUPS" -> "O sistema irá analisar a sala e remover registos duplicados no mesmo lugar, preservando os convidados validados."
-            else -> ""
-        }
-        val btnColor = if (confirmActionType == "MARK_ALL" || confirmActionType == "REMOVE_DUPS") SuccessGreen else ErrorRed
-        val icon = if (confirmActionType == "REMOVE_DUPS") Icons.Rounded.CleaningServices else if (confirmActionType == "MARK_ALL") Icons.Rounded.CheckCircle else Icons.Rounded.Warning
-        val bg = if (confirmActionType == "MARK_ALL" || confirmActionType == "REMOVE_DUPS") SuccessGreenLight else ErrorRedLight
-
-        ModernAlertDialog(
-            title = title, message = msg, icon = icon, iconTint = btnColor, iconBg = bg, confirmText = "Confirmar", confirmColor = btnColor,
-            onConfirm = {
-                when (confirmActionType) {
-                    "MARK_ALL" -> viewModel.bulkUpdateStatus("Tratado")
-                    "UNMARK_ALL" -> viewModel.bulkUpdateStatus("Vazio")
-                    "CLEAR" -> viewModel.clearEventData(validatedAdminPin)
-                    "REMOVE_DUPS" -> viewModel.removeDuplicateSeats(validatedAdminPin)
-                }
-                confirmActionType = null
-            }, onDismiss = { confirmActionType = null }
-        )
-    }
-
-    if (viewModel.appFeedback != null) {
-        AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
-    }
-
-    @OptIn(ExperimentalMaterial3Api::class)
-    if (showActionsSheet) {
-        ModalBottomSheet(onDismissRequest = { showActionsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
-                Text("Ações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
-
-                Text("EXPORTAR", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
-                BottomSheetItem(icon = Icons.Rounded.Download, title = "Exportar CSV", subtitle = "$totalSeats registos com estado atual", iconColor = PrimaryBlue, iconBg = Color(0xFFEFF6FF)) { exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
 
                 Spacer(modifier = Modifier.height(16.dp))
-                Text("GESTÃO DE DADOS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
-                BottomSheetItem(icon = Icons.Rounded.Upload, title = "Importar Novo Ficheiro", subtitle = "Substituir ou adicionar dados", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { csvLauncher.launch("*/*") }
-                BottomSheetItem(icon = Icons.Rounded.CheckCircle, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { confirmActionType = "MARK_ALL"; showActionsSheet = false }
-                BottomSheetItem(icon = Icons.Rounded.Cancel, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconColor = TextGray, iconBg = Color(0xFFF1F5F9)) { confirmActionType = "UNMARK_ALL"; showActionsSheet = false }
-                BottomSheetItem(icon = Icons.Rounded.Delete, title = "Limpar Ecrã", subtitle = "Remover dados locais", iconColor = ErrorRed, iconBg = ErrorRedLight) { confirmActionType = "CLEAR"; showActionsSheet = false }
-                BottomSheetItem(icon = Icons.Rounded.CleaningServices, title = "Remover Registos Duplicados", subtitle = "Limpeza inteligente da base de dados", iconColor = AccentPurple, iconBg = AccentPurpleLight) { confirmActionType = "REMOVE_DUPS"; showActionsSheet = false }
 
-                BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) { showActionsSheet = false; showSettingsSheet = true }
+                Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier
+                            .weight(1f)
+                            .height(48.dp)
+                            .background(Color.White, RoundedCornerShape(16.dp))
+                            .padding(horizontal = 16.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.Search, tint = Color.Gray, contentDescription = null, modifier = Modifier.size(20.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        BasicTextField(
+                            value = searchQuery,
+                            onValueChange = { searchQuery = it },
+                            singleLine = true,
+                            textStyle = TextStyle(fontSize = 14.sp, color = CorporateBlue),
+                            decorationBox = { innerTextField ->
+                                if (searchQuery.isEmpty()) {
+                                    Text("Pesquisar por nome, mesa...", fontSize = 14.sp, color = Color.Gray)
+                                }
+                                innerTextField()
+                            },
+                            modifier = Modifier.fillMaxWidth()
+                        )
+                    }
 
-                Spacer(modifier = Modifier.height(24.dp))
-                OutlinedButton(onClick = { showActionsSheet = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) { Text("Cancelar", color = TextGray, fontWeight = FontWeight.Bold) }
-                Spacer(modifier = Modifier.navigationBarsPadding())
-            }
-        }
-    }
-
-    @OptIn(ExperimentalMaterial3Api::class)
-    if (showSettingsSheet) {
-        ModalBottomSheet(onDismissRequest = { showSettingsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
-            Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
-                Text("Configurações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
-                Card(colors = CardDefaults.cardColors(containerColor = LightBg), border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
-                    Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text("Confirmar ao atribuir", fontWeight = FontWeight.Bold, color = CorporateBlue)
-                            Text("Apresentar modal antes de alterar estado.", color = TextGray, fontSize = 12.sp, lineHeight = 16.sp)
-                        }
-                        Switch(checked = requireConfirmation, onCheckedChange = { requireConfirmation = it }, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = AccentPurple))
+                    Spacer(modifier = Modifier.width(8.dp))
+                    IconButton(onClick = { showFilters = !showFilters }, modifier = Modifier.size(48.dp).background(Color.White, RoundedCornerShape(16.dp))) {
+                        Icon(Icons.Rounded.Tune, contentDescription = "Filtros", tint = TextGray)
                     }
                 }
-                Spacer(modifier = Modifier.height(24.dp))
-                Button(onClick = { showSettingsSheet = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)) { Text("Guardar e Fechar", fontWeight = FontWeight.Bold) }
-                Spacer(modifier = Modifier.navigationBarsPadding())
+
+                val mesasUnicas by remember(seats) {
+                    derivedStateOf { seats.map { getMesaFromSeat(it.seatNumber) }.distinct().sorted() }
+                }
+
+                AnimatedVisibility(visible = showFilters) {
+                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
+                        Text("MESA", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                            FilterChipCustom("Todas", selectedTable == "Todas") { selectedTable = "Todas" }
+                            mesasUnicas.forEach { mesa -> FilterChipCustom(mesa, selectedTable == mesa) { selectedTable = mesa } }
+                        }
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("ESTADO", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            listOf("Todos", "Tratados", "Pendentes").forEach { status -> FilterChipCustom(status, selectedStatus == status) { selectedStatus = status } }
+                        }
+                    }
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                val filteredSeats by remember(seats, searchQuery, selectedTable, selectedStatus) {
+                    derivedStateOf {
+                        seats.filter { seat ->
+                            val matchesSearch = seat.assignedTo?.contains(searchQuery, ignoreCase = true) == true || seat.seatNumber.contains(searchQuery, ignoreCase = true) || seat.eventName.contains(searchQuery, ignoreCase = true)
+                            val matchesTable = if (selectedTable == "Todas") true else getMesaFromSeat(seat.seatNumber) == selectedTable
+                            val matchesStatus = when (selectedStatus) { "Tratados" -> seat.status != 0; "Pendentes" -> seat.status == 0; else -> true }
+                            matchesSearch && matchesTable && matchesStatus
+                        }
+                    }
+                }
+
+                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                    Text("${filteredSeats.size} registos", color = CorporateBlue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                    Text("Toque para validar", color = Color.Gray, fontSize = 12.sp)
+                }
+
+                if (seats.isEmpty()) {
+                    Column(modifier = Modifier.fillMaxSize().padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Box(modifier = Modifier.size(96.dp).background(AccentPurpleLight, RoundedCornerShape(32.dp)), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Description, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(48.dp))
+                        }
+                        Spacer(modifier = Modifier.height(24.dp))
+                        Text("Sem dados carregados", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Importe um ficheiro CSV com separador \";\"\npara começar a gerir os seus dados.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
+                        Spacer(modifier = Modifier.height(32.dp))
+
+                        Button(
+                            onClick = {
+                                pendingAdminAction = { csvLauncher.launch("*/*") }
+                                showPinDialog = true
+                            },
+                            modifier = Modifier.fillMaxWidth(0.8f).height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
+                        ) {
+                            Icon(Icons.Rounded.Upload, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Importar Ficheiro", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        }
+                    }
+                } else {
+                    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        items(
+                            items = filteredSeats,
+                            key = { seat -> seat.id }
+                        ) { seat ->
+                            GuestListItem(
+                                seat = seat,
+                                onAssignClick = {
+                                    val novoEstado = if (seat.status == 0) 1 else 0
+                                    if (requireConfirmation) seatToConfirmClick = seat else viewModel.updateSeatStatus(seat, novoEstado)
+                                }
+                            )
+                        }
+                    }
+                }
             }
+        }
+
+        // ==========================================
+        // DIALOGS & OVERLAYS DO ECRÃ SEATSCREEN
+        // ==========================================
+
+        @OptIn(ExperimentalMaterial3Api::class)
+        if (showPinDialog) {
+            var pin by remember { mutableStateOf("") }
+            var isError by remember { mutableStateOf(false) }
+
+            ModernAlertDialog(
+                title = "Área Restrita",
+                message = "Insere o PIN de Gestão para acederes às definições.",
+                icon = Icons.Rounded.Lock,
+                iconTint = CorporateBlue,
+                iconBg = Color(0xFFF1F5F9),
+                confirmText = "Desbloquear",
+                confirmColor = CorporateBlue,
+                content = {
+                    OutlinedTextField(
+                        value = pin,
+                        onValueChange = { pin = it; isError = false },
+                        visualTransformation = PasswordVisualTransformation(),
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                        singleLine = true,
+                        shape = RoundedCornerShape(16.dp),
+                        isError = isError,
+                        colors = OutlinedTextFieldDefaults.colors(
+                            focusedBorderColor = AccentPurple,
+                            unfocusedBorderColor = Color(0xFFE2E8F0)
+                        ),
+                        modifier = Modifier.fillMaxWidth()
+                    )
+                    if (isError) {
+                        Text("PIN Incorreto", color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp).fillMaxWidth(), textAlign = TextAlign.Start)
+                    }
+                },
+                onConfirm = {
+                    if (viewModel.verifyPin(pin)) {
+                        validatedAdminPin = pin
+                        showPinDialog = false
+                        pendingAdminAction?.invoke()
+                        pendingAdminAction = null
+                    } else {
+                        isError = true
+                    }
+                },
+                onDismiss = {
+                    showPinDialog = false
+                    pendingAdminAction = null
+                }
+            )
+        }
+
+        if (seatToConfirmClick != null) {
+            val novoEstado = if (seatToConfirmClick!!.status == 0) 1 else 0
+            val acao = if (novoEstado == 1) "ATRIBUIR entrada a" else "REMOVER entrada de"
+            val nomeConvidado = seatToConfirmClick!!.assignedTo ?: "Convite Sem Nome"
+            ModernAlertDialog(
+                title = "Confirmação", message = "Queres $acao $nomeConvidado?",
+                icon = Icons.Rounded.HelpOutline, iconTint = CorporateBlue, iconBg = Color(0xFFF1F5F9),
+                onConfirm = { viewModel.updateSeatStatus(seatToConfirmClick!!, novoEstado); seatToConfirmClick = null },
+                onDismiss = { seatToConfirmClick = null }
+            )
+        }
+
+        if (showCsvModeDialog && pendingCsvUri != null) {
+            ModernAlertDialog(
+                title = "Atenção: Sala Ocupada", message = "Esta sala já possui $totalSeats convidados. Queres SUBSTITUIR a lista apagando tudo, ou ADICIONAR à lista?",
+                icon = Icons.Rounded.Warning, iconTint = ErrorRed, iconBg = ErrorRedLight,
+                confirmText = "Substituir", confirmColor = ErrorRed,
+                onConfirm = { viewModel.uploadCsvToServer(pendingCsvUri!!, context, "replace"); showCsvModeDialog = false },
+                onDismiss = { viewModel.uploadCsvToServer(pendingCsvUri!!, context, "append"); showCsvModeDialog = false; pendingCsvUri = null },
+                cancelText = "Adicionar"
+            )
+        }
+
+        if (confirmActionType != null) {
+            val title = when (confirmActionType) {
+                "MARK_ALL" -> "Validar Todos"
+                "UNMARK_ALL" -> "Desmarcar Todos"
+                "CLEAR" -> "Limpar Ecrã"
+                "REMOVE_DUPS" -> "Remover Duplicados"
+                else -> ""
+            }
+            val msg = when (confirmActionType) {
+                "MARK_ALL" -> "Isto marcará $pendingSeats pendentes como Tratados."
+                "UNMARK_ALL" -> "Vais remover a validação de $treatedSeats convidados."
+                "CLEAR" -> "Isto vai limpar o ecrã. Usa o Sync para recuperar os dados."
+                "REMOVE_DUPS" -> "O sistema irá analisar a sala e remover registos duplicados no mesmo lugar, preservando os convidados validados."
+                else -> ""
+            }
+            val btnColor = if (confirmActionType == "MARK_ALL" || confirmActionType == "REMOVE_DUPS") SuccessGreen else ErrorRed
+            val icon = if (confirmActionType == "REMOVE_DUPS") Icons.Rounded.CleaningServices else if (confirmActionType == "MARK_ALL") Icons.Rounded.CheckCircle else Icons.Rounded.Warning
+            val bg = if (confirmActionType == "MARK_ALL" || confirmActionType == "REMOVE_DUPS") SuccessGreenLight else ErrorRedLight
+
+            ModernAlertDialog(
+                title = title, message = msg, icon = icon, iconTint = btnColor, iconBg = bg, confirmText = "Confirmar", confirmColor = btnColor,
+                onConfirm = {
+                    when (confirmActionType) {
+                        "MARK_ALL" -> viewModel.bulkUpdateStatus("Tratado")
+                        "UNMARK_ALL" -> viewModel.bulkUpdateStatus("Vazio")
+                        "CLEAR" -> viewModel.clearEventData(validatedAdminPin)
+                        "REMOVE_DUPS" -> viewModel.removeDuplicateSeats(validatedAdminPin)
+                    }
+                    confirmActionType = null
+                }, onDismiss = { confirmActionType = null }
+            )
+        }
+
+        if (viewModel.appFeedback != null) {
+            AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
+        }
+
+        @OptIn(ExperimentalMaterial3Api::class)
+        if (showActionsSheet) {
+            ModalBottomSheet(onDismissRequest = { showActionsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
+                    Text("Ações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
+
+                    Text("EXPORTAR", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
+                    BottomSheetItem(icon = Icons.Rounded.Download, title = "Exportar CSV", subtitle = "$totalSeats registos com estado atual", iconColor = PrimaryBlue, iconBg = Color(0xFFEFF6FF)) { exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    Text("GESTÃO DE DADOS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
+                    BottomSheetItem(icon = Icons.Rounded.Upload, title = "Importar Novo Ficheiro", subtitle = "Substituir ou adicionar dados", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { csvLauncher.launch("*/*") }
+                    BottomSheetItem(icon = Icons.Rounded.CheckCircle, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { confirmActionType = "MARK_ALL"; showActionsSheet = false }
+                    BottomSheetItem(icon = Icons.Rounded.Cancel, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconColor = TextGray, iconBg = Color(0xFFF1F5F9)) { confirmActionType = "UNMARK_ALL"; showActionsSheet = false }
+                    BottomSheetItem(icon = Icons.Rounded.Delete, title = "Limpar Ecrã", subtitle = "Remover dados locais", iconColor = ErrorRed, iconBg = ErrorRedLight) { confirmActionType = "CLEAR"; showActionsSheet = false }
+                    BottomSheetItem(icon = Icons.Rounded.CleaningServices, title = "Remover Registos Duplicados", subtitle = "Limpeza inteligente da base de dados", iconColor = AccentPurple, iconBg = AccentPurpleLight) { confirmActionType = "REMOVE_DUPS"; showActionsSheet = false }
+
+                    BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) { showActionsSheet = false; showSettingsSheet = true }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    OutlinedButton(onClick = { showActionsSheet = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) { Text("Cancelar", color = TextGray, fontWeight = FontWeight.Bold) }
+                    Spacer(modifier = Modifier.navigationBarsPadding())
+                }
+            }
+        }
+
+        @OptIn(ExperimentalMaterial3Api::class)
+        if (showSettingsSheet) {
+            ModalBottomSheet(onDismissRequest = { showSettingsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
+                    Text("Configurações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
+                    Card(colors = CardDefaults.cardColors(containerColor = LightBg), border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                        Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text("Confirmar ao atribuir", fontWeight = FontWeight.Bold, color = CorporateBlue)
+                                Text("Apresentar modal antes de alterar estado.", color = TextGray, fontSize = 12.sp, lineHeight = 16.sp)
+                            }
+                            Switch(checked = requireConfirmation, onCheckedChange = { requireConfirmation = it }, colors = SwitchDefaults.colors(checkedThumbColor = Color.White, checkedTrackColor = AccentPurple))
+                        }
+                    }
+                    Spacer(modifier = Modifier.height(24.dp))
+                    Button(onClick = { showSettingsSheet = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)) { Text("Guardar e Fechar", fontWeight = FontWeight.Bold) }
+                    Spacer(modifier = Modifier.navigationBarsPadding())
+                }
+            }
+        }
+
+        // ==========================================
+        // SCANNER DE ECRÃ INTEIRO
+        // ==========================================
+        if (showModernScanner) {
+            ModernQrScanner(
+                onQrCodeScanned = { result ->
+                    showModernScanner = false
+                    viewModel.validateTicketFromQr(result.trim())
+                },
+                onClose = { showModernScanner = false }
+            )
         }
     }
 }
