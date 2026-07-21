@@ -283,101 +283,134 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun removeDuplicateSeats(pin: String) {
-        if (isOffline) {
-            appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "A remoção de duplicados requer internet.")
-            return
-        }
-        val safeEventId = currentEventId ?: return
-        if (jwtToken == null) return
+/*
+// ====================================================================
+// NOTA DE ARQUITETURA:
+// A função removeDuplicateSeats() foi descontinuada do lado do cliente (App).
+// A responsabilidade de limpar "bad registers" e duplicados passou
+// a ser 100% do Backend. O C# agora executa o algoritmo de deduplicação
+// automaticamente no final do endpoint de Upload de CSV.
+// ====================================================================
+fun removeDuplicateSeats(pin: String) {
+    if (isOffline) {
+        appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "A remoção de duplicados requer internet.")
+        return
+    }
+    val safeEventId = currentEventId ?: return
+    if (jwtToken == null) return
 
-        viewModelScope.launch {
-            try {
-                appFeedback = AppFeedback(FeedbackType.INFO, "A Processar", "A limpar registos duplicados no servidor...")
-                val response = RetrofitClient.apiService.removeDuplicates("Bearer $jwtToken", safeEventId, ClearDatabaseDto(pin))
+    viewModelScope.launch {
+        try {
+            appFeedback = AppFeedback(FeedbackType.INFO, "A Processar", "A limpar registos duplicados no servidor...")
+            val response = RetrofitClient.apiService.removeDuplicates("Bearer $jwtToken", safeEventId, ClearDatabaseDto(pin))
 
-                if (response.isSuccessful) {
-                    fetchSeatsFromApi() // Recarrega os dados locais já limpos
-                    appFeedback = AppFeedback(FeedbackType.SUCCESS, "Limpeza Concluída", "Registos duplicados removidos com sucesso.")
-                } else {
-                    appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha ao processar a limpeza no servidor.")
-                }
-            } catch (e: Exception) {
-                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de comunicação com o servidor.")
+            if (response.isSuccessful) {
+                fetchSeatsFromApi() // Recarrega os dados locais já limpos
+                appFeedback = AppFeedback(FeedbackType.SUCCESS, "Limpeza Concluída", "Registos duplicados removidos com sucesso.")
+            } else {
+                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha ao processar a limpeza no servidor.")
             }
+        } catch (e: Exception) {
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de comunicação com o servidor.")
         }
     }
+}
+*/
 
-    fun uploadCsvToServer(uri: Uri, context: Context, mode: String) {
-        if (isOffline) {
-            appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "Upload requer internet.")
-            return
-        }
-        val safeEventId = currentEventId ?: return
-        if (jwtToken == null) return
-
-        viewModelScope.launch {
-            try {
-                appFeedback = AppFeedback(FeedbackType.INFO, "A enviar...", "A processar o ficheiro para o servidor.")
-                val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("Erro a ler ficheiro")
-                val tempFile = java.io.File(context.cacheDir, "upload_temp.csv")
-                tempFile.outputStream().use { inputStream.copyTo(it) }
-
-                val requestFile = okhttp3.RequestBody.create(okhttp3.MediaType.parse("text/csv"), tempFile)
-                val body = okhttp3.MultipartBody.Part.createFormData("file", "upload.csv", requestFile)
-
-                val response = RetrofitClient.apiService.uploadCsv("Bearer $jwtToken", safeEventId, mode, body)
-                if (response.isSuccessful) appFeedback = AppFeedback(FeedbackType.SUCCESS, "Concluído", "Dados enviados para o servidor.")
-                else appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Servidor rejeitou o ficheiro.")
-            } catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de comunicação.") }
-        }
+fun uploadCsvToServer(uri: Uri, context: Context, mode: String) {
+    if (isOffline) {
+        appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "Upload requer internet.")
+        return
     }
+    val safeEventId = currentEventId ?: return
+    if (jwtToken == null) return
 
-    fun clearEventData(pin: String) {
-        viewModelScope.launch {
-            repository.deleteAllSeats()
-            appFeedback = AppFeedback(
-                FeedbackType.INFO,
-                "Ecrã Limpo",
-                "Os dados foram removidos deste dispositivo. Clica em 'Sync' para os recuperar do servidor."
-            )
-        }
-    }
+    viewModelScope.launch {
+        try {
+            appFeedback = AppFeedback(FeedbackType.INFO, "A processar...", "A importar e a limpar duplicados no servidor...")
 
-    // 👇 EXPORTAÇÃO CORRIGIDA (Adiciona a 6ª Coluna de DATA_HORA) 👇
-    fun exportCsv(uri: Uri, context: Context) {
-        viewModelScope.launch {
-            try {
-                val currentSeats = seatsFlow.first()
-                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                    val writer = BufferedWriter(OutputStreamWriter(outputStream))
+            val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("Erro a ler ficheiro")
+            val tempFile = java.io.File(context.cacheDir, "upload_temp.csv")
+            tempFile.outputStream().use { inputStream.copyTo(it) }
 
-                    // Cabeçalho atualizado
-                    writer.write("MESA;LUGAR;CATEGORIA;ESTADO;NOME;DATA_HORA\n")
+            val requestFile = okhttp3.RequestBody.create(okhttp3.MediaType.parse("text/csv"), tempFile)
+            val body = okhttp3.MultipartBody.Part.createFormData("file", "upload.csv", requestFile)
 
-                    currentSeats.forEach { seat ->
-                        val assigned = seat.assignedTo ?: ""
-                        val statusText = when(seat.status) { 1 -> "Validado"; 2 -> "Tratado"; else -> "Pendente" }
-                        val partes = seat.seatNumber.split("-")
-                        val mesa = if (partes.size > 1) partes[0] else ""
-                        val lugar = if (partes.size > 1) partes[1] else seat.seatNumber
+            val response = RetrofitClient.apiService.uploadCsv("Bearer $jwtToken", safeEventId, mode, body)
 
-                        // Limpa os milissegundos e o 'T' que a API C# devolve para ficar limpo (Ex: 2026-07-12 10:10:53)
-                        val dataHora = seat.markedAt?.replace("T", " ")?.substringBefore(".") ?: ""
+            if (response.isSuccessful) {
+                fetchSeatsFromApi()
 
-                        writer.write("${mesa};${lugar};${seat.eventName};${statusText};${assigned};${dataHora}\n")
+                val finalMessage = try {
+                    val responseBodyStr = response.body().toString()
+
+                    val regex = "removidos (\\d+) registos".toRegex()
+                    val match = regex.find(responseBodyStr)
+
+                    if (match != null) {
+                            "Importação concluída com sucesso!\n\nA inteligência do servidor detetou e removeu ${match.groupValues[1]} lugares duplicados."
+                    } else {
+                            "Importação concluída. A lista foi otimizada com sucesso."
                     }
-                    writer.flush()
+                } catch (e: Exception) {
+                        "Dados importados e otimizados pelo servidor."
                 }
-                appFeedback = AppFeedback(FeedbackType.EXPORT, "Ficheiro Exportado", "Guardado nos Downloads do dispositivo.")
-            } catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha ao gravar.") }
+
+                appFeedback = AppFeedback(FeedbackType.SUCCESS, "Importação Limpa", finalMessage)
+            } else {
+                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Servidor rejeitou o ficheiro.")
+            }
+        } catch (e: Exception) {
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de comunicação.")
         }
     }
+}
 
-    fun clearFeedback() { appFeedback = null }
-
-    override fun onCleared() {
-        super.onCleared()
-        mqttManager.disconnect()
+fun clearEventData(pin: String) {
+    viewModelScope.launch {
+        repository.deleteAllSeats()
+        appFeedback = AppFeedback(
+            FeedbackType.INFO,
+            "Ecrã Limpo",
+            "Os dados foram removidos deste dispositivo. Clica em 'Sync' para os recuperar do servidor."
+        )
     }
+}
+
+// 👇 EXPORTAÇÃO CORRIGIDA (Adiciona a 6ª Coluna de DATA_HORA) 👇
+fun exportCsv(uri: Uri, context: Context) {
+    viewModelScope.launch {
+        try {
+            val currentSeats = seatsFlow.first()
+            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                val writer = BufferedWriter(OutputStreamWriter(outputStream))
+
+                // Cabeçalho atualizado
+                writer.write("MESA;LUGAR;CATEGORIA;ESTADO;NOME;DATA_HORA\n")
+
+                currentSeats.forEach { seat ->
+                    val assigned = seat.assignedTo ?: ""
+                    val statusText = when(seat.status) { 1 -> "Validado"; 2 -> "Tratado"; else -> "Pendente" }
+                    val partes = seat.seatNumber.split("-")
+                    val mesa = if (partes.size > 1) partes[0] else ""
+                    val lugar = if (partes.size > 1) partes[1] else seat.seatNumber
+
+                    // Limpa os milissegundos e o 'T' que a API C# devolve para ficar limpo (Ex: 2026-07-12 10:10:53)
+                    val dataHora = seat.markedAt?.replace("T", " ")?.substringBefore(".") ?: ""
+
+                    writer.write("${mesa};${lugar};${seat.eventName};${statusText};${assigned};${dataHora}\n")
+                }
+                writer.flush()
+            }
+            appFeedback = AppFeedback(FeedbackType.EXPORT, "Ficheiro Exportado", "Guardado nos Downloads do dispositivo.")
+        } catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha ao gravar.") }
+    }
+}
+
+fun clearFeedback() { appFeedback = null }
+
+override fun onCleared() {
+    super.onCleared()
+    mqttManager.disconnect()
+}
 }

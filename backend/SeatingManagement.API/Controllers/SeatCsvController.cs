@@ -28,7 +28,7 @@ namespace SeatingManagement.API.Controllers
             _mqttService = mqttService;
         }
 
-        // 👇 ROTA ATUALIZADA: Suporta Receção de Ficheiros do Telemóvel e Modo Replace/Append
+        // 👇 ROTA ATUALIZADA: Agora com Limpeza Automática de Duplicados!
         [HttpPost("import/{eventId}")]
         public async Task<IActionResult> ImportCsv(int eventId, IFormFile file, [FromQuery] string mode = "replace")
         {
@@ -58,8 +58,6 @@ namespace SeatingManagement.API.Controllers
 
                 while (csv.Read())
                 {
-                    // 👇 LEITURA INTELIGENTE: Procura pelo nome da coluna em vez da posição. 
-                    // Se a coluna não existir no ficheiro, ele assume vazio sem dar erro!
                     csv.TryGetField("MESA", out string? rawMesa);
                     csv.TryGetField("LUGAR", out string? rawLugar);
                     csv.TryGetField("CATEGORIA", out string? rawCategoria);
@@ -102,9 +100,12 @@ namespace SeatingManagement.API.Controllers
                 await _context.Seats.AddRangeAsync(newSeats);
                 await _context.SaveChangesAsync();
 
+                int removedCount = await AutoRemoveDuplicatesAsync(eventId);
+
                 if (_mqttService != null) _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
 
-                return Ok(new { Message = $"Ficheiro importado com sucesso! {newSeats.Count} registos processados em modo '{mode}'." });
+                string extraMessage = removedCount > 0 ? $" Foram removidos {removedCount} registos duplicados automaticamente." : "";
+                return Ok(new { Message = $"Ficheiro importado com sucesso! {newSeats.Count} registos processados em modo '{mode}'.{extraMessage}" });
             }
             catch (Exception ex)
             {
@@ -112,7 +113,6 @@ namespace SeatingManagement.API.Controllers
             }
         }
 
-        // 👇 ROTA ATUALIZADA: Limpa APENAS os dados do Evento selecionado com Validação Inteligente de PIN!
         [HttpPost("clear/{eventId}")]
         public async Task<IActionResult> ClearDatabase(int eventId, [FromBody] ClearDatabaseDto request)
         {
@@ -121,25 +121,21 @@ namespace SeatingManagement.API.Controllers
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserGuid == Guid.Parse(userGuidStr));
 
-            // 👇 VALIDAÇÃO INTELIGENTE: Suporta o teu utilizador antigo E os novos utilizadores encriptados 👇
             bool isPinValid = false;
             if (user != null && !string.IsNullOrEmpty(user.PinHash))
             {
                 if (user.PinHash == request.Pin)
                 {
-                    // 1. O utilizador é "antigo" e o PIN ainda está em texto simples na BD ("1234")
                     isPinValid = true; 
                 }
                 else
                 {
                     try 
                     {
-                        // 2. O utilizador é novo e o PIN já está encriptado (BCrypt)
                         isPinValid = BCrypt.Net.BCrypt.Verify(request.Pin, user.PinHash); 
                     }
                     catch 
                     { 
-                        // Se o Verify falhar de forma catastrófica (por formato inválido), capturamos o erro
                         isPinValid = false; 
                     }
                 }
@@ -150,7 +146,6 @@ namespace SeatingManagement.API.Controllers
                 return BadRequest(new { Message = "PIN de gestão inválido." });
             }
 
-            // Apaga SÓ os dados deste evento, não a BD toda!
             var seatsToDelete = await _context.Seats.Where(s => s.EventId == eventId).ToListAsync();
             _context.Seats.RemoveRange(seatsToDelete);
             await _context.SaveChangesAsync();
@@ -160,38 +155,19 @@ namespace SeatingManagement.API.Controllers
             return Ok(new { Message = "Dados do evento limpos com sucesso!" });
         }
 
-        // Remove registos duplicados mantendo o que já está validado/tratado!
-        [HttpPost("remove-duplicates/{eventId}")]
-        public async Task<IActionResult> RemoveDuplicates(int eventId, [FromBody] ClearDatabaseDto request)
+        // 👇 MÉTODO PRIVADO: O motor inteligente que limpa duplicados nos bastidores
+        private async Task<int> AutoRemoveDuplicatesAsync(int eventId)
         {
-            var userGuidStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
-            if (string.IsNullOrEmpty(userGuidStr)) return Unauthorized();
-
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserGuid == Guid.Parse(userGuidStr));
-            
-            // Validação de segurança idêntica às outras rotas de gestão
-            bool isPinValid = user != null && !string.IsNullOrEmpty(user.PinHash) && 
-                              (user.PinHash == request.Pin || BCrypt.Net.BCrypt.Verify(request.Pin, user.PinHash));
-
-            if (!isPinValid) return BadRequest(new { Message = "PIN de gestão inválido." });
-
-            // 1. Vai buscar todos os lugares deste evento
             var allSeats = await _context.Seats.Where(s => s.EventId == eventId).ToListAsync();
-
-            // 2. Agrupa por SeatNumber para encontrar duplicados
             var groupedSeats = allSeats.GroupBy(s => s.SeatNumber).Where(g => g.Count() > 1);
-
             var seatsToRemove = new List<Seat>();
 
             foreach (var group in groupedSeats)
             {
-                // Ordena: primeiro os Tratados/Validados (Status 2, depois 1), depois os Pendentes (0) por ID mais recente
+                // Prioriza os validados/tratados e os mais recentes
                 var orderedGroup = group.OrderByDescending(s => (int)s.Status).ThenByDescending(s => s.Id).ToList();
                 
-                // Mantemos o primeiro (o mais relevante) e mandamos os restantes para a lista de remoção
-                var seatToKeep = orderedGroup.First();
                 var duplicates = orderedGroup.Skip(1);
-                
                 seatsToRemove.AddRange(duplicates);
             }
 
@@ -199,14 +175,10 @@ namespace SeatingManagement.API.Controllers
             {
                 _context.Seats.RemoveRange(seatsToRemove);
                 await _context.SaveChangesAsync();
-
-                // Notifica todos os telemóveis para recarregarem a lista limpa
-                if (_mqttService != null) _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
-
-                return Ok(new { Message = $"Limpeza concluída! Foram removidos {seatsToRemove.Count} registos duplicados." });
+                return seatsToRemove.Count;
             }
 
-            return Ok(new { Message = "Não foram encontrados registos duplicados neste evento." });
+            return 0;
         }
 
         private string SanitizeInput(string? input)

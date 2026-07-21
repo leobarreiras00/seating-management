@@ -680,19 +680,20 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 "MARK_ALL" -> "Validar Todos"
                 "UNMARK_ALL" -> "Desmarcar Todos"
                 "CLEAR" -> "Limpar Ecrã"
-                "REMOVE_DUPS" -> "Remover Duplicados"
+                // "REMOVE_DUPS" -> "Remover Duplicados"
                 else -> ""
             }
             val msg = when (confirmActionType) {
                 "MARK_ALL" -> "Isto marcará $pendingSeats pendentes como Tratados."
                 "UNMARK_ALL" -> "Vais remover a validação de $treatedSeats convidados."
                 "CLEAR" -> "Isto vai limpar o ecrã. Usa o Sync para recuperar os dados."
-                "REMOVE_DUPS" -> "O sistema irá analisar a sala e remover registos duplicados no mesmo lugar, preservando os convidados validados."
+                // "REMOVE_DUPS" -> "O sistema irá analisar a sala e remover registos duplicados no mesmo lugar, preservando os convidados validados."
                 else -> ""
             }
-            val btnColor = if (confirmActionType == "MARK_ALL" || confirmActionType == "REMOVE_DUPS") SuccessGreen else ErrorRed
-            val icon = if (confirmActionType == "REMOVE_DUPS") Icons.Rounded.CleaningServices else if (confirmActionType == "MARK_ALL") Icons.Rounded.CheckCircle else Icons.Rounded.Warning
-            val bg = if (confirmActionType == "MARK_ALL" || confirmActionType == "REMOVE_DUPS") SuccessGreenLight else ErrorRedLight
+
+            val btnColor = if (confirmActionType == "MARK_ALL") SuccessGreen else ErrorRed
+            val icon = if (confirmActionType == "MARK_ALL") Icons.Rounded.CheckCircle else Icons.Rounded.Warning
+            val bg = if (confirmActionType == "MARK_ALL") SuccessGreenLight else ErrorRedLight
 
             ModernAlertDialog(
                 title = title, message = msg, icon = icon, iconTint = btnColor, iconBg = bg, confirmText = "Confirmar", confirmColor = btnColor,
@@ -701,7 +702,7 @@ fun SeatScreen(viewModel: SeatViewModel) {
                         "MARK_ALL" -> viewModel.bulkUpdateStatus("Tratado")
                         "UNMARK_ALL" -> viewModel.bulkUpdateStatus("Vazio")
                         "CLEAR" -> viewModel.clearEventData(validatedAdminPin)
-                        "REMOVE_DUPS" -> viewModel.removeDuplicateSeats(validatedAdminPin)
+                        // "REMOVE_DUPS" -> viewModel.removeDuplicateSeats(validatedAdminPin)
                     }
                     confirmActionType = null
                 }, onDismiss = { confirmActionType = null }
@@ -727,7 +728,8 @@ fun SeatScreen(viewModel: SeatViewModel) {
                     BottomSheetItem(icon = Icons.Rounded.CheckCircle, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { confirmActionType = "MARK_ALL"; showActionsSheet = false }
                     BottomSheetItem(icon = Icons.Rounded.Cancel, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconColor = TextGray, iconBg = Color(0xFFF1F5F9)) { confirmActionType = "UNMARK_ALL"; showActionsSheet = false }
                     BottomSheetItem(icon = Icons.Rounded.Delete, title = "Limpar Ecrã", subtitle = "Remover dados locais", iconColor = ErrorRed, iconBg = ErrorRedLight) { confirmActionType = "CLEAR"; showActionsSheet = false }
-                    BottomSheetItem(icon = Icons.Rounded.CleaningServices, title = "Remover Registos Duplicados", subtitle = "Limpeza inteligente da base de dados", iconColor = AccentPurple, iconBg = AccentPurpleLight) { confirmActionType = "REMOVE_DUPS"; showActionsSheet = false }
+
+                    // BottomSheetItem(icon = Icons.Rounded.CleaningServices, title = "Remover Registos Duplicados", subtitle = "Limpeza inteligente da base de dados", iconColor = AccentPurple, iconBg = AccentPurpleLight) { confirmActionType = "REMOVE_DUPS"; showActionsSheet = false }
 
                     BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) { showActionsSheet = false; showSettingsSheet = true }
 
