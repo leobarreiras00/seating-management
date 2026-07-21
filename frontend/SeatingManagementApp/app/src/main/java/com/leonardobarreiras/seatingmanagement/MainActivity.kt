@@ -255,8 +255,10 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
     var manualEventId by remember { mutableStateOf("") }
     var localError by remember { mutableStateOf<String?>(null) }
 
-    // Estado para o nosso novo Scanner Moderno ML Kit
+    /*
+    // [FEATURE FUTURA] - Estado do Scanner
     var showModernScanner by remember { mutableStateOf(false) }
+    */
 
     LaunchedEffect(viewModel.currentEventId) { if (viewModel.currentEventId != null) onEventSelected() }
 
@@ -276,6 +278,8 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
             Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(24.dp)) {
                 Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
 
+                    /*
+                    // [FEATURE FUTURA] - Botão e Divisória do Scanner da Porta
                     Button(
                         onClick = { showModernScanner = true }, // Abre a nova câmara
                         modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue)
@@ -292,6 +296,7 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                         HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
                     }
                     Spacer(modifier = Modifier.height(24.dp))
+                     */
 
                     OutlinedTextField(
                         value = manualEventId, onValueChange = { manualEventId = it; localError = null },
@@ -315,7 +320,8 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
             AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
         }
 
-        // Overlay do Scanner de Ecrã Inteiro
+        /*
+        // [FEATURE FUTURA] - Overlay do Scanner de Ecrã Inteiro
         if (showModernScanner) {
             ModernQrScanner(
                 onQrCodeScanned = { result ->
@@ -325,6 +331,7 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                 onClose = { showModernScanner = false }
             )
         }
+        */
     }
 }
 
@@ -352,8 +359,10 @@ fun SeatScreen(viewModel: SeatViewModel) {
 
     var pendingAdminAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
-    // Estado do Scanner de Bilhetes
+    /*
+    // [FEATURE FUTURA] - Estado do Scanner de Bilhetes
     var showModernScanner by remember { mutableStateOf(false) }
+    */
 
     // 👇 OTIMIZAÇÃO: Estatísticas em Cache 👇
     val totalSeats by remember(seats) { derivedStateOf { seats.size } }
@@ -437,9 +446,11 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 }
             },
             bottomBar = {
+                /*
+                // [FEATURE FUTURA] - Botão Roxo de Leitura de Bilhetes
                 Box(modifier = Modifier.fillMaxWidth().background(LightBg).padding(16.dp)) {
                     Button(
-                        onClick = { showModernScanner = true }, // Abre a nova câmara
+                        onClick = { showModernScanner = true },
                         modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(20.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple), elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
                     ) {
                         Icon(Icons.Rounded.QrCodeScanner, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
@@ -447,6 +458,7 @@ fun SeatScreen(viewModel: SeatViewModel) {
                         Text("LER BILHETE (QR)", fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 1.sp)
                     }
                 }
+                */
             },
             containerColor = LightBg
         ) { paddingValues ->
@@ -747,8 +759,9 @@ fun SeatScreen(viewModel: SeatViewModel) {
             }
         }
 
+        /*
         // ==========================================
-        // SCANNER DE ECRÃ INTEIRO
+        // [FEATURE FUTURA] - SCANNER DE ECRÃ INTEIRO
         // ==========================================
         if (showModernScanner) {
             ModernQrScanner(
@@ -759,6 +772,7 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 onClose = { showModernScanner = false }
             )
         }
+        */
     }
 }
 

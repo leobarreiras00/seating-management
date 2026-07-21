@@ -73,6 +73,10 @@ dependencies {
 
     implementation("androidx.navigation:navigation-compose:2.8.0")
 
+    // ==========================================
+    // [FEATURE FUTURA] - SCANNER IMPORTS
+    // ==========================================
+    /*
     val camerax_version = "1.3.2"
     implementation("androidx.camera:camera-core:$camerax_version")
     implementation("androidx.camera:camera-camera2:$camerax_version")
@@ -80,6 +84,7 @@ dependencies {
     implementation("androidx.camera:camera-view:$camerax_version")
 
     implementation("com.google.mlkit:barcode-scanning:17.2.0")
+     */
 
     implementation("androidx.compose.material:material-icons-extended:1.6.0")
 

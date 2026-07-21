@@ -1,5 +1,14 @@
 package com.leonardobarreiras.seatingmanagement
 
+/*
+// ====================================================================
+// [FEATURE POSSIVEL] - INTEGRAÇÃO DE GOOGLE ML KIT (QR SCANNER)
+// ====================================================================
+// Devido à escala atual do projeto, a validação via câmara foi suspensa
+// O código abaixo contém a implementação completa do CameraX e ML Kit
+// para leitura de qrcodes em tempo real, pronta a ser ativa.
+// ====================================================================
+
 import android.view.ViewGroup
 import androidx.camera.core.*
 import androidx.camera.lifecycle.ProcessCameraProvider
@@ -159,3 +168,5 @@ fun ModernQrScanner(
         }
     }
 }
+
+ */

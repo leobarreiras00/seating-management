@@ -104,6 +104,9 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    // NOTA: Esta função foi mantida ativa porque o "Acesso Manual" a utiliza,
+    // injetando a string "EVENT:id". O Input Sanitation está pronto se o QR
+    // Scanner foi ativo no futuro.
     fun processRoomCheckIn(qrContent: String) {
         if (isOffline) {
             appFeedback = AppFeedback(FeedbackType.ERROR, "Modo Offline", "Precisas de internet para configurar uma sala.")
@@ -146,6 +149,13 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    /*
+    // ====================================================================
+    // [FEATURE] - VALIDAÇÃO DE BILHETES VIA QR CODE
+    // ====================================================================
+    // Lógica preparada para receber a String do ML Kit e procurar
+    // instantaneamente na base de dados local (Room) ou na API.
+    // Suspensa na V1.0. A validação atual é feita manualmente na UI.
     fun validateTicketFromQr(qrContent: String) {
         val safeEventId = currentEventId ?: return
 
@@ -180,6 +190,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
     }
+    */
 
     fun updateSeatStatus(seat: SeatEntity, newStatus: Int) {
         val safeEventId = currentEventId ?: return
