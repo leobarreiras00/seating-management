@@ -2,7 +2,6 @@ plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
     id("org.jetbrains.kotlin.plugin.compose")
-    // Usamos KSP em vez de KAPT, é o padrão moderno
     id("com.google.devtools.ksp") version "2.0.20-1.0.25"
 }
 

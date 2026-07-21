@@ -109,48 +109,74 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
             appFeedback = AppFeedback(FeedbackType.ERROR, "Modo Offline", "Precisas de internet para configurar uma sala.")
             return
         }
-        if (qrContent.startsWith("EVENT:")) {
-            val id = qrContent.removePrefix("EVENT:").toIntOrNull()
-            if (id != null) {
-                if (jwtToken == null) {
-                    appFeedback = AppFeedback(FeedbackType.ERROR, "Sessão Expirada", "Por favor faz login.")
-                    return
-                }
-                viewModelScope.launch {
-                    try {
-                        val seatsFromApi = RetrofitClient.apiService.getSeatsByEvent("Bearer $jwtToken", id)
-                        if (seatsFromApi.isEmpty()) {
-                            appFeedback = AppFeedback(FeedbackType.ERROR, "ID Inválido", "O Evento $id não existe.")
-                            return@launch
-                        }
-                        currentEventId = id
-                        repository.deleteAllSeats()
-                        repository.insertAll(seatsFromApi)
-                        mqttManager.subscribeToEventRoom(id)
-                        appFeedback = AppFeedback(FeedbackType.SUCCESS, "Acesso Permitido", "Entraste no Evento $id com sucesso.")
-                    } catch (e: Exception) {
-                        appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Verifica a tua ligação.")
+
+        val sanitizedQr = qrContent.replace("\\s".toRegex(), "").uppercase()
+
+        val idString = if (sanitizedQr.startsWith("EVENT:")) {
+            sanitizedQr.removePrefix("EVENT:")
+        } else {
+            sanitizedQr
+        }
+
+        val id = idString.toIntOrNull()
+
+        if (id != null) {
+            if (jwtToken == null) {
+                appFeedback = AppFeedback(FeedbackType.ERROR, "Sessão Expirada", "Por favor faz login.")
+                return
+            }
+            viewModelScope.launch {
+                try {
+                    val seatsFromApi = RetrofitClient.apiService.getSeatsByEvent("Bearer $jwtToken", id)
+                    if (seatsFromApi.isEmpty()) {
+                        appFeedback = AppFeedback(FeedbackType.ERROR, "ID Inválido", "O Evento $id não existe.")
+                        return@launch
                     }
+                    currentEventId = id
+                    repository.deleteAllSeats()
+                    repository.insertAll(seatsFromApi)
+                    mqttManager.subscribeToEventRoom(id)
+                    appFeedback = AppFeedback(FeedbackType.SUCCESS, "Acesso Permitido", "Entraste no Evento $id com sucesso.")
+                } catch (e: Exception) {
+                    appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Verifica a tua ligação.")
                 }
-            } else appFeedback = AppFeedback(FeedbackType.ERROR, "Formato Inválido", "O ID deve ser numérico.")
-        } else appFeedback = AppFeedback(FeedbackType.ERROR, "QR Inválido", "Código não pertence a uma sala.")
+            }
+        } else {
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Formato Inválido", "O QR Code lido não pertence a uma sala.")
+        }
     }
 
-    fun validateTicketFromQr(ticketHash: String) {
-        if (isOffline) {
-            appFeedback = AppFeedback(FeedbackType.OFFLINE, "Sem Rede", "Leitura QR bloqueada em modo Offline.")
-            return
-        }
+    fun validateTicketFromQr(qrContent: String) {
         val safeEventId = currentEventId ?: return
-        if (jwtToken == null) return
+
+        val sanitizedQr = qrContent.replace("\\s".toRegex(), "").uppercase()
 
         viewModelScope.launch {
-            try {
-                RetrofitClient.apiService.validateTicket("Bearer $jwtToken", ValidateTicketRequest(safeEventId, ticketHash))
-                fetchSeatsFromApi()
-                appFeedback = AppFeedback(FeedbackType.SUCCESS, "Bilhete Válido!", "Entrada registada.")
-            } catch (e: Exception) {
-                appFeedback = AppFeedback(FeedbackType.ERROR, "Acesso Negado", "Bilhete inválido ou já ocupado.")
+            val currentSeats = seatsFlow.first()
+            val targetSeat = currentSeats.find { seat ->
+                seat.seatNumber.replace("\\s".toRegex(), "").uppercase() == sanitizedQr
+            }
+
+            if (targetSeat != null) {
+                if (targetSeat.status == 0) {
+                    updateSeatStatus(targetSeat, 1)
+                    appFeedback = AppFeedback(FeedbackType.SUCCESS, "Lugar Validado", "Acesso permitido para ${targetSeat.seatNumber}.")
+                } else {
+                    appFeedback = AppFeedback(FeedbackType.ERROR, "Acesso Negado", "O lugar ${targetSeat.seatNumber} já se encontra ocupado.")
+                }
+            } else {
+                if (isOffline) {
+                    appFeedback = AppFeedback(FeedbackType.ERROR, "Não Encontrado", "O QR lido ('$qrContent') não corresponde a nenhum lugar desta sala.")
+                } else {
+                    if (jwtToken == null) return@launch
+                    try {
+                        RetrofitClient.apiService.validateTicket("Bearer $jwtToken", ValidateTicketRequest(safeEventId, qrContent))
+                        fetchSeatsFromApi()
+                        appFeedback = AppFeedback(FeedbackType.SUCCESS, "Bilhete Válido", "Validado através do servidor.")
+                    } catch (e: Exception) {
+                        appFeedback = AppFeedback(FeedbackType.ERROR, "Acesso Negado", "Bilhete inválido ou não encontrado.")
+                    }
+                }
             }
         }
     }
