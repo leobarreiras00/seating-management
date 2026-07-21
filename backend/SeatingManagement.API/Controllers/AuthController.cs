@@ -6,7 +6,6 @@ using SeatingManagement.API.Data;
 using SeatingManagement.API.DTOs;
 using SeatingManagement.API.Models;
 using System.IdentityModel.Tokens.Jwt;
-using System.Net.NetworkInformation;
 using System.Security.Claims;
 using System.Text;
 
@@ -17,7 +16,7 @@ namespace SeatingManagement.API.Controllers
     /// </summary>
     [ApiController]
     [Route("api/[controller]")]
-    [AllowAnonymous] // Garante que a porta de entrada está sempre aberta, mesmo que o sistema seja restrito globalmente.
+    [AllowAnonymous] 
     public class AuthController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -30,17 +29,19 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpPost("register")]
-        public async Task<ActionResult<AuthResponseDto>> Register(RegisterDto request)
+        public async Task<IActionResult> Register(RegisterDto request)
         {
             if (await _context.Users.AnyAsync(u => u.Username == request.Username))
-                return BadRequest("O utilizador já existe no sistema.");
+                return BadRequest(new { Message = "O utilizador já existe no sistema." });
 
             var user = new User
             {
                 Username = request.Username,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 PinHash = BCrypt.Net.BCrypt.HashPassword(request.Pin),
-                UserGuid = Guid.NewGuid() // CORREÇÃO: Geração explícita do identificador único
+                UserGuid = Guid.NewGuid(),
+                // 👇 NOVO: Atribui um Role (se não vier no DTO, força a Utilizador)
+                Role = !string.IsNullOrWhiteSpace(request.Role) ? request.Role : "Utilizador" 
             };
 
             _context.Users.Add(user);
@@ -50,25 +51,25 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpPost("login")]
-        public async Task<ActionResult<AuthResponseDto>> Login(LoginDto request)
+        public async Task<IActionResult> Login(LoginDto request)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
             
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
-                return Unauthorized("Credenciais inválidas.");
+                return Unauthorized(new { Message = "Credenciais inválidas." });
 
             var token = GenerateJwtToken(user);
 
-            return Ok(new AuthResponseDto { 
+            return Ok(new { 
                 Token = token, 
                 UserGuid = user.UserGuid,
-                Pin = user.PinHash
+                Pin = user.PinHash,
+                Role = user.Role 
             });
         }
 
         private string GenerateJwtToken(User user)
         {
-            // CORREÇÃO: Fallback de segurança para evitar crash do Swagger caso falhe a leitura do appsettings.json
             var jwtKey = _configuration["Jwt:Key"] ?? "ChaveDeSegurancaTemporariaParaOJWT2026!!_Minimo32Caracteres"; 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
@@ -76,7 +77,8 @@ namespace SeatingManagement.API.Controllers
             var claims = new[]
             {
                 new Claim(ClaimTypes.NameIdentifier, user.UserGuid.ToString()),
-                new Claim(ClaimTypes.Name, user.Username)
+                new Claim(ClaimTypes.Name, user.Username),
+                new Claim(ClaimTypes.Role, user.Role) 
             };
 
             var issuer = _configuration["Jwt:Issuer"] ?? "SeatingManagementAPI";
@@ -86,7 +88,7 @@ namespace SeatingManagement.API.Controllers
                 issuer: issuer,
                 audience: audience,
                 claims: claims,
-                expires: DateTime.UtcNow.AddDays(1), // CORREÇÃO: UtcNow para consistência global de tempo
+                expires: DateTime.UtcNow.AddDays(1), 
                 signingCredentials: creds
             );
 

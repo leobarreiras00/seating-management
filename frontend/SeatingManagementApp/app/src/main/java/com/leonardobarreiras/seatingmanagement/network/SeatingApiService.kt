@@ -16,19 +16,26 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 data class LoginRequest(val username: String, val password: String)
-data class AuthResponse(val token: String, val pin: String? = null)
+// 👇 ATUALIZADO: Recebe o Role do utilizador
+data class AuthResponse(val token: String, val pin: String? = null, val role: String? = null)
 data class ValidateTicketRequest(val eventId: Int, val ticketHash: String)
 data class ValidateTicketResponse(val message: String, val seat: SeatEntity)
 data class BulkUpdateStatusRequest(val status: String)
 data class ClearDatabaseDto(val pin: String)
 
-// 👇 ADICIONADO: Modelo para atualizar individualmente 👇
+// 👇 ADICIONADO: Modelo para listar os eventos do utilizador
+data class EventDto(val id: Int, val name: String)
+
 data class UpdateSingleSeatRequest(val status: Int)
 
 interface SeatingApiService {
 
     @POST("api/Auth/login")
     suspend fun login(@Body request: LoginRequest): AuthResponse
+
+    // 👇 ADICIONADO: Endpoint para ir buscar os eventos com permissão
+    @GET("api/Event/my-events")
+    suspend fun getMyEvents(@Header("Authorization") token: String): Response<List<EventDto>>
 
     @GET("api/Seat/{eventId}")
     suspend fun getSeatsByEvent(@Header("Authorization") token: String, @Path("eventId") eventId: Int): List<SeatEntity>
@@ -39,7 +46,6 @@ interface SeatingApiService {
     @PUT("api/seat/{eventId}/bulk-status")
     suspend fun bulkUpdateStatus(@Header("Authorization") token: String, @Path("eventId") eventId: Int, @Body request: BulkUpdateStatusRequest): Response<Unit>
 
-    // 👇 ADICIONADO: Rota para atualizar o SQL Server 1 a 1 👇
     @PUT("api/seat/{eventId}/update/{seatId}")
     suspend fun updateSingleSeat(
         @Header("Authorization") token: String,
@@ -48,7 +54,6 @@ interface SeatingApiService {
         @Body request: UpdateSingleSeatRequest
     ): Response<Unit>
 
-    // 👇 NOVAS ROTAS SÉNIORES PARA UPLOAD DE CSV E CLEAR SEGURO 👇
     @Multipart
     @POST("api/SeatCsv/import/{eventId}")
     suspend fun uploadCsv(

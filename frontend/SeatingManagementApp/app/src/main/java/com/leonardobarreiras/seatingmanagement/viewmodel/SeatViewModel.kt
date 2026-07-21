@@ -37,6 +37,14 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
 
     var jwtToken: String? = null
     var dynamicAdminPin by mutableStateOf("1234") // Guarda o PIN em memória (default 1234 por segurança)
+
+    var userRole by mutableStateOf("Utilizador")
+    var lastPinAuthTime by mutableStateOf(0L)
+
+    // 👇 ADICIONADO: Variáveis de estado para a Lista de Eventos Dinâmica
+    var myEvents by mutableStateOf<List<EventDto>>(emptyList())
+    var isLoadingEvents by mutableStateOf(false)
+
     var loginError by mutableStateOf<String?>(null)
     var currentEventId by mutableStateOf<Int?>(null)
     var appFeedback by mutableStateOf<AppFeedback?>(null)
@@ -84,10 +92,34 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                     dynamicAdminPin = response.pin
                 }
 
+                // 👇 ADICIONADO: Guarda o Role e Carrega os Eventos
+                if (response.role != null) {
+                    userRole = response.role
+                }
+                fetchMyEvents()
+
                 loginError = null
                 onSuccess()
             } catch (e: Exception) {
                 loginError = "Credenciais inválidas ou erro de rede."
+            }
+        }
+    }
+
+    // 👇 ADICIONADO: Função que contacta a API para buscar a lista de eventos atribuídos
+    fun fetchMyEvents() {
+        val token = jwtToken ?: return
+        viewModelScope.launch {
+            isLoadingEvents = true
+            try {
+                val response = RetrofitClient.apiService.getMyEvents("Bearer $token")
+                if (response.isSuccessful) {
+                    myEvents = response.body() ?: emptyList()
+                }
+            } catch (e: Exception) {
+                Log.e("API", "Erro ao carregar eventos: ${e.message}")
+            } finally {
+                isLoadingEvents = false
             }
         }
     }
@@ -102,6 +134,15 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         } catch (e: Exception) {
             false
         }
+    }
+
+    fun isPinTimeoutValid(): Boolean {
+        val currentTime = System.currentTimeMillis()
+        return (currentTime - lastPinAuthTime) < 10000;
+    }
+
+    fun registerPinSuccess() {
+        lastPinAuthTime = System.currentTimeMillis()
     }
 
     // NOTA: Esta função foi mantida ativa porque o "Acesso Manual" a utiliza,
@@ -283,134 +324,134 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-/*
-// ====================================================================
-// NOTA DE ARQUITETURA:
-// A função removeDuplicateSeats() foi descontinuada do lado do cliente (App).
-// A responsabilidade de limpar "bad registers" e duplicados passou
-// a ser 100% do Backend. O C# agora executa o algoritmo de deduplicação
-// automaticamente no final do endpoint de Upload de CSV.
-// ====================================================================
-fun removeDuplicateSeats(pin: String) {
-    if (isOffline) {
-        appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "A remoção de duplicados requer internet.")
-        return
-    }
-    val safeEventId = currentEventId ?: return
-    if (jwtToken == null) return
+    /*
+    // ====================================================================
+    // NOTA DE ARQUITETURA:
+    // A função removeDuplicateSeats() foi descontinuada do lado do cliente (App).
+    // A responsabilidade de limpar "bad registers" e duplicados passou
+    // a ser 100% do Backend. O C# agora executa o algoritmo de deduplicação
+    // automaticamente no final do endpoint de Upload de CSV.
+    // ====================================================================
+    fun removeDuplicateSeats(pin: String) {
+        if (isOffline) {
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "A remoção de duplicados requer internet.")
+            return
+        }
+        val safeEventId = currentEventId ?: return
+        if (jwtToken == null) return
 
-    viewModelScope.launch {
-        try {
-            appFeedback = AppFeedback(FeedbackType.INFO, "A Processar", "A limpar registos duplicados no servidor...")
-            val response = RetrofitClient.apiService.removeDuplicates("Bearer $jwtToken", safeEventId, ClearDatabaseDto(pin))
+        viewModelScope.launch {
+            try {
+                appFeedback = AppFeedback(FeedbackType.INFO, "A Processar", "A limpar registos duplicados no servidor...")
+                val response = RetrofitClient.apiService.removeDuplicates("Bearer $jwtToken", safeEventId, ClearDatabaseDto(pin))
 
-            if (response.isSuccessful) {
-                fetchSeatsFromApi() // Recarrega os dados locais já limpos
-                appFeedback = AppFeedback(FeedbackType.SUCCESS, "Limpeza Concluída", "Registos duplicados removidos com sucesso.")
-            } else {
-                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha ao processar a limpeza no servidor.")
+                if (response.isSuccessful) {
+                    fetchSeatsFromApi() // Recarrega os dados locais já limpos
+                    appFeedback = AppFeedback(FeedbackType.SUCCESS, "Limpeza Concluída", "Registos duplicados removidos com sucesso.")
+                } else {
+                    appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha ao processar a limpeza no servidor.")
+                }
+            } catch (e: Exception) {
+                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de comunicação com o servidor.")
             }
-        } catch (e: Exception) {
-            appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de comunicação com o servidor.")
         }
     }
-}
-*/
+    */
 
-fun uploadCsvToServer(uri: Uri, context: Context, mode: String) {
-    if (isOffline) {
-        appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "Upload requer internet.")
-        return
-    }
-    val safeEventId = currentEventId ?: return
-    if (jwtToken == null) return
+    fun uploadCsvToServer(uri: Uri, context: Context, mode: String) {
+        if (isOffline) {
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "Upload requer internet.")
+            return
+        }
+        val safeEventId = currentEventId ?: return
+        if (jwtToken == null) return
 
-    viewModelScope.launch {
-        try {
-            appFeedback = AppFeedback(FeedbackType.INFO, "A processar...", "A importar e a limpar duplicados no servidor...")
+        viewModelScope.launch {
+            try {
+                appFeedback = AppFeedback(FeedbackType.INFO, "A processar...", "A importar e a limpar duplicados no servidor...")
 
-            val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("Erro a ler ficheiro")
-            val tempFile = java.io.File(context.cacheDir, "upload_temp.csv")
-            tempFile.outputStream().use { inputStream.copyTo(it) }
+                val inputStream = context.contentResolver.openInputStream(uri) ?: throw Exception("Erro a ler ficheiro")
+                val tempFile = java.io.File(context.cacheDir, "upload_temp.csv")
+                tempFile.outputStream().use { inputStream.copyTo(it) }
 
-            val requestFile = okhttp3.RequestBody.create(okhttp3.MediaType.parse("text/csv"), tempFile)
-            val body = okhttp3.MultipartBody.Part.createFormData("file", "upload.csv", requestFile)
+                val requestFile = okhttp3.RequestBody.create(okhttp3.MediaType.parse("text/csv"), tempFile)
+                val body = okhttp3.MultipartBody.Part.createFormData("file", "upload.csv", requestFile)
 
-            val response = RetrofitClient.apiService.uploadCsv("Bearer $jwtToken", safeEventId, mode, body)
+                val response = RetrofitClient.apiService.uploadCsv("Bearer $jwtToken", safeEventId, mode, body)
 
-            if (response.isSuccessful) {
-                fetchSeatsFromApi()
+                if (response.isSuccessful) {
+                    fetchSeatsFromApi()
 
-                val finalMessage = try {
-                    val responseBodyStr = response.body().toString()
+                    val finalMessage = try {
+                        val responseBodyStr = response.body().toString()
 
-                    val regex = "removidos (\\d+) registos".toRegex()
-                    val match = regex.find(responseBodyStr)
+                        val regex = "removidos (\\d+) registos".toRegex()
+                        val match = regex.find(responseBodyStr)
 
-                    if (match != null) {
+                        if (match != null) {
                             "Importação concluída com sucesso!\n\nA inteligência do servidor detetou e removeu ${match.groupValues[1]} lugares duplicados."
-                    } else {
+                        } else {
                             "Importação concluída. A lista foi otimizada com sucesso."
-                    }
-                } catch (e: Exception) {
+                        }
+                    } catch (e: Exception) {
                         "Dados importados e otimizados pelo servidor."
-                }
+                    }
 
-                appFeedback = AppFeedback(FeedbackType.SUCCESS, "Importação Limpa", finalMessage)
-            } else {
-                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Servidor rejeitou o ficheiro.")
+                    appFeedback = AppFeedback(FeedbackType.SUCCESS, "Importação Limpa", finalMessage)
+                } else {
+                    appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Servidor rejeitou o ficheiro.")
+                }
+            } catch (e: Exception) {
+                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de comunicação.")
             }
-        } catch (e: Exception) {
-            appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de comunicação.")
         }
     }
-}
 
-fun clearEventData(pin: String) {
-    viewModelScope.launch {
-        repository.deleteAllSeats()
-        appFeedback = AppFeedback(
-            FeedbackType.INFO,
-            "Ecrã Limpo",
-            "Os dados foram removidos deste dispositivo. Clica em 'Sync' para os recuperar do servidor."
-        )
+    fun clearEventData(pin: String) {
+        viewModelScope.launch {
+            repository.deleteAllSeats()
+            appFeedback = AppFeedback(
+                FeedbackType.INFO,
+                "Ecrã Limpo",
+                "Os dados foram removidos deste dispositivo. Clica em 'Sync' para os recuperar do servidor."
+            )
+        }
     }
-}
 
-// 👇 EXPORTAÇÃO CORRIGIDA (Adiciona a 6ª Coluna de DATA_HORA) 👇
-fun exportCsv(uri: Uri, context: Context) {
-    viewModelScope.launch {
-        try {
-            val currentSeats = seatsFlow.first()
-            context.contentResolver.openOutputStream(uri)?.use { outputStream ->
-                val writer = BufferedWriter(OutputStreamWriter(outputStream))
+    // 👇 EXPORTAÇÃO CORRIGIDA (Adiciona a 6ª Coluna de DATA_HORA) 👇
+    fun exportCsv(uri: Uri, context: Context) {
+        viewModelScope.launch {
+            try {
+                val currentSeats = seatsFlow.first()
+                context.contentResolver.openOutputStream(uri)?.use { outputStream ->
+                    val writer = BufferedWriter(OutputStreamWriter(outputStream))
 
-                // Cabeçalho atualizado
-                writer.write("MESA;LUGAR;CATEGORIA;ESTADO;NOME;DATA_HORA\n")
+                    // Cabeçalho atualizado
+                    writer.write("MESA;LUGAR;CATEGORIA;ESTADO;NOME;DATA_HORA\n")
 
-                currentSeats.forEach { seat ->
-                    val assigned = seat.assignedTo ?: ""
-                    val statusText = when(seat.status) { 1 -> "Validado"; 2 -> "Tratado"; else -> "Pendente" }
-                    val partes = seat.seatNumber.split("-")
-                    val mesa = if (partes.size > 1) partes[0] else ""
-                    val lugar = if (partes.size > 1) partes[1] else seat.seatNumber
+                    currentSeats.forEach { seat ->
+                        val assigned = seat.assignedTo ?: ""
+                        val statusText = when(seat.status) { 1 -> "Validado"; 2 -> "Tratado"; else -> "Pendente" }
+                        val partes = seat.seatNumber.split("-")
+                        val mesa = if (partes.size > 1) partes[0] else ""
+                        val lugar = if (partes.size > 1) partes[1] else seat.seatNumber
 
-                    // Limpa os milissegundos e o 'T' que a API C# devolve para ficar limpo (Ex: 2026-07-12 10:10:53)
-                    val dataHora = seat.markedAt?.replace("T", " ")?.substringBefore(".") ?: ""
+                        // Limpa os milissegundos e o 'T' que a API C# devolve para ficar limpo (Ex: 2026-07-12 10:10:53)
+                        val dataHora = seat.markedAt?.replace("T", " ")?.substringBefore(".") ?: ""
 
-                    writer.write("${mesa};${lugar};${seat.eventName};${statusText};${assigned};${dataHora}\n")
+                        writer.write("${mesa};${lugar};${seat.eventName};${statusText};${assigned};${dataHora}\n")
+                    }
+                    writer.flush()
                 }
-                writer.flush()
-            }
-            appFeedback = AppFeedback(FeedbackType.EXPORT, "Ficheiro Exportado", "Guardado nos Downloads do dispositivo.")
-        } catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha ao gravar.") }
+                appFeedback = AppFeedback(FeedbackType.EXPORT, "Ficheiro Exportado", "Guardado nos Downloads do dispositivo.")
+            } catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha ao gravar.") }
+        }
     }
-}
 
-fun clearFeedback() { appFeedback = null }
+    fun clearFeedback() { appFeedback = null }
 
-override fun onCleared() {
-    super.onCleared()
-    mqttManager.disconnect()
-}
+    override fun onCleared() {
+        super.onCleared()
+        mqttManager.disconnect()
+    }
 }

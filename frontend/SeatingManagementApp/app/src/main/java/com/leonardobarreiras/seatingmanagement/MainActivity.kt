@@ -249,69 +249,85 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
     }
 }
 
+// 👇 ECRÃ DE SELEÇÃO DE EVENTOS TOTALMENTE REFORMULADO (COM CARTÕES RBAC) 👇
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) {
-    var manualEventId by remember { mutableStateOf("") }
-    var localError by remember { mutableStateOf<String?>(null) }
-
-    /*
-    // [FEATURE FUTURA] - Estado do Scanner
-    var showModernScanner by remember { mutableStateOf(false) }
-    */
-
     LaunchedEffect(viewModel.currentEventId) { if (viewModel.currentEventId != null) onEventSelected() }
 
     Box(modifier = Modifier.fillMaxSize().background(LightBg)) {
-        Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally, verticalArrangement = Arrangement.Center) {
+        Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+
+            Spacer(modifier = Modifier.height(24.dp))
 
             Image(
                 painter = painterResource(id = R.drawable.seatly_icon),
                 contentDescription = "Seatly Logo",
-                modifier = Modifier.height(88.dp).clip(RoundedCornerShape(20.dp))
+                modifier = Modifier.height(72.dp).clip(RoundedCornerShape(20.dp))
             )
 
             Spacer(modifier = Modifier.height(24.dp))
-            Text("Configuração de Sala", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = CorporateBlue)
-            Text("Sintoniza o dispositivo no evento", color = TextGray, modifier = Modifier.padding(bottom = 32.dp))
+            Text(
+                text = if (viewModel.userRole == "Gestor") "Painel de Gestão" else "Os Meus Eventos",
+                style = MaterialTheme.typography.headlineMedium,
+                fontWeight = FontWeight.Bold,
+                color = CorporateBlue
+            )
+            Text(
+                text = "Seleciona um evento para começar",
+                color = TextGray,
+                modifier = Modifier.padding(bottom = 32.dp)
+            )
 
-            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(24.dp)) {
-                Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-
-                    /*
-                    // [FEATURE FUTURA] - Botão e Divisória do Scanner da Porta
-                    Button(
-                        onClick = { showModernScanner = true }, // Abre a nova câmara
-                        modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue)
-                    ) {
-                        Icon(Icons.Rounded.PhotoCamera, contentDescription = null, tint = Color.White)
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("Ler QR Code da Porta", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+            if (viewModel.isLoadingEvents) {
+                CircularProgressIndicator(color = AccentPurple, modifier = Modifier.padding(top = 40.dp))
+            } else if (viewModel.myEvents.isEmpty()) {
+                Card(
+                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
+                    colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(2.dp),
+                    shape = RoundedCornerShape(24.dp)
+                ) {
+                    Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+                        Icon(Icons.Rounded.EventBusy, contentDescription = null, tint = OfflineGray, modifier = Modifier.size(48.dp))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Text("Sem Eventos Atribuídos", fontWeight = FontWeight.Bold, color = CorporateBlue, fontSize = 18.sp, textAlign = TextAlign.Center)
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text("Não tens permissões ativas para aceder a nenhum evento neste momento.", color = TextGray, fontSize = 14.sp, textAlign = TextAlign.Center)
                     }
-
-                    Spacer(modifier = Modifier.height(24.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
-                        Text(" OU MANUAL ", color = Color.Gray, fontSize = 12.sp, fontWeight = FontWeight.Bold)
-                        HorizontalDivider(modifier = Modifier.weight(1f), color = Color(0xFFE2E8F0))
+                }
+            } else {
+                LazyColumn(
+                    verticalArrangement = Arrangement.spacedBy(16.dp),
+                    modifier = Modifier.fillMaxWidth().weight(1f)
+                ) {
+                    items(viewModel.myEvents) { event ->
+                        Card(
+                            onClick = { viewModel.processRoomCheckIn("EVENT:${event.id}") },
+                            modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White),
+                            elevation = CardDefaults.cardElevation(4.dp),
+                            shape = RoundedCornerShape(20.dp)
+                        ) {
+                            Row(
+                                modifier = Modifier.padding(20.dp).fillMaxWidth(),
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Box(
+                                    modifier = Modifier.size(48.dp).background(AccentPurpleLight, RoundedCornerShape(12.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    Icon(Icons.Rounded.Event, contentDescription = null, tint = AccentPurple)
+                                }
+                                Spacer(modifier = Modifier.width(16.dp))
+                                Column(modifier = Modifier.weight(1f)) {
+                                    Text(event.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = CorporateBlue)
+                                    Text("ID: ${event.id}", color = TextGray, fontSize = 12.sp)
+                                }
+                                Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = Color(0xFFCBD5E1))
+                            }
+                        }
                     }
-                    Spacer(modifier = Modifier.height(24.dp))
-                     */
-
-                    OutlinedTextField(
-                        value = manualEventId, onValueChange = { manualEventId = it; localError = null },
-                        label = { Text("ID do Evento (ex: 101)") },
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
-                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, isError = localError != null,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
-                    )
-                    if (localError != null) Text(text = localError!!, color = ErrorRed, style = MaterialTheme.typography.bodySmall, modifier = Modifier.padding(top = 4.dp))
-
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Button(
-                        onClick = { if (manualEventId.isNotBlank()) viewModel.processRoomCheckIn("EVENT:${manualEventId.trim()}") else localError = "Insere um ID." },
-                        modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9), contentColor = CorporateBlue)
-                    ) { Text("Aceder Manualmente", fontWeight = FontWeight.Bold) }
                 }
             }
         }
@@ -319,19 +335,6 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
         if (viewModel.appFeedback != null) {
             AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
         }
-
-        /*
-        // [FEATURE FUTURA] - Overlay do Scanner de Ecrã Inteiro
-        if (showModernScanner) {
-            ModernQrScanner(
-                onQrCodeScanned = { result ->
-                    showModernScanner = false
-                    viewModel.processRoomCheckIn(result.trim())
-                },
-                onClose = { showModernScanner = false }
-            )
-        }
-        */
     }
 }
 
@@ -404,13 +407,31 @@ fun SeatScreen(viewModel: SeatViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
+                            // 👇 NOVA LÓGICA DE ROLE E TIMEOUT 👇
+                            val isGestor = viewModel.userRole == "Gestor"
+
                             IconButton(
                                 onClick = {
-                                    pendingAdminAction = { showActionsSheet = true }
-                                    showPinDialog = true
+                                    if (isGestor) {
+                                        showActionsSheet = true
+                                    } else {
+                                        if (viewModel.isPinTimeoutValid()) {
+                                            showActionsSheet = true
+                                        } else {
+                                            pendingAdminAction = { showActionsSheet = true }
+                                            showPinDialog = true
+                                        }
+                                    }
                                 },
                                 modifier = Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
-                            ) { Icon(Icons.Rounded.Lock, contentDescription = "Admin", tint = Color.White, modifier = Modifier.size(22.dp)) }
+                            ) {
+                                Icon(
+                                    imageVector = if (isGestor) Icons.Rounded.Menu else Icons.Rounded.Lock,
+                                    contentDescription = if (isGestor) "Menu" else "Admin",
+                                    tint = Color.White,
+                                    modifier = Modifier.size(22.dp)
+                                )
+                            }
 
                             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
@@ -638,6 +659,7 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 onConfirm = {
                     if (viewModel.verifyPin(pin)) {
                         validatedAdminPin = pin
+                        viewModel.registerPinSuccess() // 👇 INICIA O CRONÓMETRO DE 10 SEGUNDOS
                         showPinDialog = false
                         pendingAdminAction?.invoke()
                         pendingAdminAction = null

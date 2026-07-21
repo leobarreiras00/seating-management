@@ -17,6 +17,10 @@ namespace SeatingManagement.API.Models
         public string PasswordHash { get; set; } = string.Empty;
 
         // O PIN para as ações de gestão de dados (encriptado)
-        public string PinHash { get; set; } = string.Empty; 
+        public string PinHash { get; set; } = string.Empty;
+
+        [Required]
+        [MaxLength(20)]
+        public string Role { get; set; } = "Utilizador";
     }
 }
