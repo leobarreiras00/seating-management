@@ -21,5 +21,6 @@ namespace SeatingManagement.API.Models
         public Company Company { get; set; } = null!;
 
         public ICollection<UserEvent> UserEvents { get; set; } = new List<UserEvent>();
+        public ICollection<Seat> Seats { get; set; } = new List<Seat>();
     }
 }

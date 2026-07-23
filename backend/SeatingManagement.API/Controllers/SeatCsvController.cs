@@ -49,7 +49,6 @@ namespace SeatingManagement.API.Controllers
                     HasHeaderRecord = true,
                     Delimiter = ";", 
                     MissingFieldFound = null,
-                    // 👇 NOVA CONFIG: Permite que o CsvHelper ignore espaços extra e maiúsculas/minúsculas
                     PrepareHeaderForMatch = args => args.Header.Trim().ToLower()
                 };
 
@@ -64,19 +63,20 @@ namespace SeatingManagement.API.Controllers
                     csv.TryGetField("CATEGORIA", out string? rawCategoria);
                     csv.TryGetField("ESTADO", out string? rawEstado);
                     
-                    // 👇 LÓGICA INTELIGENTE DE EXTRAÇÃO DO NOME 👇
                     string? rawNome = null;
                     
-                    // 1º Tentativa: Ler pelo nome exato ou com a vírgula do demo
                     if (!csv.TryGetField("NOME", out rawNome))
                     {
                         if (!csv.TryGetField("NOME,", out rawNome))
                         {
-                            // 2º Tentativa: Se falhar, lê a última coluna (índice variável com base no cabeçalho)
                             try 
                             {
-                                int columnCount = csv.HeaderRecord.Length;
-                                rawNome = csv.GetField<string>(columnCount - 1);
+                                // 👇 CORREÇÃO DO WARNING CS8602: Verificação de Nulo 👇
+                                if (csv.HeaderRecord != null)
+                                {
+                                    int columnCount = csv.HeaderRecord.Length;
+                                    rawNome = csv.GetField<string>(columnCount - 1);
+                                }
                             }
                             catch { /* Ignora se falhar ao ler o índice */ }
                         }
@@ -202,7 +202,6 @@ namespace SeatingManagement.API.Controllers
             if (string.IsNullOrEmpty(input)) return string.Empty;
             input = input.Trim();
             
-            // 👇 LIMPEZA EXTRA: Remove vírgulas perdidas no final do texto (como acontece no NOME do teu ficheiro demo)
             if (input.EndsWith(",")) input = input.TrimEnd(',');
             
             if (input.StartsWith("=") || input.StartsWith("+") || input.StartsWith("-") || input.StartsWith("@"))

@@ -219,3 +219,4 @@
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/obj/Debug/net10.0/SeatingManagement.API.pdb
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/obj/Debug/net10.0/SeatingManagement.API.genruntimeconfig.cache
 /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/obj/Debug/net10.0/ref/SeatingManagement.API.dll
+/Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/bin/Debug/net10.0/SeatingManagement.API.staticwebassets.runtime.json

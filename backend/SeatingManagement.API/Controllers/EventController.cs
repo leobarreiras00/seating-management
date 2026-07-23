@@ -53,7 +53,7 @@ namespace SeatingManagement.API.Controllers
             { 
                 Name = request.Name,
                 StartDate = request.StartDate,
-                CompanyId = user.CompanyId // Fica blindado à empresa de quem o cria
+                CompanyId = user.CompanyId 
             };
             
             _context.Events.Add(newEvent);
@@ -64,6 +64,38 @@ namespace SeatingManagement.API.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Evento criado e atribuído a ti com sucesso!", EventId = newEvent.Id });
+        }
+
+        [HttpPost("{eventId}/assign-user")]
+        [Authorize(Roles = "SuperAdmin,Gestor")] // Apenas quem gere pode atribuir
+        public async Task<IActionResult> AssignUserToEvent(int eventId, [FromBody] AssignUserDto request)
+        {
+            var adminCompanyIdStr = User.FindFirstValue("CompanyId");
+            if (string.IsNullOrEmpty(adminCompanyIdStr)) return Unauthorized();
+            
+            var adminCompanyId = int.Parse(adminCompanyIdStr);
+            var isSuperAdmin = User.IsInRole("SuperAdmin");
+
+            var ev = await _context.Events.FindAsync(eventId);
+            if (ev == null) return NotFound(new { Message = "Evento não encontrado." });
+
+            // O Gestor só pode atribuir eventos da sua própria empresa
+            if (!isSuperAdmin && ev.CompanyId != adminCompanyId)
+                return Forbid();
+
+            var targetUser = await _context.Users.FindAsync(request.UserId);
+            if (targetUser == null) return NotFound(new { Message = "Utilizador alvo não encontrado." });
+
+            if (!isSuperAdmin && targetUser.CompanyId != adminCompanyId)
+                return BadRequest(new { Message = "O utilizador não pertence à tua empresa." });
+
+            var exists = await _context.UserEvents.AnyAsync(ue => ue.UserId == request.UserId && ue.EventId == eventId);
+            if (exists) return BadRequest(new { Message = "O utilizador já tem acesso a este evento." });
+
+            _context.UserEvents.Add(new Models.UserEvent { UserId = request.UserId, EventId = eventId });
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Acesso concedido com sucesso!" });
         }
     }
 }

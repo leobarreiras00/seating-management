@@ -69,6 +69,9 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
+app.UseCors("AllowAll");
+app.UseStaticFiles();
+
 // 3. Ativar Autenticação ANTES da Autorização
 app.UseAuthentication(); 
 app.UseAuthorization();
