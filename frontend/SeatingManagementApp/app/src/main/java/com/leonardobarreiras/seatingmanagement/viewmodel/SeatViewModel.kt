@@ -156,6 +156,22 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun requiresPinFor(action: String): Boolean {
+        // SuperAdmin e Gestor NUNCA precisam de PIN
+        if (userRole == "SuperAdmin" || userRole == "Gestor") return false
+
+        // Ações que exigem PIN ao 'Utilizador'
+        val protectedActions = listOf(
+            "IMPORT_EMPTY",
+            "EXPORT_CSV",
+            "IMPORT_NEW",
+            "MARK_ALL",
+            "UNMARK_ALL"
+        )
+
+        return protectedActions.contains(action)
+    }
+
     fun verifyPin(pin: String): Boolean {
         // Se a app acabou de instalar e ainda não fez login, usa o 1234 de segurança
         if (dynamicAdminPin == "1234") return pin == "1234"
