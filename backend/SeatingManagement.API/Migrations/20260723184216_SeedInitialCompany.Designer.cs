@@ -12,8 +12,8 @@ using SeatingManagement.API.Data;
 namespace SeatingManagement.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260721153736_InitialCreate")]
-    partial class InitialCreate
+    [Migration("20260723184216_SeedInitialCompany")]
+    partial class SeedInitialCompany
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -25,6 +25,36 @@ namespace SeatingManagement.API.Migrations
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
 
+            modelBuilder.Entity("SeatingManagement.API.Models.Company", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("LogoUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Name")
+                        .IsRequired()
+                        .HasMaxLength(100)
+                        .HasColumnType("nvarchar(100)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("Companies");
+
+                    b.HasData(
+                        new
+                        {
+                            Id = 1,
+                            LogoUrl = "https://img.logoipsum.com/288.svg",
+                            Name = "Seatly Admin"
+                        });
+                });
+
             modelBuilder.Entity("SeatingManagement.API.Models.Event", b =>
                 {
                     b.Property<int>("Id")
@@ -32,6 +62,9 @@ namespace SeatingManagement.API.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
 
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
@@ -41,7 +74,12 @@ namespace SeatingManagement.API.Migrations
                         .HasMaxLength(100)
                         .HasColumnType("nvarchar(100)");
 
+                    b.Property<DateTime>("StartDate")
+                        .HasColumnType("datetime2");
+
                     b.HasKey("Id");
+
+                    b.HasIndex("CompanyId");
 
                     b.ToTable("Events");
                 });
@@ -93,6 +131,9 @@ namespace SeatingManagement.API.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<int>("CompanyId")
+                        .HasColumnType("int");
+
                     b.Property<string>("PasswordHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
@@ -116,6 +157,8 @@ namespace SeatingManagement.API.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("CompanyId");
+
                     b.ToTable("Users");
                 });
 
@@ -134,16 +177,38 @@ namespace SeatingManagement.API.Migrations
                     b.ToTable("UserEvents");
                 });
 
+            modelBuilder.Entity("SeatingManagement.API.Models.Event", b =>
+                {
+                    b.HasOne("SeatingManagement.API.Models.Company", "Company")
+                        .WithMany("Events")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
+            modelBuilder.Entity("SeatingManagement.API.Models.User", b =>
+                {
+                    b.HasOne("SeatingManagement.API.Models.Company", "Company")
+                        .WithMany("Users")
+                        .HasForeignKey("CompanyId")
+                        .OnDelete(DeleteBehavior.Restrict)
+                        .IsRequired();
+
+                    b.Navigation("Company");
+                });
+
             modelBuilder.Entity("SeatingManagement.API.Models.UserEvent", b =>
                 {
                     b.HasOne("SeatingManagement.API.Models.Event", "Event")
-                        .WithMany()
+                        .WithMany("UserEvents")
                         .HasForeignKey("EventId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
 
                     b.HasOne("SeatingManagement.API.Models.User", "User")
-                        .WithMany()
+                        .WithMany("UserEvents")
                         .HasForeignKey("UserId")
                         .OnDelete(DeleteBehavior.Cascade)
                         .IsRequired();
@@ -151,6 +216,23 @@ namespace SeatingManagement.API.Migrations
                     b.Navigation("Event");
 
                     b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SeatingManagement.API.Models.Company", b =>
+                {
+                    b.Navigation("Events");
+
+                    b.Navigation("Users");
+                });
+
+            modelBuilder.Entity("SeatingManagement.API.Models.Event", b =>
+                {
+                    b.Navigation("UserEvents");
+                });
+
+            modelBuilder.Entity("SeatingManagement.API.Models.User", b =>
+                {
+                    b.Navigation("UserEvents");
                 });
 #pragma warning restore 612, 618
         }

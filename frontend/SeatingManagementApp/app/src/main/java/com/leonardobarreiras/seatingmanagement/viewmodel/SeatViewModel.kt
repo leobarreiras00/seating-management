@@ -16,6 +16,7 @@ import com.leonardobarreiras.seatingmanagement.network.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
@@ -40,6 +41,10 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
 
     var userRole by mutableStateOf("Utilizador")
     var lastPinAuthTime by mutableStateOf(0L)
+
+    // 👇 NOVO: Dados Multi-Tenant (Empresa) 👇
+    var companyName by mutableStateOf("Seatly")
+    var companyLogo by mutableStateOf("")
 
     // Variáveis de estado para a Lista de Eventos Dinâmica
     var myEvents by mutableStateOf<List<EventDto>>(emptyList())
@@ -83,6 +88,9 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         currentEventId = null
         myEvents = emptyList()
         userRole = "Utilizador"
+        // 👇 NOVO: Limpa a cache da Empresa ao sair 👇
+        companyName = "Seatly"
+        companyLogo = ""
         viewModelScope.launch {
             repository.deleteAllSeats()
         }
@@ -115,6 +123,11 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 if (response.role != null) {
                     userRole = response.role
                 }
+
+                // 👇 NOVO: Grava a Empresa do Login 👇
+                if (response.companyName != null) companyName = response.companyName
+                if (response.companyLogo != null) companyLogo = response.companyLogo
+
                 fetchMyEvents()
 
                 loginError = null
@@ -169,7 +182,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     // Scanner foi ativo no futuro.
     fun processRoomCheckIn(qrContent: String) {
         if (isOffline) {
-            appFeedback = AppFeedback(FeedbackType.ERROR, "Modo Offline", "Precisas de internet para configurar uma sala.")
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Modo Offline", "Precisas de internet para entrar num evento.")
             return
         }
 
@@ -188,24 +201,33 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 appFeedback = AppFeedback(FeedbackType.ERROR, "Sessão Expirada", "Por favor faz login.")
                 return
             }
+
+            // Verifica se o ID clicado pertence à lista de eventos do utilizador
+            val hasAccess = myEvents.any { it.id == id }
+            if (!hasAccess) {
+                appFeedback = AppFeedback(FeedbackType.ERROR, "Acesso Negado", "O Evento $id não existe ou não tens permissão.")
+                return
+            }
+
             viewModelScope.launch {
                 try {
+                    // Pede os lugares à API (pode vir vazio se for um evento novo, e não há problema!)
                     val seatsFromApi = RetrofitClient.apiService.getSeatsByEvent("Bearer $jwtToken", id)
-                    if (seatsFromApi.isEmpty()) {
-                        appFeedback = AppFeedback(FeedbackType.ERROR, "ID Inválido", "O Evento $id não existe.")
-                        return@launch
-                    }
+
                     currentEventId = id
                     repository.deleteAllSeats()
                     repository.insertAll(seatsFromApi)
                     mqttManager.subscribeToEventRoom(id)
-                    appFeedback = AppFeedback(FeedbackType.SUCCESS, "Acesso Permitido", "Entraste no Evento $id com sucesso.")
+
+                    // Opcional: Removi o AppFeedback de sucesso aqui para a navegação ser mais fluída
+                    // e não chatear o utilizador com um popup sempre que entra num evento.
+
                 } catch (e: Exception) {
                     appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Verifica a tua ligação.")
                 }
             }
         } else {
-            appFeedback = AppFeedback(FeedbackType.ERROR, "Formato Inválido", "O QR Code lido não pertence a uma sala.")
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Formato Inválido", "O código não pertence a uma sala.")
         }
     }
 
@@ -393,7 +415,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 val tempFile = java.io.File(context.cacheDir, "upload_temp.csv")
                 tempFile.outputStream().use { inputStream.copyTo(it) }
 
-                val requestFile = okhttp3.RequestBody.create(okhttp3.MediaType.parse("text/csv"), tempFile)
+                val requestFile = okhttp3.RequestBody.create("text/csv".toMediaTypeOrNull(), tempFile)
                 val body = okhttp3.MultipartBody.Part.createFormData("file", "upload.csv", requestFile)
 
                 val response = RetrofitClient.apiService.uploadCsv("Bearer $jwtToken", safeEventId, mode, body)

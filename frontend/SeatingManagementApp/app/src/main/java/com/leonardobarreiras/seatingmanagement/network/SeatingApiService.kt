@@ -17,14 +17,14 @@ import retrofit2.http.Query
 
 data class LoginRequest(val username: String, val password: String)
 // 👇 ATUALIZADO: Recebe o Role do utilizador
-data class AuthResponse(val token: String, val pin: String? = null, val role: String? = null)
+data class AuthResponse(val token: String, val userGuid: String?, val pin: String?, val role: String?, val companyName: String?, val companyLogo: String?)
 data class ValidateTicketRequest(val eventId: Int, val ticketHash: String)
 data class ValidateTicketResponse(val message: String, val seat: SeatEntity)
 data class BulkUpdateStatusRequest(val status: String)
 data class ClearDatabaseDto(val pin: String)
 
 // 👇 ADICIONADO: Modelo para listar os eventos do utilizador
-data class EventDto(val id: Int, val name: String)
+data class EventDto(val id: Int, val name: String, val startDate: String?)
 
 data class UpdateSingleSeatRequest(val status: Int)
 

@@ -1,11 +1,14 @@
+using System.Diagnostics.Contracts;
+
 namespace SeatingManagement.API.DTOs
 {
     public class RegisterDto
     {
         public string Username { get; set; } = string.Empty;
         public string Password { get; set; } = string.Empty;
-        public string Pin { get; set; } = string.Empty; // PIN para gestão de dados críticos
+        public string Pin { get; set; } = string.Empty;
         public string Role { get; set; } = string.Empty;
+        public int CompanyId { get; set; }
     }
 
     public class LoginDto

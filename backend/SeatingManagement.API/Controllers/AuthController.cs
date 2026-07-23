@@ -11,9 +11,6 @@ using System.Text;
 
 namespace SeatingManagement.API.Controllers
 {
-    /// <summary>
-    /// Controlador responsável pela gestão de identidade e emissão de tokens JWT.
-    /// </summary>
     [ApiController]
     [Route("api/[controller]")]
     [AllowAnonymous] 
@@ -34,14 +31,18 @@ namespace SeatingManagement.API.Controllers
             if (await _context.Users.AnyAsync(u => u.Username == request.Username))
                 return BadRequest(new { Message = "O utilizador já existe no sistema." });
 
+            var company = await _context.Companies.FindAsync(request.CompanyId);
+            if (company == null)
+                return BadRequest(new { Message = "A empresa especificada não existe." });
+
             var user = new User
             {
                 Username = request.Username,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
                 PinHash = BCrypt.Net.BCrypt.HashPassword(request.Pin),
                 UserGuid = Guid.NewGuid(),
-                // 👇 NOVO: Atribui um Role (se não vier no DTO, força a Utilizador)
-                Role = !string.IsNullOrWhiteSpace(request.Role) ? request.Role : "Utilizador" 
+                Role = !string.IsNullOrWhiteSpace(request.Role) ? request.Role : "Utilizador",
+                CompanyId = request.CompanyId // 👇 Associa o Inquilino
             };
 
             _context.Users.Add(user);
@@ -53,7 +54,9 @@ namespace SeatingManagement.API.Controllers
         [HttpPost("login")]
         public async Task<IActionResult> Login(LoginDto request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.Username == request.Username);
+            var user = await _context.Users
+                .Include(u => u.Company)
+                .FirstOrDefaultAsync(u => u.Username == request.Username);
             
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 return Unauthorized(new { Message = "Credenciais inválidas." });
@@ -64,7 +67,9 @@ namespace SeatingManagement.API.Controllers
                 Token = token, 
                 UserGuid = user.UserGuid,
                 Pin = user.PinHash,
-                Role = user.Role 
+                Role = user.Role,
+                CompanyName = user.Company.Name,
+                CompanyLogo = user.Company.LogoUrl
             });
         }
 
@@ -78,7 +83,8 @@ namespace SeatingManagement.API.Controllers
             {
                 new Claim(ClaimTypes.NameIdentifier, user.UserGuid.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
-                new Claim(ClaimTypes.Role, user.Role) 
+                new Claim(ClaimTypes.Role, user.Role),
+                new Claim("CompanyId", user.CompanyId.ToString()) // 👇 O Inquilino fica blindado no Token
             };
 
             var issuer = _configuration["Jwt:Issuer"] ?? "SeatingManagementAPI";

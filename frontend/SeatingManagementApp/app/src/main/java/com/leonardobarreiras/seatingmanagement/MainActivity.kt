@@ -45,10 +45,15 @@ import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
 import com.leonardobarreiras.seatingmanagement.data.SeatEntity
 import com.leonardobarreiras.seatingmanagement.viewmodel.AppFeedback
 import com.leonardobarreiras.seatingmanagement.viewmodel.FeedbackType
 import com.leonardobarreiras.seatingmanagement.viewmodel.SeatViewModel
+import java.text.SimpleDateFormat
+import java.util.Locale
 
 // Paleta de Cores Modernizada (Estilo Pastel/Liquid)
 val CorporateBlue = Color(0xFF1E293B)
@@ -86,6 +91,18 @@ fun getMesaFromSeat(seatNumber: String): String {
     val split = seatNumber.split("-")
     if (split.size > 1) return split[0].trim()
     return "Geral"
+}
+
+fun formatEventDate(dateString: String?): String {
+    if (dateString.isNullOrEmpty() || dateString == "0001-01-01T00:00:00") return "Data a definir"
+    return try {
+        val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
+        val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("pt", "PT"))
+        val date = inputFormat.parse(dateString.substringBefore("Z").substringBefore("."))
+        if (date != null) outputFormat.format(date) else "Data a definir"
+    } catch (e: Exception) {
+        "Data a definir"
+    }
 }
 
 // ==========================================
@@ -254,16 +271,40 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
 fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) {
     LaunchedEffect(viewModel.currentEventId) { if (viewModel.currentEventId != null) onEventSelected() }
 
+    val context = LocalContext.current
+
+    // 👇 CARREGADOR DE IMAGENS COM SUPORTE A SVG 👇
+    val imageLoader = remember {
+        ImageLoader.Builder(context)
+            .components {
+                add(SvgDecoder.Factory())
+            }
+            .build()
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(LightBg)) {
         Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            Image(
-                painter = painterResource(id = R.drawable.seatly_icon),
-                contentDescription = "Seatly Logo",
-                modifier = Modifier.height(72.dp).clip(RoundedCornerShape(20.dp))
-            )
+            // 👇 CARREGAMENTO DE IMAGEM DA WEB VIA COIL 👇
+            if (viewModel.companyLogo.isNotEmpty()) {
+                AsyncImage(
+                    model = viewModel.companyLogo,
+                    imageLoader = imageLoader,
+                    contentDescription = "Logotipo da Empresa",
+                    modifier = Modifier.height(72.dp).clip(RoundedCornerShape(20.dp)),
+                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
+                    placeholder = painterResource(id = R.drawable.seatly_icon), // Mostra enquanto carrega
+                    error = painterResource(id = R.drawable.seatly_icon)        // Mostra se o link falhar ou for inválido
+                )
+            } else {
+                Image(
+                    painter = painterResource(id = R.drawable.seatly_icon),
+                    contentDescription = "Seatly Logo",
+                    modifier = Modifier.height(72.dp).clip(RoundedCornerShape(20.dp))
+                )
+            }
 
             Spacer(modifier = Modifier.height(24.dp))
             Text(
@@ -321,7 +362,8 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(event.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = CorporateBlue)
-                                    Text("ID: ${event.id}", color = TextGray, fontSize = 12.sp)
+                                    Spacer(modifier = Modifier.height(2.dp))
+                                    Text(formatEventDate(event.startDate), color = TextGray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                                 }
                                 Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = Color(0xFFCBD5E1))
                             }
@@ -362,11 +404,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
 
     var pendingAdminAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
-    /*
-    // [FEATURE FUTURA] - Estado do Scanner de Bilhetes
-    var showModernScanner by remember { mutableStateOf(false) }
-    */
-
     val totalSeats by remember(seats) { derivedStateOf { seats.size } }
     val treatedSeats by remember(seats) { derivedStateOf { seats.count { it.status != 0 } } }
     val pendingSeats by remember(totalSeats, treatedSeats) { derivedStateOf { totalSeats - treatedSeats } }
@@ -386,6 +423,10 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
             }
             showDataActionsSheet = false
         }
+    }
+
+    val currentEventName = remember(viewModel.currentEventId, viewModel.myEvents) {
+        viewModel.myEvents.find { it.id == viewModel.currentEventId }?.name ?: "Nenhum"
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -433,7 +474,14 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
 
                             Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
                                 Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text("Seatly", color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp)
+                                    Text(
+                                        text = viewModel.companyName,
+                                        color = Color.White,
+                                        fontSize = 16.sp,
+                                        fontWeight = FontWeight.Bold,
+                                        letterSpacing = 0.5.sp,
+                                        maxLines = 1
+                                    )
                                     if (viewModel.isOffline) {
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Box(modifier = Modifier.background(ErrorRed, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
@@ -442,7 +490,13 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text("Evento: ${viewModel.currentEventId ?: "Nenhum"}", color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                Text(
+                                    text = currentEventName,
+                                    color = Color(0xFF94A3B8),
+                                    fontSize = 12.sp,
+                                    fontWeight = FontWeight.Medium,
+                                    maxLines = 1
+                                )
                             }
 
                             val syncAlpha = if (viewModel.isOffline) 0.05f else 0.15f
@@ -572,7 +626,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         Text("Importe um ficheiro CSV com separador \";\"\npara começar a gerir os seus dados.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
                         Spacer(modifier = Modifier.height(32.dp))
 
-                        // 👇 BOTÃO CORRIGIDO: Respeita a regra de Gestor/Utilizador
                         Button(
                             onClick = {
                                 val isGestor = viewModel.userRole == "Gestor"
@@ -866,7 +919,6 @@ fun FilterChipCustom(text: String, isSelected: Boolean, onClick: () -> Unit) {
 fun GuestListItem(seat: SeatEntity, onAssignClick: () -> Unit) {
     val isAssigned = seat.status != 0
     val statusColor = if (isAssigned) SuccessGreen else ErrorRed
-    val statusBg = if (isAssigned) SuccessGreenLight else ErrorRedLight
 
     Card(modifier = Modifier.fillMaxWidth().clickable { onAssignClick() }, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(1.dp), shape = RoundedCornerShape(20.dp)) {
         Row(modifier = Modifier.height(IntrinsicSize.Min)) {

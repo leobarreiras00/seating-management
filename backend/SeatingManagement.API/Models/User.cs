@@ -22,5 +22,11 @@ namespace SeatingManagement.API.Models
         [Required]
         [MaxLength(20)]
         public string Role { get; set; } = "Utilizador";
+
+        // Associação Multi-Tenant
+        public int CompanyId { get; set; }
+        public Company Company { get; set; } = null!;
+
+        public ICollection<UserEvent> UserEvents { get; set; } = new List<UserEvent>();
     }
 }
