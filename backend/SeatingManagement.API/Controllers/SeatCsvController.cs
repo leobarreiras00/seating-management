@@ -28,7 +28,6 @@ namespace SeatingManagement.API.Controllers
             _mqttService = mqttService;
         }
 
-        // 👇 ROTA ATUALIZADA: Agora com Limpeza Automática de Duplicados!
         [HttpPost("import/{eventId}")]
         public async Task<IActionResult> ImportCsv(int eventId, IFormFile file, [FromQuery] string mode = "replace")
         {
@@ -49,7 +48,9 @@ namespace SeatingManagement.API.Controllers
                 {
                     HasHeaderRecord = true,
                     Delimiter = ";", 
-                    MissingFieldFound = null 
+                    MissingFieldFound = null,
+                    // 👇 NOVA CONFIG: Permite que o CsvHelper ignore espaços extra e maiúsculas/minúsculas
+                    PrepareHeaderForMatch = args => args.Header.Trim().ToLower()
                 };
 
                 using var csv = new CsvReader(reader, config);
@@ -62,7 +63,24 @@ namespace SeatingManagement.API.Controllers
                     csv.TryGetField("LUGAR", out string? rawLugar);
                     csv.TryGetField("CATEGORIA", out string? rawCategoria);
                     csv.TryGetField("ESTADO", out string? rawEstado);
-                    csv.TryGetField("NOME", out string? rawNome);
+                    
+                    // 👇 LÓGICA INTELIGENTE DE EXTRAÇÃO DO NOME 👇
+                    string? rawNome = null;
+                    
+                    // 1º Tentativa: Ler pelo nome exato ou com a vírgula do demo
+                    if (!csv.TryGetField("NOME", out rawNome))
+                    {
+                        if (!csv.TryGetField("NOME,", out rawNome))
+                        {
+                            // 2º Tentativa: Se falhar, lê a última coluna (índice variável com base no cabeçalho)
+                            try 
+                            {
+                                int columnCount = csv.HeaderRecord.Length;
+                                rawNome = csv.GetField<string>(columnCount - 1);
+                            }
+                            catch { /* Ignora se falhar ao ler o índice */ }
+                        }
+                    }
 
                     string mesa = SanitizeInput(rawMesa);
                     string lugar = SanitizeInput(rawLugar);
@@ -155,7 +173,6 @@ namespace SeatingManagement.API.Controllers
             return Ok(new { Message = "Dados do evento limpos com sucesso!" });
         }
 
-        // 👇 MÉTODO PRIVADO: O motor inteligente que limpa duplicados nos bastidores
         private async Task<int> AutoRemoveDuplicatesAsync(int eventId)
         {
             var allSeats = await _context.Seats.Where(s => s.EventId == eventId).ToListAsync();
@@ -164,7 +181,6 @@ namespace SeatingManagement.API.Controllers
 
             foreach (var group in groupedSeats)
             {
-                // Prioriza os validados/tratados e os mais recentes
                 var orderedGroup = group.OrderByDescending(s => (int)s.Status).ThenByDescending(s => s.Id).ToList();
                 
                 var duplicates = orderedGroup.Skip(1);
@@ -185,8 +201,13 @@ namespace SeatingManagement.API.Controllers
         {
             if (string.IsNullOrEmpty(input)) return string.Empty;
             input = input.Trim();
+            
+            // 👇 LIMPEZA EXTRA: Remove vírgulas perdidas no final do texto (como acontece no NOME do teu ficheiro demo)
+            if (input.EndsWith(",")) input = input.TrimEnd(',');
+            
             if (input.StartsWith("=") || input.StartsWith("+") || input.StartsWith("-") || input.StartsWith("@"))
                 input = Regex.Replace(input, @"^[=\+\-\@]+", "");
+                
             return input;
         }
     }

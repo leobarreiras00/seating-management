@@ -41,7 +41,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     var userRole by mutableStateOf("Utilizador")
     var lastPinAuthTime by mutableStateOf(0L)
 
-    // 👇 ADICIONADO: Variáveis de estado para a Lista de Eventos Dinâmica
+    // Variáveis de estado para a Lista de Eventos Dinâmica
     var myEvents by mutableStateOf<List<EventDto>>(emptyList())
     var isLoadingEvents by mutableStateOf(false)
 
@@ -77,6 +77,25 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         mqttManager.connect()
     }
 
+    // 👇 LOGOUT COMPLETO: Limpa dados e estado da sessão
+    fun logout() {
+        jwtToken = null
+        currentEventId = null
+        myEvents = emptyList()
+        userRole = "Utilizador"
+        viewModelScope.launch {
+            repository.deleteAllSeats()
+        }
+    }
+
+    // 👇 MUDAR DE EVENTO: Limpa o evento atual e respetivos lugares locais
+    fun clearCurrentEvent() {
+        currentEventId = null
+        viewModelScope.launch {
+            repository.deleteAllSeats()
+        }
+    }
+
     fun authenticate(user: String, pass: String, onSuccess: () -> Unit) {
         if (isOffline) {
             loginError = "Sem ligação à internet."
@@ -92,7 +111,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                     dynamicAdminPin = response.pin
                 }
 
-                // 👇 ADICIONADO: Guarda o Role e Carrega os Eventos
+                // Guarda o Role e Carrega os Eventos
                 if (response.role != null) {
                     userRole = response.role
                 }
@@ -106,7 +125,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // 👇 ADICIONADO: Função que contacta a API para buscar a lista de eventos atribuídos
+    // Função que contacta a API para buscar a lista de eventos atribuídos
     fun fetchMyEvents() {
         val token = jwtToken ?: return
         viewModelScope.launch {

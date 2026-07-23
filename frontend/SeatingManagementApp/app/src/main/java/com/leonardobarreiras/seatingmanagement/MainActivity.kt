@@ -74,7 +74,7 @@ class MainActivity : ComponentActivity() {
                     NavHost(navController = navController, startDestination = "login") {
                         composable("login") { LoginScreen(onLoginSuccess = { navController.navigate("event_selection") { popUpTo("login") { inclusive = true } } }, viewModel = sharedViewModel) }
                         composable("event_selection") { EventSelectionScreen(viewModel = sharedViewModel, onEventSelected = { navController.navigate("dashboard") { popUpTo("event_selection") { inclusive = true } } }) }
-                        composable("dashboard") { SeatScreen(viewModel = sharedViewModel) }
+                        composable("dashboard") { SeatScreen(viewModel = sharedViewModel, navController = navController) }
                     }
                 }
             }
@@ -249,7 +249,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
     }
 }
 
-// 👇 ECRÃ DE SELEÇÃO DE EVENTOS TOTALMENTE REFORMULADO (COM CARTÕES RBAC) 👇
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) {
@@ -340,13 +339,14 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-fun SeatScreen(viewModel: SeatViewModel) {
+fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavController) {
     val seats by viewModel.seatsFlow.collectAsState(initial = emptyList())
     val context = LocalContext.current
 
     var searchQuery by remember { mutableStateOf("") }
     var showFilters by remember { mutableStateOf(false) }
     var showActionsSheet by remember { mutableStateOf(false) }
+    var showDataActionsSheet by remember { mutableStateOf(false) } // Sub-menu de Ações
     var showPinDialog by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
     var requireConfirmation by remember { mutableStateOf(true) }
@@ -367,14 +367,13 @@ fun SeatScreen(viewModel: SeatViewModel) {
     var showModernScanner by remember { mutableStateOf(false) }
     */
 
-    // 👇 OTIMIZAÇÃO: Estatísticas em Cache 👇
     val totalSeats by remember(seats) { derivedStateOf { seats.size } }
     val treatedSeats by remember(seats) { derivedStateOf { seats.count { it.status != 0 } } }
     val pendingSeats by remember(totalSeats, treatedSeats) { derivedStateOf { totalSeats - treatedSeats } }
     val progress by remember(totalSeats, treatedSeats) { derivedStateOf { if (totalSeats > 0) treatedSeats.toFloat() / totalSeats else 0f } }
 
     val exportCsvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
-        if (uri != null) { viewModel.exportCsv(uri, context); showActionsSheet = false }
+        if (uri != null) { viewModel.exportCsv(uri, context); showDataActionsSheet = false }
     }
 
     val csvLauncher = rememberLauncherForActivityResult(ActivityResultContracts.GetContent()) { uri ->
@@ -385,7 +384,7 @@ fun SeatScreen(viewModel: SeatViewModel) {
             } else {
                 viewModel.uploadCsvToServer(uri, context, "replace")
             }
-            showActionsSheet = false
+            showDataActionsSheet = false
         }
     }
 
@@ -407,7 +406,6 @@ fun SeatScreen(viewModel: SeatViewModel) {
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            // 👇 NOVA LÓGICA DE ROLE E TIMEOUT 👇
                             val isGestor = viewModel.userRole == "Gestor"
 
                             IconButton(
@@ -465,21 +463,6 @@ fun SeatScreen(viewModel: SeatViewModel) {
                         }
                     }
                 }
-            },
-            bottomBar = {
-                /*
-                // [FEATURE FUTURA] - Botão Roxo de Leitura de Bilhetes
-                Box(modifier = Modifier.fillMaxWidth().background(LightBg).padding(16.dp)) {
-                    Button(
-                        onClick = { showModernScanner = true },
-                        modifier = Modifier.fillMaxWidth().height(56.dp), shape = RoundedCornerShape(20.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple), elevation = ButtonDefaults.buttonElevation(defaultElevation = 8.dp)
-                    ) {
-                        Icon(Icons.Rounded.QrCodeScanner, contentDescription = null, tint = Color.White, modifier = Modifier.size(24.dp))
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Text("LER BILHETE (QR)", fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 1.sp)
-                    }
-                }
-                */
             },
             containerColor = LightBg
         ) { paddingValues ->
@@ -589,10 +572,20 @@ fun SeatScreen(viewModel: SeatViewModel) {
                         Text("Importe um ficheiro CSV com separador \";\"\npara começar a gerir os seus dados.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
                         Spacer(modifier = Modifier.height(32.dp))
 
+                        // 👇 BOTÃO CORRIGIDO: Respeita a regra de Gestor/Utilizador
                         Button(
                             onClick = {
-                                pendingAdminAction = { csvLauncher.launch("*/*") }
-                                showPinDialog = true
+                                val isGestor = viewModel.userRole == "Gestor"
+                                if (isGestor) {
+                                    csvLauncher.launch("*/*")
+                                } else {
+                                    if (viewModel.isPinTimeoutValid()) {
+                                        csvLauncher.launch("*/*")
+                                    } else {
+                                        pendingAdminAction = { csvLauncher.launch("*/*") }
+                                        showPinDialog = true
+                                    }
+                                }
                             },
                             modifier = Modifier.fillMaxWidth(0.8f).height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
                         ) {
@@ -659,7 +652,7 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 onConfirm = {
                     if (viewModel.verifyPin(pin)) {
                         validatedAdminPin = pin
-                        viewModel.registerPinSuccess() // 👇 INICIA O CRONÓMETRO DE 10 SEGUNDOS
+                        viewModel.registerPinSuccess()
                         showPinDialog = false
                         pendingAdminAction?.invoke()
                         pendingAdminAction = null
@@ -702,14 +695,12 @@ fun SeatScreen(viewModel: SeatViewModel) {
                 "MARK_ALL" -> "Validar Todos"
                 "UNMARK_ALL" -> "Desmarcar Todos"
                 "CLEAR" -> "Limpar Ecrã"
-                // "REMOVE_DUPS" -> "Remover Duplicados"
                 else -> ""
             }
             val msg = when (confirmActionType) {
                 "MARK_ALL" -> "Isto marcará $pendingSeats pendentes como Tratados."
                 "UNMARK_ALL" -> "Vais remover a validação de $treatedSeats convidados."
                 "CLEAR" -> "Isto vai limpar o ecrã. Usa o Sync para recuperar os dados."
-                // "REMOVE_DUPS" -> "O sistema irá analisar a sala e remover registos duplicados no mesmo lugar, preservando os convidados validados."
                 else -> ""
             }
 
@@ -724,7 +715,6 @@ fun SeatScreen(viewModel: SeatViewModel) {
                         "MARK_ALL" -> viewModel.bulkUpdateStatus("Tratado")
                         "UNMARK_ALL" -> viewModel.bulkUpdateStatus("Vazio")
                         "CLEAR" -> viewModel.clearEventData(validatedAdminPin)
-                        // "REMOVE_DUPS" -> viewModel.removeDuplicateSeats(validatedAdminPin)
                     }
                     confirmActionType = null
                 }, onDismiss = { confirmActionType = null }
@@ -735,28 +725,79 @@ fun SeatScreen(viewModel: SeatViewModel) {
             AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
         }
 
+        // ==========================================
+        // MENU DE AÇÕES SIMPLIFICADO (3 LINHAS)
+        // ==========================================
         @OptIn(ExperimentalMaterial3Api::class)
         if (showActionsSheet) {
             ModalBottomSheet(onDismissRequest = { showActionsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
-                    Text("Ações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
+                    Text("Menu de Ações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
 
-                    Text("EXPORTAR", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
-                    BottomSheetItem(icon = Icons.Rounded.Download, title = "Exportar CSV", subtitle = "$totalSeats registos com estado atual", iconColor = PrimaryBlue, iconBg = Color(0xFFEFF6FF)) { exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
+                    BottomSheetItem(
+                        icon = Icons.Rounded.SwapHoriz,
+                        title = "Mudar de Evento",
+                        subtitle = "Voltar à lista de eventos atribuídos",
+                        iconColor = PrimaryBlue,
+                        iconBg = Color(0xFFEFF6FF)
+                    ) {
+                        showActionsSheet = false
+                        viewModel.clearCurrentEvent()
+                        navController.navigate("event_selection") {
+                            popUpTo("event_selection") { inclusive = true }
+                        }
+                    }
 
-                    Spacer(modifier = Modifier.height(16.dp))
-                    Text("GESTÃO DE DADOS", fontSize = 11.sp, fontWeight = FontWeight.Bold, color = Color.Gray, modifier = Modifier.padding(bottom = 8.dp))
-                    BottomSheetItem(icon = Icons.Rounded.Upload, title = "Importar Novo Ficheiro", subtitle = "Substituir ou adicionar dados", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { csvLauncher.launch("*/*") }
-                    BottomSheetItem(icon = Icons.Rounded.CheckCircle, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { confirmActionType = "MARK_ALL"; showActionsSheet = false }
-                    BottomSheetItem(icon = Icons.Rounded.Cancel, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconColor = TextGray, iconBg = Color(0xFFF1F5F9)) { confirmActionType = "UNMARK_ALL"; showActionsSheet = false }
-                    BottomSheetItem(icon = Icons.Rounded.Delete, title = "Limpar Ecrã", subtitle = "Remover dados locais", iconColor = ErrorRed, iconBg = ErrorRedLight) { confirmActionType = "CLEAR"; showActionsSheet = false }
+                    BottomSheetItem(
+                        icon = Icons.Rounded.ListAlt,
+                        title = "Ações",
+                        subtitle = "Exportar, importar e gerir dados",
+                        iconColor = AccentPurple,
+                        iconBg = AccentPurpleLight
+                    ) {
+                        showActionsSheet = false
+                        showDataActionsSheet = true
+                    }
 
-                    // BottomSheetItem(icon = Icons.Rounded.CleaningServices, title = "Remover Registos Duplicados", subtitle = "Limpeza inteligente da base de dados", iconColor = AccentPurple, iconBg = AccentPurpleLight) { confirmActionType = "REMOVE_DUPS"; showActionsSheet = false }
-
-                    BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) { showActionsSheet = false; showSettingsSheet = true }
+                    BottomSheetItem(
+                        icon = Icons.Rounded.Logout,
+                        title = "Logout",
+                        subtitle = "Terminar sessão atual",
+                        iconColor = ErrorRed,
+                        iconBg = ErrorRedLight
+                    ) {
+                        showActionsSheet = false
+                        viewModel.logout()
+                        navController.navigate("login") {
+                            popUpTo(0) { inclusive = true }
+                        }
+                    }
 
                     Spacer(modifier = Modifier.height(24.dp))
                     OutlinedButton(onClick = { showActionsSheet = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) { Text("Cancelar", color = TextGray, fontWeight = FontWeight.Bold) }
+                    Spacer(modifier = Modifier.navigationBarsPadding())
+                }
+            }
+        }
+
+        // ==========================================
+        // SUB-MENU DE AÇÕES DETALHADAS
+        // ==========================================
+        @OptIn(ExperimentalMaterial3Api::class)
+        if (showDataActionsSheet) {
+            ModalBottomSheet(onDismissRequest = { showDataActionsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
+                    Text("Ações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
+
+                    BottomSheetItem(icon = Icons.Rounded.Download, title = "Exportar CSV", subtitle = "$totalSeats registos com estado atual", iconColor = PrimaryBlue, iconBg = Color(0xFFEFF6FF)) { exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
+                    BottomSheetItem(icon = Icons.Rounded.Upload, title = "Importar Novo Ficheiro", subtitle = "Substituir ou adicionar dados", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { csvLauncher.launch("*/*") }
+                    BottomSheetItem(icon = Icons.Rounded.CheckCircle, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { confirmActionType = "MARK_ALL"; showDataActionsSheet = false }
+                    BottomSheetItem(icon = Icons.Rounded.Cancel, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconColor = TextGray, iconBg = Color(0xFFF1F5F9)) { confirmActionType = "UNMARK_ALL"; showDataActionsSheet = false }
+                    BottomSheetItem(icon = Icons.Rounded.Delete, title = "Limpar Ecrã", subtitle = "Remover dados locais", iconColor = ErrorRed, iconBg = ErrorRedLight) { confirmActionType = "CLEAR"; showDataActionsSheet = false }
+                    BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações Marcação", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) { showDataActionsSheet = false; showSettingsSheet = true }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    OutlinedButton(onClick = { showDataActionsSheet = false; showActionsSheet = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) { Text("Voltar", color = TextGray, fontWeight = FontWeight.Bold) }
                     Spacer(modifier = Modifier.navigationBarsPadding())
                 }
             }
@@ -766,7 +807,7 @@ fun SeatScreen(viewModel: SeatViewModel) {
         if (showSettingsSheet) {
             ModalBottomSheet(onDismissRequest = { showSettingsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
-                    Text("Configurações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
+                    Text("Configurações Marcação", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
                     Card(colors = CardDefaults.cardColors(containerColor = LightBg), border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                         Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
@@ -777,26 +818,11 @@ fun SeatScreen(viewModel: SeatViewModel) {
                         }
                     }
                     Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = { showSettingsSheet = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)) { Text("Guardar e Fechar", fontWeight = FontWeight.Bold) }
+                    Button(onClick = { showSettingsSheet = false; showDataActionsSheet = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)) { Text("Guardar e Fechar", fontWeight = FontWeight.Bold) }
                     Spacer(modifier = Modifier.navigationBarsPadding())
                 }
             }
         }
-
-        /*
-        // ==========================================
-        // [FEATURE FUTURA] - SCANNER DE ECRÃ INTEIRO
-        // ==========================================
-        if (showModernScanner) {
-            ModernQrScanner(
-                onQrCodeScanned = { result ->
-                    showModernScanner = false
-                    viewModel.validateTicketFromQr(result.trim())
-                },
-                onClose = { showModernScanner = false }
-            )
-        }
-        */
     }
 }
 
