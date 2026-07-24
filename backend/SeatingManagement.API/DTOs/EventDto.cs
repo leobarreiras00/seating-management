@@ -10,6 +10,7 @@ namespace SeatingManagement.API.DTOs
     public class CreateEventDto
     {
         public string Name { get; set; } = string.Empty;
+        public int TotalSeats { get; set; }
         public DateTime StartDate { get; set; }
     }
 }

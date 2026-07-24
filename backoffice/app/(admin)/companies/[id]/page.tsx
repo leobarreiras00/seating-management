@@ -1,9 +1,10 @@
 "use client";
 
-import { useEffect, useState } from "react";
+import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Users, CalendarDays, UserPlus, X } from "lucide-react";
+import { ChevronLeft, Users, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2 } from "lucide-react";
+import mqtt from "mqtt";
 
 interface Company { id: number; name: string; logoUrl: string | null; }
 interface Manager { id: number; username: string; role: string; }
@@ -11,7 +12,7 @@ interface EventStats { id: number; name: string; startDate: string; totalSeats: 
 
 export default function CompanyDetailsPage() {
   const params = useParams();
-  const id = params.id;
+  const id = params.id as string;
 
   const [company, setCompany] = useState<Company | null>(null);
   const [managers, setManagers] = useState<Manager[]>([]);
@@ -20,14 +21,29 @@ export default function CompanyDetailsPage() {
   const [activeTab, setActiveTab] = useState<"gestores" | "eventos">("gestores");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Estados do Modal
-  const [showModal, setShowModal] = useState(false);
+  // Estados dos Modais
+  const [showManagerModal, setShowManagerModal] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [isCreatingManager, setIsCreatingManager] = useState(false);
   const [managerError, setManagerError] = useState("");
 
-  const fetchCompanyData = async () => {
+  const [showEventModal, setShowEventModal] = useState(false);
+  const [eventName, setEventName] = useState("");
+  const [eventDate, setEventDate] = useState("");
+  const [eventSeats, setEventSeats] = useState("");
+  const [isCreatingEvent, setIsCreatingEvent] = useState(false);
+  const [eventError, setEventError] = useState("");
+
+  const [showAssignModal, setShowAssignModal] = useState(false);
+  const [assignEventId, setAssignEventId] = useState<number | null>(null);
+  const [assignUserId, setAssignUserId] = useState<string>("");
+  const [isAssigning, setIsAssigning] = useState(false);
+  const [assignError, setAssignError] = useState("");
+
+  // Envolvido em useCallback para prevenir renders infinitos
+  const fetchCompanyData = useCallback(async () => {
+    if (!id) return;
     try {
       const token = localStorage.getItem("token");
       const headers = { Authorization: `Bearer ${token}` };
@@ -47,50 +63,103 @@ export default function CompanyDetailsPage() {
     } finally {
       setIsLoading(false);
     }
-  };
-
-  useEffect(() => {
-    if (id) fetchCompanyData();
-  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [id]);
 
-  // Função que comunica com a API para criar o Gestor
+  // Carregamento inicial isolado
+  useEffect(() => {
+    fetchCompanyData();
+  }, [fetchCompanyData]);
+
+  // Gestão Blindada do MQTT
+  useEffect(() => {
+    if (!id) return;
+    
+    // Conecta usando WebSockets
+    const client = mqtt.connect("ws://localhost:9001"); 
+
+    client.on("connect", () => {
+      console.log("Backoffice ligado ao MQTT com sucesso!");
+      client.subscribe(`seating/events/#`); 
+    });
+
+    client.on("message", (topic, message) => {
+      console.log("Nova atualização MQTT recebida no tópico:", topic);
+      fetchCompanyData();
+    });
+
+    // Limpa a conexão se o utilizador sair da página para não duplicar clientes
+    return () => {
+      client.end();
+    };
+  }, [id, fetchCompanyData]);
+
+  // Ações da API
   const handleCreateManager = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreatingManager(true);
     setManagerError("");
-
     try {
       const token = localStorage.getItem("token");
       const res = await fetch("http://localhost:5162/api/Auth/register", {
         method: "POST",
-        headers: { 
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` 
-        },
-        body: JSON.stringify({
-          username: newUsername,
-          password: newPassword,
-          role: "Gestor",
-          companyId: Number(id)
-        }),
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ username: newUsername, password: newPassword, role: "Gestor", companyId: Number(id) }),
       });
+      if (!res.ok) throw new Error("Erro ao criar o gestor.");
+      setNewUsername(""); setNewPassword(""); setShowManagerModal(false); fetchCompanyData(); 
+    } catch (err: any) { setManagerError(err.message); } finally { setIsCreatingManager(false); }
+  };
 
+  const handleCreateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setIsCreatingEvent(true);
+    setEventError("");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5162/api/Company/${id}/events`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: eventName, startDate: new Date(eventDate).toISOString(), totalSeats: Number(eventSeats) }),
+      });
+      if (!res.ok) throw new Error("Erro ao criar o evento.");
+      setEventName(""); setEventDate(""); setEventSeats(""); setShowEventModal(false); fetchCompanyData(); 
+    } catch (err: any) { setEventError(err.message); } finally { setIsCreatingEvent(false); }
+  };
+
+  const handleAssignManager = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!assignUserId) { setAssignError("Por favor, seleciona um gestor."); return; }
+    setIsAssigning(true);
+    setAssignError("");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5162/api/Event/${assignEventId}/assign-user`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ userId: assignUserId }), 
+      });
       if (!res.ok) {
-        const errorData = await res.json().catch(() => ({}));
-        throw new Error(errorData.Message || "Erro ao criar o gestor. O nome de utilizador pode já existir.");
+        const errData = await res.json().catch(()=>({}));
+        throw new Error(errData.Message || "Erro ao atribuir o gestor.");
       }
+      setShowAssignModal(false);
+      setAssignUserId("");
+      alert("Gestor atribuído com sucesso!");
+    } catch (err: any) { setAssignError(err.message); } finally { setIsAssigning(false); }
+  };
 
-      // Sucesso! Limpa o form, fecha o modal e recarrega os dados silenciosamente
-      setNewUsername("");
-      setNewPassword("");
-      setShowModal(false);
-      fetchCompanyData(); 
-      
-    } catch (err: any) {
-      setManagerError(err.message);
-    } finally {
-      setIsCreatingManager(false);
+  const handleDeleteEvent = async (eventId: number, evName: string) => {
+    if (!window.confirm(`Tens a certeza que queres apagar o evento "${evName}"? Esta ação é irreversível.`)) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5162/api/Event/${eventId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Erro ao apagar o evento.");
+      fetchCompanyData();
+    } catch (error) {
+      alert("Ocorreu um erro ao tentar apagar o evento.");
     }
   };
 
@@ -134,14 +203,10 @@ export default function CompanyDetailsPage() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-slate-900">Gestores de Conta</h2>
-              <button 
-                onClick={() => setShowModal(true)}
-                className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-2"
-              >
+              <button onClick={() => setShowManagerModal(true)} className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-2">
                 <UserPlus className="w-4 h-4" /> Criar Gestor
               </button>
             </div>
-            
             {managers.length === 0 ? (
               <div className="text-center py-12 text-slate-500">Ainda não existem gestores atribuídos a esta empresa.</div>
             ) : (
@@ -149,13 +214,8 @@ export default function CompanyDetailsPage() {
                 {managers.map(manager => (
                   <div key={manager.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors">
                     <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase">
-                        {manager.username.charAt(0)}
-                      </div>
-                      <div>
-                        <p className="font-bold text-slate-900">{manager.username}</p>
-                        <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider">{manager.role}</p>
-                      </div>
+                      <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase">{manager.username.charAt(0)}</div>
+                      <div><p className="font-bold text-slate-900">{manager.username}</p><p className="text-xs font-semibold text-purple-600 uppercase tracking-wider">{manager.role}</p></div>
                     </div>
                   </div>
                 ))}
@@ -166,7 +226,12 @@ export default function CompanyDetailsPage() {
 
         {activeTab === "eventos" && (
           <div>
-            <h2 className="text-xl font-bold text-slate-900 mb-6">Eventos da Empresa</h2>
+            <div className="flex justify-between items-center mb-6">
+              <h2 className="text-xl font-bold text-slate-900">Eventos da Empresa</h2>
+              <button onClick={() => setShowEventModal(true)} className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-2">
+                <CalendarPlus className="w-4 h-4" /> Criar Evento
+              </button>
+            </div>
             {events.length === 0 ? (
               <div className="text-center py-12 text-slate-500">Esta empresa ainda não tem eventos criados.</div>
             ) : (
@@ -174,12 +239,25 @@ export default function CompanyDetailsPage() {
                 {events.map(event => {
                   const progress = event.totalSeats > 0 ? Math.round((event.treatedSeats / event.totalSeats) * 100) : 0;
                   return (
-                    <div key={event.id} className="p-5 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors">
-                      <h3 className="font-bold text-slate-900 text-lg">{event.name}</h3>
-                      <p className="text-sm text-slate-500 mb-4">{new Date(event.startDate).toLocaleDateString('pt-PT')}</p>
-                      <div className="flex justify-between text-sm mb-2"><span className="font-medium text-slate-600">Progresso</span><span className="font-bold text-purple-600">{progress}%</span></div>
-                      <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: `${progress}%` }}></div></div>
-                      <div className="flex justify-between mt-4 pt-4 border-t border-slate-50 text-sm"><span className="text-slate-500">Total: <strong className="text-slate-900">{event.totalSeats}</strong></span><span className="text-slate-500">Tratados: <strong className="text-emerald-600">{event.treatedSeats}</strong></span></div>
+                    <div key={event.id} className="p-5 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors flex flex-col justify-between">
+                      <div>
+                        <div className="flex justify-between items-start mb-2">
+                          <div>
+                            <h3 className="font-bold text-slate-900 text-lg">{event.name}</h3>
+                            <p className="text-sm text-slate-500 mb-4">{new Date(event.startDate).toLocaleDateString('pt-PT')}</p>
+                          </div>
+                          <button onClick={() => handleDeleteEvent(event.id, event.name)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Apagar Evento">
+                            <Trash2 className="w-5 h-5" />
+                          </button>
+                        </div>
+                        <div className="flex justify-between text-sm mb-2"><span className="font-medium text-slate-600">Progresso</span><span className="font-bold text-purple-600">{progress}%</span></div>
+                        <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: `${progress}%` }}></div></div>
+                        <div className="flex justify-between mt-4 pt-4 border-t border-slate-50 text-sm"><span className="text-slate-500">Total: <strong className="text-slate-900">{event.totalSeats}</strong></span><span className="text-slate-500">Tratados: <strong className="text-emerald-600">{event.treatedSeats}</strong></span></div>
+                      </div>
+                      
+                      <button onClick={() => { setAssignEventId(event.id); setShowAssignModal(true); }} className="mt-5 w-full flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition-colors">
+                        <KeyRound className="w-4 h-4 text-purple-500" /> Atribuir Gestor
+                      </button>
                     </div>
                   );
                 })}
@@ -189,32 +267,66 @@ export default function CompanyDetailsPage() {
         )}
       </div>
 
-      {/* MODAL DE CRIAÇÃO DE GESTOR */}
-      {showModal && (
+      {showManagerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
             <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
               <h3 className="text-xl font-bold text-slate-900">Novo Gestor de Conta</h3>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
+              <button onClick={() => setShowManagerModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateManager} className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Utilizador</label>
-                <input type="text" required value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="Ex: joao_calibri" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Palavra-passe</label>
-                <input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500" placeholder="••••••••" />
-              </div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Utilizador</label><input type="text" required value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500" /></div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Palavra-passe</label><input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500" /></div>
               {managerError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{managerError}</div>}
-              <button type="submit" disabled={isCreatingManager} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg shadow-purple-600/20">
-                {isCreatingManager ? "A Criar..." : "Criar Acesso"}
-              </button>
+              <button type="submit" disabled={isCreatingManager} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingManager ? "A Criar..." : "Criar Acesso"}</button>
             </form>
           </div>
         </div>
       )}
 
+      {showEventModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-xl font-bold text-slate-900">Novo Evento</h3>
+              <button onClick={() => setShowEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleCreateEvent} className="p-6 space-y-5">
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label><input type="text" required value={eventName} onChange={(e) => setEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500" /></div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label><input type="date" required value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500" /></div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Total de Lugares</label><input type="number" required min="1" value={eventSeats} onChange={(e) => setEventSeats(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500" /></div>
+              {eventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{eventError}</div>}
+              <button type="submit" disabled={isCreatingEvent} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingEvent ? "A Criar..." : "Criar Evento"}</button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-purple-600" /> Atribuir Acesso</h3>
+              <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleAssignManager} className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Selecionar Gestor</label>
+                <select required value={assignUserId} onChange={(e) => setAssignUserId(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
+                  <option value="" disabled>Escolhe um gestor da lista...</option>
+                  {managers.map(m => (
+                    <option key={m.id} value={m.id}>{m.username} ({m.role})</option>
+                  ))}
+                </select>
+              </div>
+              {assignError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{assignError}</div>}
+              <button type="submit" disabled={isAssigning} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg shadow-emerald-600/20">
+                {isAssigning ? "A Atribuir..." : "Confirmar Atribuição"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
     </div>
   );
 }

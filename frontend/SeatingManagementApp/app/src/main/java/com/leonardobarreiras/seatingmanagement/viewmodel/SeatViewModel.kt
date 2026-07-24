@@ -441,7 +441,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
 
                     val finalMessage = try {
                         val responseBodyStr = response.body().toString()
-
                         val regex = "removidos (\\d+) registos".toRegex()
                         val match = regex.find(responseBodyStr)
 
@@ -456,7 +455,16 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
 
                     appFeedback = AppFeedback(FeedbackType.SUCCESS, "Importação Limpa", finalMessage)
                 } else {
-                    appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Servidor rejeitou o ficheiro.")
+                    val errorMessage = try {
+                        val errorJson = response.errorBody()?.string()
+                        val regex = "\"Message\":\"([^\"]+)\"".toRegex()
+                        val match = errorJson?.let { regex.find(it) }
+                        match?.groupValues?.get(1) ?: "O ficheiro excede a capacidade ou contém erros."
+                    } catch (e: Exception) {
+                        "O ficheiro excede a capacidade ou contém erros."
+                    }
+
+                    appFeedback = AppFeedback(FeedbackType.ERROR, "Importação Recusada", errorMessage)
                 }
             } catch (e: Exception) {
                 appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Falha de comunicação.")

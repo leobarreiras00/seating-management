@@ -31,12 +31,15 @@ namespace SeatingManagement.API.Controllers
         [HttpPost("import/{eventId}")]
         public async Task<IActionResult> ImportCsv(int eventId, IFormFile file, [FromQuery] string mode = "replace")
         {
-            if (file == null || file.Length == 0) return BadRequest("Ficheiro inválido.");
-            if (file.Length > MaxFileSizeBytes) return BadRequest("O ficheiro excede 5MB.");
+            if (file == null || file.Length == 0) return BadRequest(new { Message = "Ficheiro inválido." });
+            if (file.Length > MaxFileSizeBytes) return BadRequest(new { Message = "O ficheiro excede 5MB." });
 
             var fileName = file.FileName ?? "";
             var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
-            if (extension != ".csv" && extension != ".txt") return BadRequest("Formato de ficheiro não suportado.");
+            if (extension != ".csv" && extension != ".txt") return BadRequest(new { Message = "Formato de ficheiro não suportado." });
+
+            var ev = await _context.Events.FindAsync(eventId);
+            if (ev == null) return NotFound(new { Message = "Evento não encontrado." });
 
             try
             {
@@ -71,7 +74,6 @@ namespace SeatingManagement.API.Controllers
                         {
                             try 
                             {
-                                // 👇 CORREÇÃO DO WARNING CS8602: Verificação de Nulo 👇
                                 if (csv.HeaderRecord != null)
                                 {
                                     int columnCount = csv.HeaderRecord.Length;
@@ -109,6 +111,17 @@ namespace SeatingManagement.API.Controllers
                     });
                 }
 
+                int currentSeatCount = 0;
+                if (mode.Equals("append", StringComparison.OrdinalIgnoreCase))
+                {
+                    currentSeatCount = await _context.Seats.CountAsync(s => s.EventId == eventId);
+                }
+
+                if (ev.TotalSeats > 0 && (currentSeatCount + newSeats.Count) > ev.TotalSeats)
+                {
+                    return BadRequest(new { Message = $"A capacidade do evento ({ev.TotalSeats}) é inferior aos {currentSeatCount + newSeats.Count} registos da importação." });
+                }
+
                 if (mode.Equals("replace", StringComparison.OrdinalIgnoreCase))
                 {
                     var existingSeats = await _context.Seats.Where(s => s.EventId == eventId).ToListAsync();
@@ -127,7 +140,7 @@ namespace SeatingManagement.API.Controllers
             }
             catch (Exception ex)
             {
-                return StatusCode(500, $"Erro a processar o CSV: {ex.Message}");
+                return StatusCode(500, new { Message = $"Erro a processar o CSV: {ex.Message}" });
             }
         }
 

@@ -3,6 +3,7 @@ using System;
 using Microsoft.EntityFrameworkCore;
 using Microsoft.EntityFrameworkCore.Infrastructure;
 using Microsoft.EntityFrameworkCore.Metadata;
+using Microsoft.EntityFrameworkCore.Migrations;
 using Microsoft.EntityFrameworkCore.Storage.ValueConversion;
 using SeatingManagement.API.Data;
 
@@ -11,9 +12,11 @@ using SeatingManagement.API.Data;
 namespace SeatingManagement.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    partial class AppDbContextModelSnapshot : ModelSnapshot
+    [Migration("20260724134324_AddEventAccessTable")]
+    partial class AddEventAccessTable
     {
-        protected override void BuildModel(ModelBuilder modelBuilder)
+        /// <inheritdoc />
+        protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
@@ -125,12 +128,6 @@ namespace SeatingManagement.API.Migrations
 
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
-
-                    b.Property<int>("TotalSeats")
-                        .HasColumnType("int");
-
-                    b.Property<int>("TreatedSeats")
-                        .HasColumnType("int");
 
                     b.HasKey("Id");
 

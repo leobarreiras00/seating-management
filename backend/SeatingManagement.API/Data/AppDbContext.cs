@@ -14,6 +14,7 @@ namespace SeatingManagement.API.Data
         public DbSet<User> Users { get; set; }
         public DbSet<Event> Events { get; set; }
         public DbSet<UserEvent> UserEvents { get; set; }
+        public DbSet<EventAccess> EventAccesses { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
@@ -57,6 +58,22 @@ namespace SeatingManagement.API.Data
                     LogoUrl = "https://img.logoipsum.com/288.svg" 
                 }
             );
+
+
+            modelBuilder.Entity<EventAccess>()
+                .HasKey(ea => new { ea.UserId, ea.EventId }); // Chave primária composta
+
+            modelBuilder.Entity<EventAccess>()
+                .HasOne(ea => ea.User)
+                .WithMany()
+                .HasForeignKey(ea => ea.UserId)
+                .OnDelete(DeleteBehavior.Cascade); // Se o user for apagado, o acesso também é
+
+            modelBuilder.Entity<EventAccess>()
+                .HasOne(ea => ea.Event)
+                .WithMany()
+                .HasForeignKey(ea => ea.EventId)
+                .OnDelete(DeleteBehavior.Cascade);
         }
     }
 }

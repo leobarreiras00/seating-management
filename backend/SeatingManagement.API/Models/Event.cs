@@ -15,6 +15,8 @@ namespace SeatingManagement.API.Models
 
         // Data do Evento (para aparecer debaixo do nome na App)
         public DateTime StartDate { get; set; }
+        public int TotalSeats { get; set; } = 0;
+        public int TreatedSeats { get; set; } = 0;
 
         // Associação Multi-Tenant
         public int CompanyId { get; set; }

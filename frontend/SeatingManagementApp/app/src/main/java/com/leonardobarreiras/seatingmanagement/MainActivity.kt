@@ -32,6 +32,7 @@ import androidx.compose.ui.draw.clip
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
 import androidx.compose.ui.platform.LocalContext
+import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
 import androidx.compose.ui.text.TextStyle
 import androidx.compose.ui.text.font.FontWeight
@@ -41,6 +42,8 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.lifecycle.Lifecycle
+import androidx.lifecycle.LifecycleEventObserver
 import androidx.lifecycle.viewmodel.compose.viewModel
 import androidx.navigation.compose.NavHost
 import androidx.navigation.compose.composable
@@ -226,6 +229,20 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
 @Composable
 fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) {
     LaunchedEffect(viewModel.currentEventId) { if (viewModel.currentEventId != null) onEventSelected() }
+
+    val lifecycleOwner = LocalLifecycleOwner.current
+    DisposableEffect(lifecycleOwner) {
+        val observer = LifecycleEventObserver { _, event ->
+            // Sempre que o ecrã volta a estar visível (RESUMED), pede os eventos à API
+            if (event == Lifecycle.Event.ON_RESUME) {
+                viewModel.fetchMyEvents()
+            }
+        }
+        lifecycleOwner.lifecycle.addObserver(observer)
+        onDispose {
+            lifecycleOwner.lifecycle.removeObserver(observer)
+        }
+    }
 
     val context = LocalContext.current
     val imageLoader = remember {

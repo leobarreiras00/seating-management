@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SeatingManagement.API.Data;
 using SeatingManagement.API.DTOs;
+using SeatingManagement.API.Models;
 using System.Security.Claims;
 
 namespace SeatingManagement.API.Controllers
@@ -96,6 +97,19 @@ namespace SeatingManagement.API.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Acesso concedido com sucesso!" });
+        }
+
+        [HttpDelete("{id}")]
+        [Authorize(Roles = "SuperAdmin")] // Apenas o SuperAdmin pode apagar eventos
+        public async Task<IActionResult> DeleteEvent(int id)
+        {
+            var ev = await _context.Events.FindAsync(id);
+            if (ev == null) return NotFound(new { Message = "Evento não encontrado." });
+
+            _context.Events.Remove(ev);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Evento apagado com sucesso." });
         }
     }
 }

@@ -128,5 +128,57 @@ namespace SeatingManagement.API.Controllers
 
             return Ok(new { Message = "Logótipo atualizado com sucesso!", LogoUrl = logoUrl });
         }
+
+        // 1. CRIAR EVENTO DENTRO DA EMPRESA
+        [HttpPost("{id}/events")]
+        [Authorize]
+        public async Task<ActionResult<Event>> CreateEvent(int id, CreateEventDto dto)
+        {
+            var company = await _context.Companies.FindAsync(id);
+            if (company == null) return NotFound("Empresa não encontrada.");
+
+            var newEvent = new Event
+            {
+                Name = dto.Name,
+                StartDate = dto.StartDate,
+                TotalSeats = dto.TotalSeats,
+                TreatedSeats = 0,
+                CompanyId = id
+            };
+
+            _context.Events.Add(newEvent);
+            await _context.SaveChangesAsync();
+
+            return Ok(new 
+            {
+                Id = newEvent.Id,
+                Name = newEvent.Name,
+                StartDate = newEvent.StartDate,
+                TotalSeats = newEvent.TotalSeats,
+                TreatedSeats = newEvent.TreatedSeats,
+                CompanyId = newEvent.CompanyId
+            });
+        }
+
+        // 2. ATRIBUIR GESTOR A UM EVENTO ESPECÍFICO (Tabela EventAccess)
+        [HttpPost("{companyId}/events/{eventId}/assign/{userId}")]
+        [Authorize]
+        public async Task<IActionResult> AssignAccess(int companyId, int eventId, string userId)
+        {
+            // Verifica se o evento existe nesta empresa
+            var ev = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId && e.CompanyId == companyId);
+            if (ev == null) return NotFound("Evento não encontrado nesta empresa.");
+
+            // Verifica se o utilizador já tem acesso para não duplicar
+            var exists = await _context.EventAccesses.AnyAsync(ea => ea.EventId == eventId && ea.UserId == userId);
+            if (exists) return BadRequest("Este gestor já tem acesso a este evento.");
+
+            // Regista o acesso na nova tabela
+            var access = new EventAccess { EventId = eventId, UserId = userId };
+            _context.EventAccesses.Add(access);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { message = "Acesso atribuído com sucesso!" });
+        }
     }
 }
