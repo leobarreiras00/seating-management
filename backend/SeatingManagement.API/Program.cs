@@ -11,6 +11,16 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+builder.Services.AddCors(options =>
+{
+    options.AddPolicy("StrictPolicy", policy =>
+    {
+        policy.WithOrigins("http://localhost:3000")
+              .AllowAnyMethod()
+              .AllowAnyHeader();
+    });
+});
+
 // 1. Configurar o Swagger para aceitar Tokens (Cadeado visual)
 builder.Services.AddSwaggerGen(options =>
 {
@@ -69,7 +79,7 @@ if (app.Environment.IsDevelopment())
     app.UseSwaggerUI();
 }
 
-app.UseCors("AllowAll");
+app.UseCors("StrictPolicy");
 app.UseStaticFiles();
 
 // 3. Ativar Autenticação ANTES da Autorização
