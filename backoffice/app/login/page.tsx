@@ -2,6 +2,7 @@
 
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import Image from "next/image";
 
 export default function LoginScreen() {
   const [username, setUsername] = useState("");
@@ -51,8 +52,9 @@ export default function LoginScreen() {
     <div className="flex min-h-screen bg-slate-50">
       {/* Lado Esquerdo - Imagem/Branding */}
       <div className="hidden lg:flex w-1/2 bg-slate-900 flex-col items-center justify-center p-12">
-        <div className="w-32 h-32 bg-white rounded-3xl mb-8 flex items-center justify-center shadow-lg">
-           <span className="text-slate-900 font-black text-5xl">S</span>
+        <div className="w-32 h-32 mb-8 flex items-center justify-center shadow-2xl rounded-3xl overflow-hidden border-4 border-slate-800">
+           {/* 👇 LOGOTIPO OFICIAL ATUALIZADO PARA .PNG 👇 */}
+           <Image src="/seatly_icon.png" alt="Seatly Logo" width={128} height={128} className="object-cover" />
         </div>
         <h1 className="text-white text-4xl font-bold mb-4">Seatly Backoffice</h1>
         <p className="text-slate-400 text-center max-w-md">
