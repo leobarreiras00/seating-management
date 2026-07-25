@@ -58,7 +58,6 @@ import com.leonardobarreiras.seatingmanagement.viewmodel.SeatViewModel
 import java.text.SimpleDateFormat
 import java.util.Locale
 
-// Paleta de Cores Modernizada (Estilo Pastel/Liquid)
 val CorporateBlue = Color(0xFF1E293B)
 val LightBg = Color(0xFFF8FAFC)
 val PrimaryBlue = Color(0xFF3B82F6)
@@ -90,12 +89,9 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-// 👇 CENTRALIZAÇÃO DA LÓGICA DE ROLES E PIN (Extension function para compilação imediata) 👇
 fun SeatViewModel.requiresPinFor(action: String): Boolean {
-    // SuperAdmin e Gestor NUNCA precisam de PIN
     if (this.userRole == "SuperAdmin" || this.userRole == "Gestor") return false
 
-    // Lista de ações estritamente protegidas para Utilizadores normais
     val protectedActions = listOf("IMPORT_EMPTY", "EXPORT_CSV", "IMPORT_NEW", "MARK_ALL", "UNMARK_ALL")
     return protectedActions.contains(action)
 }
@@ -117,10 +113,6 @@ fun formatEventDate(dateString: String?): String {
         "Data a definir"
     }
 }
-
-// ==========================================
-// COMPONENTES UI MODERNIZADOS (SQUIRCLES & LIQUID)
-// ==========================================
 
 @Composable
 fun ModernAlertDialog(
@@ -233,7 +225,6 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
     val lifecycleOwner = LocalLifecycleOwner.current
     DisposableEffect(lifecycleOwner) {
         val observer = LifecycleEventObserver { _, event ->
-            // Sempre que o ecrã volta a estar visível (RESUMED), pede os eventos à API
             if (event == Lifecycle.Event.ON_RESUME) {
                 viewModel.fetchMyEvents()
             }
@@ -258,25 +249,49 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
 
             Spacer(modifier = Modifier.height(24.dp))
 
-            if (viewModel.companyLogo.isNotEmpty()) {
-                AsyncImage(
-                    model = viewModel.companyLogo,
-                    imageLoader = imageLoader,
-                    contentDescription = "Logotipo da Empresa",
-                    modifier = Modifier.height(72.dp).clip(RoundedCornerShape(20.dp)),
-                    contentScale = androidx.compose.ui.layout.ContentScale.Fit,
-                    placeholder = painterResource(id = R.drawable.seatly_icon),
-                    error = painterResource(id = R.drawable.seatly_icon)
+            Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
+                if (viewModel.companyLogo.isNotEmpty()) {
+                    val fullLogoUrl = if (viewModel.companyLogo.startsWith("http")) {
+                        viewModel.companyLogo
+                    } else {
+                        "http://10.0.2.2:5162/${viewModel.companyLogo.removePrefix("/")}"
+                    }
+
+                    AsyncImage(
+                        model = fullLogoUrl,
+                        imageLoader = imageLoader,
+                        contentDescription = "Logotipo da Empresa",
+                        modifier = Modifier.size(80.dp).clip(RoundedCornerShape(20.dp)),
+                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        placeholder = painterResource(id = R.drawable.seatly_icon),
+                        error = painterResource(id = R.drawable.seatly_icon)
+                    )
+                } else {
+                    Image(
+                        painter = painterResource(id = R.drawable.seatly_icon),
+                        contentDescription = "Seatly Logo",
+                        modifier = Modifier.size(80.dp).clip(RoundedCornerShape(20.dp))
+                    )
+                }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                Text(
+                    text = "Olá, ${viewModel.managerName}",
+                    style = MaterialTheme.typography.titleLarge,
+                    fontWeight = FontWeight.ExtraBold,
+                    color = CorporateBlue
                 )
-            } else {
-                Image(
-                    painter = painterResource(id = R.drawable.seatly_icon),
-                    contentDescription = "Seatly Logo",
-                    modifier = Modifier.height(72.dp).clip(RoundedCornerShape(20.dp))
+
+                Text(
+                    text = viewModel.companyName,
+                    style = MaterialTheme.typography.bodyMedium,
+                    color = TextGray
                 )
             }
 
-            Spacer(modifier = Modifier.height(24.dp))
+            Spacer(modifier = Modifier.height(32.dp))
+
             Text(
                 text = if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") "Painel de Gestão" else "Os Meus Eventos",
                 style = MaterialTheme.typography.headlineMedium,
@@ -398,7 +413,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
         viewModel.myEvents.find { it.id == viewModel.currentEventId }?.name ?: "Nenhum"
     }
 
-    // 👇 Wrapper Inteligente para executar ações protegidas 👇
     val executeProtectedAction: (String, () -> Unit) -> Unit = { actionName, action ->
         if (viewModel.requiresPinFor(actionName) && !viewModel.isPinTimeoutValid()) {
             pendingAdminAction = action
@@ -426,7 +440,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                             verticalAlignment = Alignment.CenterVertically,
                             horizontalArrangement = Arrangement.SpaceBetween
                         ) {
-                            // 👇 O ÍCONE AGORA É SEMPRE O HAMBÚRGUER E ABRE DIRETAMENTE 👇
                             IconButton(
                                 onClick = { showActionsSheet = true },
                                 modifier = Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
@@ -593,7 +606,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         Text("Importe um ficheiro CSV com separador \";\"\npara começar a gerir os seus dados.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
                         Spacer(modifier = Modifier.height(32.dp))
 
-                        // 👇 BOTÃO DE ESTADO VAZIO PROTEGIDO PELA NOVA FUNÇÃO 👇
                         Button(
                             onClick = {
                                 executeProtectedAction("IMPORT_EMPTY") {
@@ -625,10 +637,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                 }
             }
         }
-
-        // ==========================================
-        // DIALOGS & OVERLAYS DO ECRÃ SEATSCREEN
-        // ==========================================
 
         @OptIn(ExperimentalMaterial3Api::class)
         if (showPinDialog) {
@@ -738,9 +746,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
             AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
         }
 
-        // ==========================================
-        // MENU DE AÇÕES SIMPLIFICADO (3 LINHAS)
-        // ==========================================
         @OptIn(ExperimentalMaterial3Api::class)
         if (showActionsSheet) {
             ModalBottomSheet(onDismissRequest = { showActionsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
@@ -754,7 +759,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         iconColor = PrimaryBlue,
                         iconBg = Color(0xFFEFF6FF)
                     ) {
-                        // SEM PIN
                         showActionsSheet = false
                         viewModel.clearCurrentEvent()
                         navController.navigate("event_selection") {
@@ -769,7 +773,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         iconColor = AccentPurple,
                         iconBg = AccentPurpleLight
                     ) {
-                        // SEM PIN, apenas abre o sub-menu
                         showActionsSheet = false
                         showDataActionsSheet = true
                     }
@@ -781,7 +784,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         iconColor = ErrorRed,
                         iconBg = ErrorRedLight
                     ) {
-                        // SEM PIN
                         showActionsSheet = false
                         viewModel.logout()
                         navController.navigate("login") {
@@ -796,16 +798,12 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
             }
         }
 
-        // ==========================================
-        // SUB-MENU DE AÇÕES DETALHADAS
-        // ==========================================
         @OptIn(ExperimentalMaterial3Api::class)
         if (showDataActionsSheet) {
             ModalBottomSheet(onDismissRequest = { showDataActionsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
                     Text("Ações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
 
-                    // 👇 AÇÕES PROTEGIDAS POR PIN 👇
                     BottomSheetItem(icon = Icons.Rounded.Download, title = "Exportar CSV", subtitle = "$totalSeats registos com estado atual", iconColor = PrimaryBlue, iconBg = Color(0xFFEFF6FF)) {
                         showDataActionsSheet = false
                         executeProtectedAction("EXPORT_CSV") { exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
@@ -823,10 +821,9 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         executeProtectedAction("UNMARK_ALL") { confirmActionType = "UNMARK_ALL" }
                     }
 
-                    // 👇 AÇÕES LIVRES (SEM PIN) 👇
                     BottomSheetItem(icon = Icons.Rounded.Delete, title = "Limpar Ecrã", subtitle = "Remover dados locais", iconColor = ErrorRed, iconBg = ErrorRedLight) {
                         showDataActionsSheet = false
-                        confirmActionType = "CLEAR" // Como Limpar não contacta a API, mantivemos sem PIN
+                        confirmActionType = "CLEAR"
                     }
                     BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações Marcação", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) {
                         showDataActionsSheet = false

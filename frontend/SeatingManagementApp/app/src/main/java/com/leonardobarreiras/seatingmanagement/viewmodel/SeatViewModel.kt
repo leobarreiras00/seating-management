@@ -42,9 +42,12 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     var userRole by mutableStateOf("Utilizador")
     var lastPinAuthTime by mutableStateOf(0L)
 
-    // 👇 NOVO: Dados Multi-Tenant (Empresa) 👇
     var companyName by mutableStateOf("Seatly")
     var companyLogo by mutableStateOf("")
+
+
+    var managerName by mutableStateOf("")
+    var userGuid by mutableStateOf("")
 
     // Variáveis de estado para a Lista de Eventos Dinâmica
     var myEvents by mutableStateOf<List<EventDto>>(emptyList())
@@ -79,10 +82,19 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
         }
+
+        // LIGAÇÃO MQTT -> PAINEL DE GESTÃO
+        mqttManager.onManagerEventsUpdated = {
+            viewModelScope.launch {
+                // Atualiza a lista à frente dos olhos do utilizador!
+                fetchMyEvents()
+            }
+        }
+
         mqttManager.connect()
     }
 
-    // 👇 LOGOUT COMPLETO: Limpa dados e estado da sessão
+    // LOGOUT COMPLETO: Limpa dados e estado da sessão
     fun logout() {
         jwtToken = null
         currentEventId = null
@@ -91,12 +103,14 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         // 👇 NOVO: Limpa a cache da Empresa ao sair 👇
         companyName = "Seatly"
         companyLogo = ""
+        managerName = ""
+        userGuid = ""
         viewModelScope.launch {
             repository.deleteAllSeats()
         }
     }
 
-    // 👇 MUDAR DE EVENTO: Limpa o evento atual e respetivos lugares locais
+    // MUDAR DE EVENTO: Limpa o evento atual e respetivos lugares locais
     fun clearCurrentEvent() {
         currentEventId = null
         viewModelScope.launch {
@@ -127,6 +141,14 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 // 👇 NOVO: Grava a Empresa do Login 👇
                 if (response.companyName != null) companyName = response.companyName
                 if (response.companyLogo != null) companyLogo = response.companyLogo
+
+                // Grava os dados do gestor e ouve o MQTT
+                managerName = user
+                userGuid = response.userGuid ?: ""
+
+                if (userGuid.isNotEmpty()) {
+                    mqttManager.subscribeToManagerEvents(userGuid)
+                }
 
                 fetchMyEvents()
 
@@ -483,7 +505,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    // 👇 EXPORTAÇÃO CORRIGIDA (Adiciona a 6ª Coluna de DATA_HORA) 👇
     fun exportCsv(uri: Uri, context: Context) {
         viewModelScope.launch {
             try {

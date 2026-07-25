@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SeatingManagement.API.Data;
 using SeatingManagement.API.DTOs;
 using SeatingManagement.API.Models;
+using SeatingManagement.API.Services;
 using System.Security.Claims;
 
 namespace SeatingManagement.API.Controllers
@@ -14,10 +15,12 @@ namespace SeatingManagement.API.Controllers
     public class EventController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IMqttService _mqttService;
 
-        public EventController(AppDbContext context)
+        public EventController(AppDbContext context, IMqttService mqttService)
         {
             _context = context;
+            _mqttService = mqttService;
         }
 
         [HttpGet("my-events")]
@@ -64,11 +67,13 @@ namespace SeatingManagement.API.Controllers
             _context.UserEvents.Add(permission);
             await _context.SaveChangesAsync();
 
+            await _mqttService.PublishMessageAsync($"seating/managers/{user.UserGuid}/events", "REFRESH");
+
             return Ok(new { Message = "Evento criado e atribuído a ti com sucesso!", EventId = newEvent.Id });
         }
 
         [HttpPost("{eventId}/assign-user")]
-        [Authorize(Roles = "SuperAdmin,Gestor")] // Apenas quem gere pode atribuir
+        [Authorize(Roles = "SuperAdmin,Gestor")] 
         public async Task<IActionResult> AssignUserToEvent(int eventId, [FromBody] AssignUserDto request)
         {
             var adminCompanyIdStr = User.FindFirstValue("CompanyId");
@@ -80,7 +85,6 @@ namespace SeatingManagement.API.Controllers
             var ev = await _context.Events.FindAsync(eventId);
             if (ev == null) return NotFound(new { Message = "Evento não encontrado." });
 
-            // O Gestor só pode atribuir eventos da sua própria empresa
             if (!isSuperAdmin && ev.CompanyId != adminCompanyId)
                 return Forbid();
 
@@ -96,18 +100,30 @@ namespace SeatingManagement.API.Controllers
             _context.UserEvents.Add(new Models.UserEvent { UserId = request.UserId, EventId = eventId });
             await _context.SaveChangesAsync();
 
+            await _mqttService.PublishMessageAsync($"seating/managers/{targetUser.UserGuid}/events", "REFRESH");
+
             return Ok(new { Message = "Acesso concedido com sucesso!" });
         }
 
         [HttpDelete("{id}")]
-        [Authorize(Roles = "SuperAdmin")] // Apenas o SuperAdmin pode apagar eventos
+        [Authorize(Roles = "SuperAdmin")] 
         public async Task<IActionResult> DeleteEvent(int id)
         {
             var ev = await _context.Events.FindAsync(id);
             if (ev == null) return NotFound(new { Message = "Evento não encontrado." });
 
+            var affectedUserGuids = await _context.UserEvents
+                .Where(ue => ue.EventId == id)
+                .Select(ue => ue.User.UserGuid)
+                .ToListAsync();
+
             _context.Events.Remove(ev);
             await _context.SaveChangesAsync();
+
+            foreach (var userGuid in affectedUserGuids)
+            {
+                await _mqttService.PublishMessageAsync($"seating/managers/{userGuid}/events", "REFRESH");
+            }
 
             return Ok(new { Message = "Evento apagado com sucesso." });
         }

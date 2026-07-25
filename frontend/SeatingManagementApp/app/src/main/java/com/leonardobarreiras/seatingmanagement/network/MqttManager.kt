@@ -8,6 +8,8 @@ import java.util.UUID
 
 class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
 
+    var onManagerEventsUpdated: (() -> Unit)? = null
+    private var currentManagerTopic: String? = null
     private val client: Mqtt3AsyncClient = MqttClient.builder()
         .useMqttVersion3()
         .identifier(UUID.randomUUID().toString())
@@ -86,6 +88,27 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
                 } else {
                     Log.d("MQTT", "Publicado com sucesso no tópico $topic: id=$id, status=$status")
                 }
+            }
+    }
+
+    fun subscribeToManagerEvents(userGuid: String) {
+        val novoTopico = "seating/managers/$userGuid/events"
+        if (currentManagerTopic == novoTopico) return
+
+        currentManagerTopic?.let { topicoAntigo ->
+            client.unsubscribeWith().topicFilter(topicoAntigo).send()
+        }
+
+        client.subscribeWith()
+            .topicFilter(novoTopico)
+            .callback { _ ->
+                // Quando o C# enviar aviso para este tópico, avisamos a UI para atualizar!
+                Log.d("MQTT", "Atualização de eventos recebida para o gestor $userGuid")
+                onManagerEventsUpdated?.invoke()
+            }
+            .send()
+            .whenComplete { _, throwable ->
+                if (throwable == null) currentManagerTopic = novoTopico
             }
     }
 

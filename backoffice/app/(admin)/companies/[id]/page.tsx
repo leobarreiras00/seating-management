@@ -21,7 +21,6 @@ export default function CompanyDetailsPage() {
   const [activeTab, setActiveTab] = useState<"gestores" | "eventos">("gestores");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Estados dos Modais
   const [showManagerModal, setShowManagerModal] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
@@ -41,14 +40,23 @@ export default function CompanyDetailsPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignError, setAssignError] = useState("");
 
-  // Envolvido em useCallback para prevenir renders infinitos
   const fetchCompanyData = useCallback(async () => {
     if (!id) return;
     try {
       const token = localStorage.getItem("token");
+      if (!token) throw new Error("Token não encontrado.");
+
       const headers = { Authorization: `Bearer ${token}` };
 
       const compRes = await fetch("http://localhost:5162/api/Company", { headers });
+      
+      if (!compRes.ok) {
+        if (compRes.status === 401) {
+          console.error("Sessão expirada. Redirecionamento para login necessário.");
+        }
+        throw new Error(`Erro na API: ${compRes.status}`);
+      }
+
       const compData: Company[] = await compRes.json();
       const currentComp = compData.find((c) => c.id === Number(id));
       if (currentComp) setCompany(currentComp);
@@ -65,16 +73,13 @@ export default function CompanyDetailsPage() {
     }
   }, [id]);
 
-  // Carregamento inicial isolado
   useEffect(() => {
     fetchCompanyData();
   }, [fetchCompanyData]);
 
-  // Gestão Blindada do MQTT
   useEffect(() => {
     if (!id) return;
     
-    // Conecta usando WebSockets
     const client = mqtt.connect("ws://localhost:9001"); 
 
     client.on("connect", () => {
@@ -87,13 +92,11 @@ export default function CompanyDetailsPage() {
       fetchCompanyData();
     });
 
-    // Limpa a conexão se o utilizador sair da página para não duplicar clientes
     return () => {
       client.end();
     };
   }, [id, fetchCompanyData]);
 
-  // Ações da API
   const handleCreateManager = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreatingManager(true);
