@@ -48,7 +48,7 @@ export default function CompanyDetailsPage() {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      const compRes = await fetch("http://localhost:5162/api/Company", { headers });
+      const compRes = await fetch(`http://localhost:5162/api/Company`, { headers });
       
       if (!compRes.ok) {
         if (compRes.status === 401) {
@@ -166,6 +166,21 @@ export default function CompanyDetailsPage() {
     }
   };
 
+  const handleDeleteManager = async (managerId: number, managerName: string) => {
+    if (!window.confirm(`Tens a certeza que queres remover o acesso ao gestor "${managerName}"? Esta ação é irreversível.`)) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5162/api/Auth/user/${managerId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Erro ao apagar o gestor.");
+      fetchCompanyData(); // Atualiza a lista automaticamente
+    } catch (error) {
+      alert("Ocorreu um erro ao tentar apagar o gestor.");
+    }
+  };
+
   if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
   if (!company) return <div className="p-10 text-center"><h2 className="text-2xl font-bold text-slate-900">Empresa não encontrada</h2><Link href="/companies" className="text-purple-600 mt-4 inline-block">Voltar</Link></div>;
 
@@ -218,8 +233,19 @@ export default function CompanyDetailsPage() {
                   <div key={manager.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors">
                     <div className="flex items-center gap-4">
                       <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase">{manager.username.charAt(0)}</div>
-                      <div><p className="font-bold text-slate-900">{manager.username}</p><p className="text-xs font-semibold text-purple-600 uppercase tracking-wider">{manager.role}</p></div>
+                      <div>
+                        <p className="font-bold text-slate-900">{manager.username}</p>
+                        <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider">{manager.role}</p>
+                      </div>
                     </div>
+                    {/* Botão de Apagar Gestor */}
+                    <button 
+                      onClick={() => handleDeleteManager(manager.id, manager.username)} 
+                      className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" 
+                      title="Apagar Gestor"
+                    >
+                      <Trash2 className="w-5 h-5" />
+                    </button>
                   </div>
                 ))}
               </div>
@@ -278,8 +304,14 @@ export default function CompanyDetailsPage() {
               <button onClick={() => setShowManagerModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateManager} className="p-6 space-y-5">
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Utilizador</label><input type="text" required value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500" /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Palavra-passe</label><input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500" /></div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Utilizador</label>
+                <input type="text" required value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Palavra-passe</label>
+                <input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
               {managerError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{managerError}</div>}
               <button type="submit" disabled={isCreatingManager} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingManager ? "A Criar..." : "Criar Acesso"}</button>
             </form>
@@ -295,9 +327,18 @@ export default function CompanyDetailsPage() {
               <button onClick={() => setShowEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateEvent} className="p-6 space-y-5">
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label><input type="text" required value={eventName} onChange={(e) => setEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500" /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label><input type="date" required value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500" /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Total de Lugares</label><input type="number" required min="1" value={eventSeats} onChange={(e) => setEventSeats(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 focus:ring-2 focus:ring-purple-500" /></div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
+                <input type="text" required value={eventName} onChange={(e) => setEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
+                <input type="date" required value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Total de Lugares</label>
+                <input type="number" required min="1" value={eventSeats} onChange={(e) => setEventSeats(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
               {eventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{eventError}</div>}
               <button type="submit" disabled={isCreatingEvent} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingEvent ? "A Criar..." : "Criar Evento"}</button>
             </form>

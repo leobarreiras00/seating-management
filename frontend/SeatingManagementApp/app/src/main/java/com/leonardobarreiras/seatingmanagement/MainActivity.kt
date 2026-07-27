@@ -251,7 +251,10 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
 
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 if (viewModel.companyLogo.isNotEmpty()) {
-                    val fullLogoUrl = if (viewModel.companyLogo.startsWith("http")) {
+
+                    val fullLogoUrl = if (viewModel.companyLogo.contains("localhost")) {
+                        viewModel.companyLogo.replace("localhost", "10.0.2.2")
+                    } else if (viewModel.companyLogo.startsWith("http")) {
                         viewModel.companyLogo
                     } else {
                         "http://10.0.2.2:5162/${viewModel.companyLogo.removePrefix("/")}"

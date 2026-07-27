@@ -13,7 +13,6 @@ namespace SeatingManagement.API.Controllers
 {
     [ApiController]
     [Route("api/[controller]")]
-    [AllowAnonymous] 
     public class AuthController : ControllerBase
     {
         private readonly AppDbContext _context;
@@ -26,6 +25,7 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpPost("register")]
+        [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> Register(RegisterDto request)
         {
             if (await _context.Users.AnyAsync(u => u.Username == request.Username))
@@ -52,6 +52,7 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpPost("login")]
+        [AllowAnonymous]
         public async Task<IActionResult> Login(LoginDto request)
         {
             var user = await _context.Users
@@ -71,6 +72,20 @@ namespace SeatingManagement.API.Controllers
                 CompanyName = user.Company.Name,
                 CompanyLogo = user.Company.LogoUrl
             });
+        }
+
+        [HttpDelete("user/{id}")]
+        [Authorize] // Garante que só utilizadores logados (SuperAdmin) podem chamar esta rota
+        public async Task<IActionResult> DeleteUser(int id)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) 
+                return NotFound(new { Message = "Utilizador não encontrado." });
+
+            _context.Users.Remove(user);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Gestor apagado com sucesso." });
         }
 
         private string GenerateJwtToken(User user)
