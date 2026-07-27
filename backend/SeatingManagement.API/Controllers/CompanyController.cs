@@ -4,6 +4,7 @@ using Microsoft.EntityFrameworkCore;
 using SeatingManagement.API.Data;
 using SeatingManagement.API.DTOs;
 using SeatingManagement.API.Models;
+using SeatingManagement.API.Services;
 
 namespace SeatingManagement.API.Controllers
 {
@@ -13,10 +14,12 @@ namespace SeatingManagement.API.Controllers
     public class CompanyController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IMqttService _mqttService;
 
-        public CompanyController(AppDbContext context)
+        public CompanyController(AppDbContext context, IMqttService mqttService) // 👈 Adicionado ao construtor
         {
             _context = context;
+            _mqttService = mqttService;
         }
 
         [HttpGet]
@@ -87,13 +90,18 @@ namespace SeatingManagement.API.Controllers
         {
             var events = await _context.Events
                 .Where(e => e.CompanyId == id)
-                .Select(e => new EventStatsResponseDto
+                .Select(e => new 
                 {
                     Id = e.Id,
                     Name = e.Name,
                     StartDate = e.StartDate,
                     TotalSeats = e.Seats.Count(),
-                    TreatedSeats = e.Seats.Count(s => s.Status != 0)
+                    TreatedSeats = e.Seats.Count(s => s.Status != 0),
+                    AssignedManagers = e.UserEvents.Select(ue => new 
+                    {
+                        Id = ue.User.Id,
+                        Username = ue.User.Username
+                    }).ToList()
                 })
                 .ToListAsync();
 
@@ -129,7 +137,6 @@ namespace SeatingManagement.API.Controllers
             return Ok(new { Message = "Logótipo atualizado com sucesso!", LogoUrl = logoUrl });
         }
 
-        // 1. CRIAR EVENTO DENTRO DA EMPRESA
         [HttpPost("{id}/events")]
         [Authorize]
         public async Task<ActionResult<Event>> CreateEvent(int id, CreateEventDto dto)
@@ -160,25 +167,41 @@ namespace SeatingManagement.API.Controllers
             });
         }
 
-        // 2. ATRIBUIR GESTOR A UM EVENTO ESPECÍFICO (Tabela EventAccess)
         [HttpPost("{companyId}/events/{eventId}/assign/{userId}")]
         [Authorize]
         public async Task<IActionResult> AssignAccess(int companyId, int eventId, string userId)
         {
-            // Verifica se o evento existe nesta empresa
             var ev = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId && e.CompanyId == companyId);
             if (ev == null) return NotFound("Evento não encontrado nesta empresa.");
 
-            // Verifica se o utilizador já tem acesso para não duplicar
             var exists = await _context.EventAccesses.AnyAsync(ea => ea.EventId == eventId && ea.UserId == userId);
             if (exists) return BadRequest("Este gestor já tem acesso a este evento.");
 
-            // Regista o acesso na nova tabela
             var access = new EventAccess { EventId = eventId, UserId = userId };
             _context.EventAccesses.Add(access);
             await _context.SaveChangesAsync();
 
             return Ok(new { message = "Acesso atribuído com sucesso!" });
+        }
+
+        [HttpDelete("{companyId}/events/{eventId}/assign/{userId}")]
+        [Authorize]
+        public async Task<IActionResult> RemoveAccess(int companyId, int eventId, int userId)
+        {
+            var access = await _context.UserEvents
+                .Include(ue => ue.User) 
+                .FirstOrDefaultAsync(ue => ue.EventId == eventId && ue.UserId == userId);
+            
+            if (access == null) return NotFound(new { Message = "Acesso não encontrado." });
+
+            var userGuidToNotify = access.User.UserGuid; // Guarda o Guid antes de apagar
+
+            _context.UserEvents.Remove(access);
+            await _context.SaveChangesAsync();
+
+            await _mqttService.PublishMessageAsync($"seating/managers/{userGuidToNotify}/events", "REFRESH");
+
+            return Ok(new { Message = "Acesso removido com sucesso!" });
         }
     }
 }

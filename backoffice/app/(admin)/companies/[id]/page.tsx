@@ -8,7 +8,15 @@ import mqtt from "mqtt";
 
 interface Company { id: number; name: string; logoUrl: string | null; }
 interface Manager { id: number; username: string; role: string; }
-interface EventStats { id: number; name: string; startDate: string; totalSeats: number; treatedSeats: number; }
+interface AssignedManager { id: number; username: string; }
+interface EventStats { 
+  id: number; 
+  name: string; 
+  startDate: string; 
+  totalSeats: number; 
+  treatedSeats: number; 
+  assignedManagers: AssignedManager[]; 
+}
 
 export default function CompanyDetailsPage() {
   const params = useParams();
@@ -148,6 +156,7 @@ export default function CompanyDetailsPage() {
       setShowAssignModal(false);
       setAssignUserId("");
       alert("Gestor atribuído com sucesso!");
+      fetchCompanyData();
     } catch (err: any) { setAssignError(err.message); } finally { setIsAssigning(false); }
   };
 
@@ -175,9 +184,25 @@ export default function CompanyDetailsPage() {
         headers: { Authorization: `Bearer ${token}` }
       });
       if (!res.ok) throw new Error("Erro ao apagar o gestor.");
-      fetchCompanyData(); // Atualiza a lista automaticamente
+      fetchCompanyData();
     } catch (error) {
       alert("Ocorreu um erro ao tentar apagar o gestor.");
+    }
+  };
+
+  // 👇 NOVA FUNÇÃO PARA REMOVER ATRIBUIÇÃO 👇
+  const handleRemoveAccess = async (eventId: number, userId: number, userName: string, eventNameStr: string) => {
+    if (!window.confirm(`Remover acesso de "${userName}" ao evento "${eventNameStr}"?`)) return;
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5162/api/Company/${id}/events/${eventId}/assign/${userId}`, {
+        method: "DELETE",
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Erro ao remover o acesso.");
+      fetchCompanyData();
+    } catch (error) {
+      alert("Ocorreu um erro ao tentar remover o acesso.");
     }
   };
 
@@ -238,7 +263,6 @@ export default function CompanyDetailsPage() {
                         <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider">{manager.role}</p>
                       </div>
                     </div>
-                    {/* Botão de Apagar Gestor */}
                     <button 
                       onClick={() => handleDeleteManager(manager.id, manager.username)} 
                       className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" 
@@ -282,6 +306,23 @@ export default function CompanyDetailsPage() {
                         <div className="flex justify-between text-sm mb-2"><span className="font-medium text-slate-600">Progresso</span><span className="font-bold text-purple-600">{progress}%</span></div>
                         <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: `${progress}%` }}></div></div>
                         <div className="flex justify-between mt-4 pt-4 border-t border-slate-50 text-sm"><span className="text-slate-500">Total: <strong className="text-slate-900">{event.totalSeats}</strong></span><span className="text-slate-500">Tratados: <strong className="text-emerald-600">{event.treatedSeats}</strong></span></div>
+                        
+                        {/* 👇 NOVA SECÇÃO: VER GESTORES ATRIBUÍDOS 👇 */}
+                        {event.assignedManagers && event.assignedManagers.length > 0 && (
+                          <div className="mt-4 pt-4 border-t border-slate-50">
+                            <p className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Gestores Atribuídos</p>
+                            <div className="flex flex-wrap gap-2">
+                              {event.assignedManagers.map(am => (
+                                <span key={am.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-100 text-sm font-semibold text-purple-700 shadow-sm">
+                                  {am.username}
+                                  <button onClick={() => handleRemoveAccess(event.id, am.id, am.username, event.name)} className="hover:bg-purple-200 p-0.5 rounded-md transition-colors" title="Remover Acesso">
+                                    <X className="w-3.5 h-3.5" />
+                                  </button>
+                                </span>
+                              ))}
+                            </div>
+                          </div>
+                        )}
                       </div>
                       
                       <button onClick={() => { setAssignEventId(event.id); setShowAssignModal(true); }} className="mt-5 w-full flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition-colors">
