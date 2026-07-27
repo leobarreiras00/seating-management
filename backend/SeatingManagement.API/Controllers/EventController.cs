@@ -57,6 +57,7 @@ namespace SeatingManagement.API.Controllers
             { 
                 Name = request.Name,
                 StartDate = request.StartDate,
+                TotalSeats = request.TotalSeats,
                 CompanyId = user.CompanyId 
             };
             
@@ -70,6 +71,38 @@ namespace SeatingManagement.API.Controllers
             await _mqttService.PublishMessageAsync($"seating/managers/{user.UserGuid}/events", "REFRESH");
 
             return Ok(new { Message = "Evento criado e atribuído a ti com sucesso!", EventId = newEvent.Id });
+        }
+
+        [HttpPut("{id}")]
+        [Authorize(Roles = "SuperAdmin,Gestor")]
+        public async Task<IActionResult> UpdateEvent(int id, [FromBody] CreateEventDto request)
+        {
+            var ev = await _context.Events.FindAsync(id);
+            if (ev == null) return NotFound(new { Message = "Evento não encontrado." });
+
+            // Atualiza os dados
+            ev.Name = request.Name;
+            ev.StartDate = request.StartDate;
+            ev.TotalSeats = request.TotalSeats;
+
+            await _context.SaveChangesAsync();
+
+            // Descobre que gestores têm acesso a este evento
+            var affectedUserGuids = await _context.UserEvents
+                .Where(ue => ue.EventId == id)
+                .Select(ue => ue.User.UserGuid)
+                .ToListAsync();
+
+            // Avisa o telemóvel de cada um desses gestores para atualizar o nome/data
+            foreach (var userGuid in affectedUserGuids)
+            {
+                await _mqttService.PublishMessageAsync($"seating/managers/{userGuid}/events", "REFRESH");
+            }
+            
+            // Opcional: Aviso global de eventos (caso estejas a ouvir na dashboard)
+            await _mqttService.PublishMessageAsync("seating/events/updated", id.ToString());
+
+            return Ok(new { Message = "Evento atualizado com sucesso." });
         }
 
         [HttpPost("{eventId}/assign-user")]

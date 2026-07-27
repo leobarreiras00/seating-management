@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Users, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2 } from "lucide-react";
+import { ChevronLeft, Users, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2 } from "lucide-react";
 import mqtt from "mqtt";
 
 interface Company { id: number; name: string; logoUrl: string | null; }
@@ -29,12 +29,14 @@ export default function CompanyDetailsPage() {
   const [activeTab, setActiveTab] = useState<"gestores" | "eventos">("gestores");
   const [isLoading, setIsLoading] = useState(true);
 
+  // Estados do Modal de Criar Gestor
   const [showManagerModal, setShowManagerModal] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
   const [isCreatingManager, setIsCreatingManager] = useState(false);
   const [managerError, setManagerError] = useState("");
 
+  // Estados do Modal de Criar Evento
   const [showEventModal, setShowEventModal] = useState(false);
   const [eventName, setEventName] = useState("");
   const [eventDate, setEventDate] = useState("");
@@ -42,6 +44,16 @@ export default function CompanyDetailsPage() {
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [eventError, setEventError] = useState("");
 
+  // Estados do Modal de Editar Evento
+  const [showEditEventModal, setShowEditEventModal] = useState(false);
+  const [editEventId, setEditEventId] = useState<number | null>(null);
+  const [editEventName, setEditEventName] = useState("");
+  const [editEventDate, setEditEventDate] = useState("");
+  const [editEventSeats, setEditEventSeats] = useState("");
+  const [isEditingEvent, setIsEditingEvent] = useState(false);
+  const [editEventError, setEditEventError] = useState("");
+
+  // Estados do Modal de Atribuir Gestor
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignEventId, setAssignEventId] = useState<number | null>(null);
   const [assignUserId, setAssignUserId] = useState<string>("");
@@ -137,6 +149,24 @@ export default function CompanyDetailsPage() {
     } catch (err: any) { setEventError(err.message); } finally { setIsCreatingEvent(false); }
   };
 
+  const handleUpdateEvent = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!editEventId) return;
+    setIsEditingEvent(true);
+    setEditEventError("");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5162/api/Event/${editEventId}`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ name: editEventName, startDate: new Date(editEventDate).toISOString(), totalSeats: Number(editEventSeats) }),
+      });
+      if (!res.ok) throw new Error("Erro ao atualizar o evento.");
+      setShowEditEventModal(false); 
+      fetchCompanyData(); 
+    } catch (err: any) { setEditEventError(err.message); } finally { setIsEditingEvent(false); }
+  };
+
   const handleAssignManager = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!assignUserId) { setAssignError("Por favor, seleciona um gestor."); return; }
@@ -161,7 +191,7 @@ export default function CompanyDetailsPage() {
   };
 
   const handleDeleteEvent = async (eventId: number, evName: string) => {
-    if (!window.confirm(`Tens a certeza que queres apagar o evento "${evName}"? Esta ação é irreversível.`)) return;
+    if (!window.confirm(`Tens a certeza que queres apagar o evento "${evName}"? Esta ação é irreversível e todos os dados associados serão perdidos.`)) return;
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`http://localhost:5162/api/Event/${eventId}`, {
@@ -190,7 +220,6 @@ export default function CompanyDetailsPage() {
     }
   };
 
-  // 👇 NOVA FUNÇÃO PARA REMOVER ATRIBUIÇÃO 👇
   const handleRemoveAccess = async (eventId: number, userId: number, userName: string, eventNameStr: string) => {
     if (!window.confirm(`Remover acesso de "${userName}" ao evento "${eventNameStr}"?`)) return;
     try {
@@ -204,6 +233,15 @@ export default function CompanyDetailsPage() {
     } catch (error) {
       alert("Ocorreu um erro ao tentar remover o acesso.");
     }
+  };
+
+  const openEditEventModal = (event: EventStats) => {
+    setEditEventId(event.id);
+    setEditEventName(event.name);
+    // Formata a data para yyyy-MM-dd para encaixar no input type="date"
+    setEditEventDate(event.startDate.split('T')[0]);
+    setEditEventSeats(event.totalSeats.toString());
+    setShowEditEventModal(true);
   };
 
   if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
@@ -299,15 +337,21 @@ export default function CompanyDetailsPage() {
                             <h3 className="font-bold text-slate-900 text-lg">{event.name}</h3>
                             <p className="text-sm text-slate-500 mb-4">{new Date(event.startDate).toLocaleDateString('pt-PT')}</p>
                           </div>
-                          <button onClick={() => handleDeleteEvent(event.id, event.name)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Apagar Evento">
-                            <Trash2 className="w-5 h-5" />
-                          </button>
+                          
+                          {/* Botões de Ação do Evento */}
+                          <div className="flex gap-2">
+                            <button onClick={() => openEditEventModal(event)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Editar Evento">
+                              <Edit2 className="w-5 h-5" />
+                            </button>
+                            <button onClick={() => handleDeleteEvent(event.id, event.name)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Apagar Evento">
+                              <Trash2 className="w-5 h-5" />
+                            </button>
+                          </div>
                         </div>
                         <div className="flex justify-between text-sm mb-2"><span className="font-medium text-slate-600">Progresso</span><span className="font-bold text-purple-600">{progress}%</span></div>
                         <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: `${progress}%` }}></div></div>
                         <div className="flex justify-between mt-4 pt-4 border-t border-slate-50 text-sm"><span className="text-slate-500">Total: <strong className="text-slate-900">{event.totalSeats}</strong></span><span className="text-slate-500">Tratados: <strong className="text-emerald-600">{event.treatedSeats}</strong></span></div>
                         
-                        {/* 👇 NOVA SECÇÃO: VER GESTORES ATRIBUÍDOS 👇 */}
                         {event.assignedManagers && event.assignedManagers.length > 0 && (
                           <div className="mt-4 pt-4 border-t border-slate-50">
                             <p className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Gestores Atribuídos</p>
@@ -337,6 +381,7 @@ export default function CompanyDetailsPage() {
         )}
       </div>
 
+      {/* Modal Criar Gestor */}
       {showManagerModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
@@ -360,6 +405,7 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
+      {/* Modal Criar Evento */}
       {showEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
@@ -387,6 +433,37 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
+      {/* Modal Editar Evento */}
+      {showEditEventModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Edit2 className="w-5 h-5 text-purple-600" /> Editar Evento</h3>
+              <button onClick={() => setShowEditEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleUpdateEvent} className="p-6 space-y-5">
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
+                <input type="text" required value={editEventName} onChange={(e) => setEditEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
+                <input type="date" required value={editEventDate} onChange={(e) => setEditEventDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Total de Lugares</label>
+                <input type="number" required min="1" value={editEventSeats} onChange={(e) => setEditEventSeats(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              {editEventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{editEventError}</div>}
+              <button type="submit" disabled={isEditingEvent} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">
+                {isEditingEvent ? "A Guardar..." : "Guardar Alterações"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modal Atribuir Gestor */}
       {showAssignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
