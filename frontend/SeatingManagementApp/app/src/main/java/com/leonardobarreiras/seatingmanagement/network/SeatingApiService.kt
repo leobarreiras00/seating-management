@@ -1,5 +1,6 @@
 package com.leonardobarreiras.seatingmanagement.network
 
+import com.google.gson.annotations.SerializedName
 import com.leonardobarreiras.seatingmanagement.data.SeatEntity
 import okhttp3.MultipartBody
 import retrofit2.Response
@@ -16,24 +17,29 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 data class LoginRequest(val username: String, val password: String)
-// 👇 ATUALIZADO: Recebe o Role do utilizador
 data class AuthResponse(val token: String, val userGuid: String?, val pin: String?, val role: String?, val companyName: String?, val companyLogo: String?)
 data class ValidateTicketRequest(val eventId: Int, val ticketHash: String)
 data class ValidateTicketResponse(val message: String, val seat: SeatEntity)
 data class BulkUpdateStatusRequest(val status: String)
 data class ClearDatabaseDto(val pin: String)
 
-// 👇 ADICIONADO: Modelo para listar os eventos do utilizador
 data class EventDto(val id: Int, val name: String, val startDate: String?)
-
 data class UpdateSingleSeatRequest(val status: Int)
+
+// 👇 ATUALIZADO: Com SerializedName para garantir a leitura do C# 👇
+data class CompanyDto(
+    @SerializedName("name") val name: String,
+    @SerializedName("logoUrl") val logoUrl: String?
+)
 
 interface SeatingApiService {
 
     @POST("api/Auth/login")
     suspend fun login(@Body request: LoginRequest): AuthResponse
 
-    // 👇 ADICIONADO: Endpoint para ir buscar os eventos com permissão
+    @GET("api/Company/my-company")
+    suspend fun getMyCompany(@Header("Authorization") token: String): Response<CompanyDto>
+
     @GET("api/Event/my-events")
     suspend fun getMyEvents(@Header("Authorization") token: String): Response<List<EventDto>>
 

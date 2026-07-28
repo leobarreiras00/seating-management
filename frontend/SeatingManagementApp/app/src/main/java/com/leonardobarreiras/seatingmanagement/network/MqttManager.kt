@@ -9,15 +9,18 @@ import java.util.UUID
 class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
 
     var onManagerEventsUpdated: (() -> Unit)? = null
+
+    var onProfileLogout: (() -> Unit)? = null
+    var onProfileRefresh: (() -> Unit)? = null
+
     private var currentManagerTopic: String? = null
     private val client: Mqtt3AsyncClient = MqttClient.builder()
         .useMqttVersion3()
         .identifier(UUID.randomUUID().toString())
-        .serverHost("10.0.2.2") // IP padrão do emulador para chegar ao localhost do Mac
+        .serverHost("10.0.2.2") // IP padrão do emulador
         .serverPort(1883)
         .buildAsync()
 
-    // 👇 Guarda o tópico onde estamos ligados neste momento
     private var currentTopic: String? = null
 
     fun connect() {
@@ -28,13 +31,10 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
                     Log.e("MQTT", "Erro ao ligar ao broker Mosquitto", throwable)
                 } else {
                     Log.d("MQTT", "Ligado ao Mosquitto com sucesso!")
-                    // AVISO DE SÉNIOR: Já não subscrevemos nada aqui!
-                    // Esperamos que o utilizador faça Check-in na Sala primeiro.
                 }
             }
     }
 
-    // 👇 NOVA FUNÇÃO: Sintoniza apenas na Sala Correta 👇
     fun subscribeToEventRoom(eventId: Int) {
         val novoTopico = "seating/events/$eventId/updates"
         if (currentTopic == novoTopico) return
@@ -50,12 +50,10 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
                 try {
                     val json = JSONObject(payload)
 
-                    // LÓGICA DE ROUTING SÉNIOR: É um comando ou um update simples?
                     if (json.has("cmd")) {
                         val cmd = json.getString("cmd")
                         if (cmd == "REFRESH") {
                             Log.d("MQTT", "Comando recebido: Sincronização em massa necessária.")
-                            // Passamos um ID negativo especial (-1) para avisar o ViewModel que é um Refresh
                             onSeatUpdated(-1, -1)
                         }
                     } else {
@@ -73,7 +71,6 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
             }
     }
 
-    // 👇 A publicação também tem de ir para a Sala correta 👇
     fun publishSeatUpdate(eventId: Int, id: Int, status: Int) {
         val topic = "seating/events/$eventId/updates"
         val payload = "{\"SeatId\": $id, \"Status\": $status}".toByteArray()
@@ -92,7 +89,7 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
     }
 
     fun subscribeToManagerEvents(userGuid: String) {
-        val novoTopico = "seating/managers/$userGuid/events"
+        val novoTopico = "seating/managers/$userGuid/#"
         if (currentManagerTopic == novoTopico) return
 
         currentManagerTopic?.let { topicoAntigo ->
@@ -101,10 +98,23 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
 
         client.subscribeWith()
             .topicFilter(novoTopico)
-            .callback { _ ->
-                // Quando o C# enviar aviso para este tópico, avisamos a UI para atualizar!
-                Log.d("MQTT", "Atualização de eventos recebida para o gestor $userGuid")
-                onManagerEventsUpdated?.invoke()
+            .callback { publish ->
+                val topic = publish.topic.toString()
+                val payload = String(publish.payloadAsBytes)
+
+                Log.d("MQTT", "Mensagem recebida Gestor ($topic): $payload")
+
+                when {
+                    topic.endsWith("/profile") && payload == "LOGOUT" -> {
+                        onProfileLogout?.invoke()
+                    }
+                    topic.endsWith("/profile") && payload == "REFRESH_PROFILE" -> {
+                        onProfileRefresh?.invoke()
+                    }
+                    topic.endsWith("/events") -> {
+                        onManagerEventsUpdated?.invoke()
+                    }
+                }
             }
             .send()
             .whenComplete { _, throwable ->

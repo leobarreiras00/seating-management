@@ -78,11 +78,9 @@ export default function DashboardPage() {
       </div>
 
       <div className="bg-white rounded-[2rem] p-6 lg:p-8 border border-slate-100 shadow-sm">
-        <h2 className="text-lg lg:text-xl font-bold text-slate-800 mb-4">Bem-vindo ao teu Backoffice!</h2>
+        <h2 className="text-lg lg:text-xl font-bold text-slate-800 mb-4">Bem-vindo ao Backoffice Seatly!</h2>
         <p className="text-slate-600 leading-relaxed text-sm lg:text-base">
-          O teu login funcionou na perfeição, e a proteção de rotas está ativada. A partir deste painel,
-          vamos gerir as tabelas de Empresas Clientes, os Eventos deles, e fazer o upload dos logótipos 
-          que irão aparecer na App Android.
+          Gestão do Backoffice Seatly.
         </p>
       </div>
     </div>

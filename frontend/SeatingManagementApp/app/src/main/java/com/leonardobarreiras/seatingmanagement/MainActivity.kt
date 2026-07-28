@@ -78,6 +78,18 @@ class MainActivity : ComponentActivity() {
                 val navController = rememberNavController()
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val sharedViewModel: SeatViewModel = viewModel()
+
+                    // 👇 NOVO: Escuta o evento de Logout Forçado via MQTT 👇
+                    LaunchedEffect(sharedViewModel.forceLogoutEvent) {
+                        if (sharedViewModel.forceLogoutEvent) {
+                            sharedViewModel.logout()
+                            navController.navigate("login") {
+                                popUpTo(0) { inclusive = true }
+                            }
+                            sharedViewModel.forceLogoutEvent = false
+                        }
+                    }
+
                     NavHost(navController = navController, startDestination = "login") {
                         composable("login") { LoginScreen(onLoginSuccess = { navController.navigate("event_selection") { popUpTo("login") { inclusive = true } } }, viewModel = sharedViewModel) }
                         composable("event_selection") { EventSelectionScreen(viewModel = sharedViewModel, onEventSelected = { navController.navigate("dashboard") { popUpTo("event_selection") { inclusive = true } } }) }

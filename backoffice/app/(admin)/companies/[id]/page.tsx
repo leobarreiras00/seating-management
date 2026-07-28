@@ -104,7 +104,8 @@ export default function CompanyDetailsPage() {
 
     client.on("connect", () => {
       console.log("Backoffice ligado ao MQTT com sucesso!");
-      client.subscribe(`seating/events/#`); 
+      client.subscribe(`seating/events/#`);
+      client.subscribe("seating/backoffice/companies");
     });
 
     client.on("message", (topic, message) => {

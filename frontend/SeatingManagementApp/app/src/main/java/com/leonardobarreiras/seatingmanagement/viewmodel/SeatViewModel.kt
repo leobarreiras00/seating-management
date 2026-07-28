@@ -45,7 +45,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     var companyName by mutableStateOf("Seatly")
     var companyLogo by mutableStateOf("")
 
-
     var managerName by mutableStateOf("")
     var userGuid by mutableStateOf("")
 
@@ -56,6 +55,9 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     var loginError by mutableStateOf<String?>(null)
     var currentEventId by mutableStateOf<Int?>(null)
     var appFeedback by mutableStateOf<AppFeedback?>(null)
+
+    // Flag para forçar logout a partir do MQTT
+    var forceLogoutEvent by mutableStateOf(false)
 
     init {
         val db = AppDatabase.getDatabase(application)
@@ -91,7 +93,45 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
             }
         }
 
+        mqttManager.onProfileLogout = {
+            viewModelScope.launch {
+                forceLogoutEvent = true
+            }
+        }
+
+        mqttManager.onProfileRefresh = {
+            viewModelScope.launch {
+                fetchMyCompany() // Atualiza UI em tempo real
+                fetchMyEvents()
+
+                appFeedback = AppFeedback(
+                    FeedbackType.INFO,
+                    "Dados Atualizados",
+                    "Os dados ou acessos da tua empresa foram modificados pelo Administrador."
+                )
+            }
+        }
+
         mqttManager.connect()
+    }
+
+    // NOVA FUNÇÃO: Chamada via MQTT para puxar os dados atualizados
+    fun fetchMyCompany() {
+        val token = jwtToken ?: return
+        viewModelScope.launch {
+            try {
+                val response = RetrofitClient.apiService.getMyCompany("Bearer $token")
+                if (response.isSuccessful) {
+                    val companyData = response.body()
+                    if (companyData != null) {
+                        companyName = companyData.name
+                        companyLogo = companyData.logoUrl ?: ""
+                    }
+                }
+            } catch (e: Exception) {
+                Log.e("API", "Erro ao atualizar dados da empresa: ${e.message}")
+            }
+        }
     }
 
     // LOGOUT COMPLETO: Limpa dados e estado da sessão
@@ -100,7 +140,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         currentEventId = null
         myEvents = emptyList()
         userRole = "Utilizador"
-        // 👇 NOVO: Limpa a cache da Empresa ao sair 👇
         companyName = "Seatly"
         companyLogo = ""
         managerName = ""
@@ -138,7 +177,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                     userRole = response.role
                 }
 
-                // 👇 NOVO: Grava a Empresa do Login 👇
                 if (response.companyName != null) companyName = response.companyName
                 if (response.companyLogo != null) companyLogo = response.companyLogo
 
