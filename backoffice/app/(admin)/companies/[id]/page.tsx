@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Users, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2 } from "lucide-react";
+import { ChevronLeft, Users, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText } from "lucide-react";
 import mqtt from "mqtt";
 
 interface Company { id: number; name: string; logoUrl: string | null; }
@@ -59,6 +59,15 @@ export default function CompanyDetailsPage() {
   const [assignUserId, setAssignUserId] = useState<string>("");
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignError, setAssignError] = useState("");
+
+  // 👇 Estados do Modal de Upload CSV 👇
+  const [showUploadModal, setShowUploadModal] = useState(false);
+  const [uploadEventId, setUploadEventId] = useState<number | null>(null);
+  const [uploadFile, setUploadFile] = useState<File | null>(null);
+  const [uploadMode, setUploadMode] = useState<"replace" | "append">("replace");
+  const [isUploading, setIsUploading] = useState(false);
+  const [uploadError, setUploadError] = useState("");
+  const [uploadSuccess, setUploadSuccess] = useState("");
 
   const fetchCompanyData = useCallback(async () => {
     if (!id) return;
@@ -239,10 +248,55 @@ export default function CompanyDetailsPage() {
   const openEditEventModal = (event: EventStats) => {
     setEditEventId(event.id);
     setEditEventName(event.name);
-    // Formata a data para yyyy-MM-dd para encaixar no input type="date"
     setEditEventDate(event.startDate.split('T')[0]);
     setEditEventSeats(event.totalSeats.toString());
     setShowEditEventModal(true);
+  };
+
+  // 👇 Nova Função para abrir o Modal de Upload 👇
+  const openUploadModal = (eventId: number) => {
+    setUploadEventId(eventId);
+    setUploadFile(null);
+    setUploadMode("replace");
+    setUploadError("");
+    setUploadSuccess("");
+    setShowUploadModal(true);
+  };
+
+  // 👇 Nova Função para enviar o ficheiro CSV 👇
+  const handleUploadCsv = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!uploadEventId || !uploadFile) return;
+    
+    setIsUploading(true);
+    setUploadError("");
+    setUploadSuccess("");
+
+    try {
+      const token = localStorage.getItem("token");
+      const formData = new FormData();
+      formData.append("file", uploadFile);
+
+      const res = await fetch(`http://localhost:5162/api/SeatCsv/import/${uploadEventId}?mode=${uploadMode}`, {
+        method: "POST",
+        headers: { Authorization: `Bearer ${token}` },
+        body: formData
+      });
+
+      const data = await res.json().catch(() => ({}));
+
+      if (!res.ok) {
+        throw new Error(data.Message || "Erro ao importar ficheiro.");
+      }
+
+      setUploadSuccess(data.Message || "Ficheiro importado com sucesso!");
+      setUploadFile(null); // Limpa o input para não enviar 2x sem querer
+      fetchCompanyData(); // A interface já deverá atualizar pelo MQTT, mas garantimos aqui
+    } catch (err: any) {
+      setUploadError(err.message);
+    } finally {
+      setIsUploading(false);
+    }
   };
 
   if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
@@ -340,7 +394,11 @@ export default function CompanyDetailsPage() {
                           </div>
                           
                           {/* Botões de Ação do Evento */}
-                          <div className="flex gap-2">
+                          <div className="flex gap-1">
+                            {/* 👇 NOVO BOTÃO DE UPLOAD 👇 */}
+                            <button onClick={() => openUploadModal(event.id)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Importar Convidados (CSV)">
+                              <UploadCloud className="w-5 h-5" />
+                            </button>
                             <button onClick={() => openEditEventModal(event)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Editar Evento">
                               <Edit2 className="w-5 h-5" />
                             </button>
@@ -486,6 +544,81 @@ export default function CompanyDetailsPage() {
               <button type="submit" disabled={isAssigning} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg shadow-emerald-600/20">
                 {isAssigning ? "A Atribuir..." : "Confirmar Atribuição"}
               </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* 👇 NOVO MODAL: Upload de CSV 👇 */}
+      {showUploadModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><UploadCloud className="w-5 h-5 text-emerald-600" /> Importar CSV</h3>
+              <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleUploadCsv} className="p-6 space-y-5">
+              
+              {uploadSuccess ? (
+                <div className="p-6 bg-emerald-50 rounded-2xl flex flex-col items-center text-center">
+                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
+                    <FileText className="w-6 h-6 text-emerald-600" />
+                  </div>
+                  <h4 className="font-bold text-emerald-800 mb-1">Importação Concluída</h4>
+                  <p className="text-sm text-emerald-600 font-medium">{uploadSuccess}</p>
+                  <button type="button" onClick={() => setShowUploadModal(false)} className="mt-6 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-colors">Fechar</button>
+                </div>
+              ) : (
+                <>
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Ficheiro de Convidados</label>
+                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl hover:bg-slate-50 transition-colors bg-white">
+                      <div className="space-y-1 text-center">
+                        <FileText className="mx-auto h-8 w-8 text-slate-400" />
+                        <div className="flex text-sm text-slate-600 justify-center mt-2">
+                          <label htmlFor="csv-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-emerald-600 hover:text-emerald-500 focus-within:outline-none">
+                            <span>Procurar ficheiro .csv</span>
+                            <input id="csv-upload" name="csv-upload" type="file" accept=".csv" className="sr-only" onChange={(e) => {
+                              if (e.target.files && e.target.files.length > 0) {
+                                setUploadFile(e.target.files[0]);
+                              }
+                            }} />
+                          </label>
+                        </div>
+                        {uploadFile ? (
+                          <p className="text-xs text-emerald-600 font-bold mt-2 border border-emerald-100 bg-emerald-50 p-2 rounded-lg truncate px-4">{uploadFile.name}</p>
+                        ) : (
+                          <p className="text-xs text-slate-500 mt-2">Colunas: MESA;LUGAR;NOME;ESTADO</p>
+                        )}
+                      </div>
+                    </div>
+                  </div>
+
+                  <div>
+                    <label className="block text-sm font-bold text-slate-700 mb-2">Método de Importação</label>
+                    <div className="grid grid-cols-2 gap-3">
+                      <button type="button" onClick={() => setUploadMode("replace")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors ${uploadMode === 'replace' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
+                        <Trash2 className={`w-5 h-5 mb-1 ${uploadMode === 'replace' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                        Substituir Lista
+                      </button>
+                      <button type="button" onClick={() => setUploadMode("append")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors ${uploadMode === 'append' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
+                        <CalendarPlus className={`w-5 h-5 mb-1 ${uploadMode === 'append' ? 'text-emerald-600' : 'text-slate-400'}`} />
+                        Adicionar à Lista
+                      </button>
+                    </div>
+                  </div>
+
+                  {uploadError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{uploadError}</div>}
+                  
+                  <button type="submit" disabled={isUploading || !uploadFile} className={`w-full text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg ${(isUploading || !uploadFile) ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}>
+                    {isUploading ? (
+                      <div className="flex items-center gap-2">
+                        <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div> A Processar...
+                      </div>
+                    ) : "Iniciar Importação"}
+                  </button>
+                </>
+              )}
             </form>
           </div>
         </div>

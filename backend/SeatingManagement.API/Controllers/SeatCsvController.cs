@@ -133,7 +133,26 @@ namespace SeatingManagement.API.Controllers
 
                 int removedCount = await AutoRemoveDuplicatesAsync(eventId);
 
-                if (_mqttService != null) _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
+                // 👇 AVISOS MQTT GLOBAIS 👇
+                if (_mqttService != null) 
+                {
+                    // 1. Avisa os Androids DENTRO da sala
+                    _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
+
+                    // 2. Avisa o Backoffice Web (Next.js)
+                    await _mqttService.PublishMessageAsync("seating/backoffice/companies", "REFRESH");
+
+                    // 3. Avisa os Androids nos Ecrãs Principais (Dashboard)
+                    var affectedUserGuids = await _context.UserEvents
+                        .Where(ue => ue.EventId == eventId)
+                        .Select(ue => ue.User.UserGuid)
+                        .ToListAsync();
+
+                    foreach (var userGuid in affectedUserGuids)
+                    {
+                        await _mqttService.PublishMessageAsync($"seating/managers/{userGuid}/events", "REFRESH");
+                    }
+                }
 
                 string extraMessage = removedCount > 0 ? $" Foram removidos {removedCount} registos duplicados automaticamente." : "";
                 return Ok(new { Message = $"Ficheiro importado com sucesso! {newSeats.Count} registos processados em modo '{mode}'.{extraMessage}" });
