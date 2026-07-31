@@ -3,19 +3,19 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Users, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock } from "lucide-react";
+import { ChevronLeft, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock } from "lucide-react";
 import mqtt from "mqtt";
 
 interface Company { id: number; name: string; logoUrl: string | null; }
-interface Manager { id: number; username: string; role: string; }
-interface AssignedManager { id: number; username: string; }
+interface AccountUser { id: number; username: string; role: string; }
+interface AssignedUser { id: number; username: string; }
 interface EventStats { 
   id: number; 
   name: string; 
   startDate: string; 
   totalSeats: number; 
   treatedSeats: number; 
-  assignedManagers: AssignedManager[]; 
+  assignedUsers: AssignedUser[]; 
 }
 
 export default function CompanyDetailsPage() {
@@ -23,26 +23,28 @@ export default function CompanyDetailsPage() {
   const id = params.id as string;
 
   const [company, setCompany] = useState<Company | null>(null);
-  const [managers, setManagers] = useState<Manager[]>([]);
+  const [managers, setManagers] = useState<AccountUser[]>([]);
+  const [companyUsers, setCompanyUsers] = useState<AccountUser[]>([]); // 👈 Estado para Utilizadores
   const [events, setEvents] = useState<EventStats[]>([]);
   
-  const [activeTab, setActiveTab] = useState<"gestores" | "eventos">("gestores");
+  const [activeTab, setActiveTab] = useState<"gestores" | "utilizadores" | "eventos">("gestores");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Estados do Modal de Criar Gestor
-  const [showManagerModal, setShowManagerModal] = useState(false);
+  // Estados Unificados do Modal de Criar Conta (Gestor ou Utilizador)
+  const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
+  const [newAccountRole, setNewAccountRole] = useState<"Gestor" | "Utilizador">("Gestor");
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
-  const [newPasswordConfirm, setNewPasswordConfirm] = useState(""); // 👈 NOVO ESTADO
-  const [isCreatingManager, setIsCreatingManager] = useState(false);
-  const [managerError, setManagerError] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [isCreatingAccount, setIsCreatingAccount] = useState(false);
+  const [createAccountError, setCreateAccountError] = useState("");
 
-  // Estados do Modal de Repor Password
+  // Estados do Modal de Repor Password (Serve para Gestor e Utilizador)
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetUserId, setResetUserId] = useState<number | null>(null);
   const [resetUsername, setResetUsername] = useState("");
   const [resetNewPassword, setResetNewPassword] = useState("");
-  const [resetNewPasswordConfirm, setResetNewPasswordConfirm] = useState(""); // 👈 NOVO ESTADO
+  const [resetNewPasswordConfirm, setResetNewPasswordConfirm] = useState("");
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState("");
 
@@ -63,9 +65,10 @@ export default function CompanyDetailsPage() {
   const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [editEventError, setEditEventError] = useState("");
 
-  // Estados do Modal de Atribuir Gestor
+  // Estados do Modal de Atribuir Acesso (com 2 Dropdowns)
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignEventId, setAssignEventId] = useState<number | null>(null);
+  const [assignManagerId, setAssignManagerId] = useState<string>("");
   const [assignUserId, setAssignUserId] = useState<string>("");
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignError, setAssignError] = useState("");
@@ -88,7 +91,6 @@ export default function CompanyDetailsPage() {
       const headers = { Authorization: `Bearer ${token}` };
 
       const compRes = await fetch(`http://localhost:5162/api/Company`, { headers });
-      
       if (!compRes.ok) throw new Error(`Erro na API: ${compRes.status}`);
 
       const compData: Company[] = await compRes.json();
@@ -97,6 +99,9 @@ export default function CompanyDetailsPage() {
 
       const manRes = await fetch(`http://localhost:5162/api/Company/${id}/managers`, { headers });
       if (manRes.ok) setManagers(await manRes.json());
+
+      const userRes = await fetch(`http://localhost:5162/api/Company/${id}/users`, { headers });
+      if (userRes.ok) setCompanyUsers(await userRes.json());
 
       const evRes = await fetch(`http://localhost:5162/api/Company/${id}/events`, { headers });
       if (evRes.ok) setEvents(await evRes.json());
@@ -122,42 +127,53 @@ export default function CompanyDetailsPage() {
     return () => { client.end(); };
   }, [id, fetchCompanyData]);
 
-  const handleCreateManager = async (e: React.FormEvent) => {
+  const openCreateAccountModal = (role: "Gestor" | "Utilizador") => {
+    setNewAccountRole(role);
+    setNewUsername("");
+    setNewPassword("");
+    setNewPasswordConfirm("");
+    setCreateAccountError("");
+    setShowCreateAccountModal(true);
+  };
+
+  const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    
-    // 👇 VALIDAÇÃO DE PALAVRA-PASSE 👇
     if (newPassword !== newPasswordConfirm) {
-      setManagerError("As palavras-passe não coincidem.");
+      setCreateAccountError("As palavras-passe não coincidem.");
       return;
     }
 
-    setIsCreatingManager(true);
-    setManagerError("");
+    setIsCreatingAccount(true);
+    setCreateAccountError("");
     try {
       const token = localStorage.getItem("token");
       const res = await fetch("http://localhost:5162/api/Auth/register", {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ username: newUsername, password: newPassword, role: "Gestor", companyId: Number(id) }),
+        body: JSON.stringify({ username: newUsername, password: newPassword, role: newAccountRole, companyId: Number(id) }),
       });
-      if (!res.ok) throw new Error("Erro ao criar o gestor.");
-      setNewUsername(""); 
-      setNewPassword(""); 
-      setNewPasswordConfirm(""); // Limpar o campo de confirmação
-      setShowManagerModal(false); 
+      if (!res.ok) throw new Error(`Erro ao criar o ${newAccountRole.toLowerCase()}.`);
+      setShowCreateAccountModal(false); 
       fetchCompanyData(); 
     } catch (err: any) { 
-      setManagerError(err.message); 
+      setCreateAccountError(err.message); 
     } finally { 
-      setIsCreatingManager(false); 
+      setIsCreatingAccount(false); 
     }
+  };
+
+  const openResetPasswordModal = (userId: number, username: string) => {
+    setResetUserId(userId);
+    setResetUsername(username);
+    setResetNewPassword("");
+    setResetNewPasswordConfirm("");
+    setResetError("");
+    setShowResetModal(true);
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetUserId) return;
-
-    // 👇 VALIDAÇÃO DE PALAVRA-PASSE 👇
     if (resetNewPassword !== resetNewPasswordConfirm) {
       setResetError("As palavras-passe não coincidem.");
       return;
@@ -173,8 +189,6 @@ export default function CompanyDetailsPage() {
         body: JSON.stringify({ newPassword: resetNewPassword }),
       });
       if (!res.ok) throw new Error("Erro ao alterar palavra-passe.");
-      setResetNewPassword(""); 
-      setResetNewPasswordConfirm(""); // Limpar o campo de confirmação
       setShowResetModal(false);
       alert("Palavra-passe alterada com sucesso!");
     } catch (err: any) { 
@@ -184,21 +198,13 @@ export default function CompanyDetailsPage() {
     }
   };
 
-  const openResetPasswordModal = (userId: number, username: string) => {
-    setResetUserId(userId);
-    setResetUsername(username);
-    setResetNewPassword("");
-    setResetNewPasswordConfirm(""); // Garantir que está limpo ao abrir
-    setResetError("");
-    setShowResetModal(true);
-  };
-
-  const openManagerModal = () => {
-    setNewUsername("");
-    setNewPassword("");
-    setNewPasswordConfirm(""); // Garantir que está limpo ao abrir
-    setManagerError("");
-    setShowManagerModal(true);
+  const handleDeleteUser = async (userId: number, username: string, role: string) => {
+    if (!window.confirm(`Tens a certeza que queres remover o acesso do ${role.toLowerCase()} "${username}"? Esta ação é irreversível.`)) return;
+    try {
+      const token = localStorage.getItem("token");
+      await fetch(`http://localhost:5162/api/Auth/user/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      fetchCompanyData();
+    } catch (error) { alert("Ocorreu um erro ao tentar apagar o acesso."); }
   };
 
   const handleCreateEvent = async (e: React.FormEvent) => {
@@ -230,32 +236,47 @@ export default function CompanyDetailsPage() {
         body: JSON.stringify({ name: editEventName, startDate: new Date(editEventDate).toISOString(), totalSeats: Number(editEventSeats) }),
       });
       if (!res.ok) throw new Error("Erro ao atualizar o evento.");
-      setShowEditEventModal(false); 
-      fetchCompanyData(); 
+      setShowEditEventModal(false); fetchCompanyData(); 
     } catch (err: any) { setEditEventError(err.message); } finally { setIsEditingEvent(false); }
   };
 
-  const handleAssignManager = async (e: React.FormEvent) => {
+  const handleAssignAccess = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!assignUserId) { setAssignError("Por favor, seleciona um gestor."); return; }
+    if (!assignManagerId && !assignUserId) { 
+      setAssignError("Por favor, seleciona pelo menos uma pessoa."); 
+      return; 
+    }
+    
     setIsAssigning(true);
     setAssignError("");
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5162/api/Event/${assignEventId}/assign-user`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ userId: assignUserId }), 
-      });
-      if (!res.ok) {
-        const errData = await res.json().catch(()=>({}));
-        throw new Error(errData.Message || "Erro ao atribuir o gestor.");
+      const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
+
+      if (assignManagerId) {
+        const resM = await fetch(`http://localhost:5162/api/Event/${assignEventId}/assign-user`, {
+          method: "POST", headers, body: JSON.stringify({ userId: assignManagerId })
+        });
+        if (!resM.ok) throw new Error("Erro ao atribuir o gestor.");
       }
+
+      if (assignUserId) {
+        const resU = await fetch(`http://localhost:5162/api/Event/${assignEventId}/assign-user`, {
+          method: "POST", headers, body: JSON.stringify({ userId: assignUserId })
+        });
+        if (!resU.ok) throw new Error("Erro ao atribuir o utilizador.");
+      }
+
       setShowAssignModal(false);
+      setAssignManagerId("");
       setAssignUserId("");
-      alert("Gestor atribuído com sucesso!");
+      alert("Acesso atribuído com sucesso!");
       fetchCompanyData();
-    } catch (err: any) { setAssignError(err.message); } finally { setIsAssigning(false); }
+    } catch (err: any) { 
+      setAssignError(err.message); 
+    } finally { 
+      setIsAssigning(false); 
+    }
   };
 
   const handleDeleteEvent = async (eventId: number, evName: string) => {
@@ -265,15 +286,6 @@ export default function CompanyDetailsPage() {
       await fetch(`http://localhost:5162/api/Event/${eventId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       fetchCompanyData();
     } catch (error) { alert("Ocorreu um erro ao tentar apagar o evento."); }
-  };
-
-  const handleDeleteManager = async (managerId: number, managerName: string) => {
-    if (!window.confirm(`Tens a certeza que queres remover o acesso ao gestor "${managerName}"? Esta ação é irreversível.`)) return;
-    try {
-      const token = localStorage.getItem("token");
-      await fetch(`http://localhost:5162/api/Auth/user/${managerId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      fetchCompanyData();
-    } catch (error) { alert("Ocorreu um erro ao tentar apagar o gestor."); }
   };
 
   const handleRemoveAccess = async (eventId: number, userId: number, userName: string, eventNameStr: string) => {
@@ -316,6 +328,42 @@ export default function CompanyDetailsPage() {
     } catch (err: any) { setUploadError(err.message); } finally { setIsUploading(false); }
   };
 
+  const renderAccountList = (list: AccountUser[], title: string, roleType: "Gestor" | "Utilizador", emptyMsg: string) => (
+    <div>
+      <div className="flex justify-between items-center mb-6">
+        <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+        <button onClick={() => openCreateAccountModal(roleType)} className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-2">
+          <UserPlus className="w-4 h-4" /> Criar {roleType}
+        </button>
+      </div>
+      {list.length === 0 ? (
+        <div className="text-center py-12 text-slate-500">{emptyMsg}</div>
+      ) : (
+        <div className="space-y-3">
+          {list.map(account => (
+            <div key={account.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors">
+              <div className="flex items-center gap-4">
+                <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase">{account.username.charAt(0)}</div>
+                <div>
+                  <p className="font-bold text-slate-900">{account.username}</p>
+                  <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider">{account.role}</p>
+                </div>
+              </div>
+              <div className="flex gap-2">
+                <button onClick={() => openResetPasswordModal(account.id, account.username)} className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Repor Palavra-passe">
+                  <Lock className="w-5 h-5" />
+                </button>
+                <button onClick={() => handleDeleteUser(account.id, account.username, account.role)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title={`Apagar ${account.role}`}>
+                  <Trash2 className="w-5 h-5" />
+                </button>
+              </div>
+            </div>
+          ))}
+        </div>
+      )}
+    </div>
+  );
+
   if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
   if (!company) return <div className="p-10 text-center"><h2 className="text-2xl font-bold text-slate-900">Empresa não encontrada</h2><Link href="/companies" className="text-purple-600 mt-4 inline-block">Voltar</Link></div>;
 
@@ -345,6 +393,10 @@ export default function CompanyDetailsPage() {
           <div className="flex items-center gap-2"><Users className="w-5 h-5" /> Gestores ({managers.length})</div>
           {activeTab === "gestores" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
         </button>
+        <button onClick={() => setActiveTab("utilizadores")} className={`pb-4 text-base font-bold transition-colors relative ${activeTab === "utilizadores" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
+          <div className="flex items-center gap-2"><User className="w-5 h-5" /> Utilizadores ({companyUsers.length})</div>
+          {activeTab === "utilizadores" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
+        </button>
         <button onClick={() => setActiveTab("eventos")} className={`pb-4 text-base font-bold transition-colors relative ${activeTab === "eventos" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
           <div className="flex items-center gap-2"><CalendarDays className="w-5 h-5" /> Eventos ({events.length})</div>
           {activeTab === "eventos" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
@@ -352,41 +404,9 @@ export default function CompanyDetailsPage() {
       </div>
 
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 min-h-[400px]">
-        {activeTab === "gestores" && (
-          <div>
-            <div className="flex justify-between items-center mb-6">
-              <h2 className="text-xl font-bold text-slate-900">Gestores de Conta</h2>
-              <button onClick={openManagerModal} className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-2">
-                <UserPlus className="w-4 h-4" /> Criar Gestor
-              </button>
-            </div>
-            {managers.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">Ainda não existem gestores atribuídos a esta empresa.</div>
-            ) : (
-              <div className="space-y-3">
-                {managers.map(manager => (
-                  <div key={manager.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors">
-                    <div className="flex items-center gap-4">
-                      <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase">{manager.username.charAt(0)}</div>
-                      <div>
-                        <p className="font-bold text-slate-900">{manager.username}</p>
-                        <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider">{manager.role}</p>
-                      </div>
-                    </div>
-                    <div className="flex gap-2">
-                      <button onClick={() => openResetPasswordModal(manager.id, manager.username)} className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Repor Palavra-passe">
-                        <Lock className="w-5 h-5" />
-                      </button>
-                      <button onClick={() => handleDeleteManager(manager.id, manager.username)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Apagar Gestor">
-                        <Trash2 className="w-5 h-5" />
-                      </button>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        )}
+        {activeTab === "gestores" && renderAccountList(managers, "Gestores de Conta", "Gestor", "Ainda não existem gestores atribuídos a esta empresa.")}
+        
+        {activeTab === "utilizadores" && renderAccountList(companyUsers, "Utilizadores de Conta", "Utilizador", "Ainda não existem utilizadores atribuídos a esta empresa.")}
 
         {activeTab === "eventos" && (
           <div>
@@ -426,14 +446,14 @@ export default function CompanyDetailsPage() {
                         <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: `${progress}%` }}></div></div>
                         <div className="flex justify-between mt-4 pt-4 border-t border-slate-50 text-sm"><span className="text-slate-500">Total: <strong className="text-slate-900">{event.totalSeats}</strong></span><span className="text-slate-500">Tratados: <strong className="text-emerald-600">{event.treatedSeats}</strong></span></div>
                         
-                        {event.assignedManagers && event.assignedManagers.length > 0 && (
+                        {event.assignedUsers && event.assignedUsers.length > 0 && (
                           <div className="mt-4 pt-4 border-t border-slate-50">
-                            <p className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Gestores Atribuídos</p>
+                            <p className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Acessos Atribuídos</p>
                             <div className="flex flex-wrap gap-2">
-                              {event.assignedManagers.map(am => (
-                                <span key={am.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-100 text-sm font-semibold text-purple-700 shadow-sm">
-                                  {am.username}
-                                  <button onClick={() => handleRemoveAccess(event.id, am.id, am.username, event.name)} className="hover:bg-purple-200 p-0.5 rounded-md transition-colors" title="Remover Acesso">
+                              {event.assignedUsers.map(au => (
+                                <span key={au.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-100 text-sm font-semibold text-purple-700 shadow-sm">
+                                  {au.username}
+                                  <button onClick={() => handleRemoveAccess(event.id, au.id, au.username, event.name)} className="hover:bg-purple-200 p-0.5 rounded-md transition-colors" title="Remover Acesso">
                                     <X className="w-3.5 h-3.5" />
                                   </button>
                                 </span>
@@ -443,7 +463,7 @@ export default function CompanyDetailsPage() {
                         )}
                       </div>
                       <button onClick={() => { setAssignEventId(event.id); setShowAssignModal(true); }} className="mt-5 w-full flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition-colors">
-                        <KeyRound className="w-4 h-4 text-purple-500" /> Atribuir Gestor
+                        <KeyRound className="w-4 h-4 text-purple-500" /> Atribuir Acesso
                       </button>
                     </div>
                   );
@@ -454,15 +474,15 @@ export default function CompanyDetailsPage() {
         )}
       </div>
 
-      {/* Modal Criar Gestor */}
-      {showManagerModal && (
+      {/* Modal Criar Conta Genérico (Gestor/Utilizador) */}
+      {showCreateAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
             <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xl font-bold text-slate-900">Novo Gestor de Conta</h3>
-              <button onClick={() => setShowManagerModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
+              <h3 className="text-xl font-bold text-slate-900">Novo {newAccountRole}</h3>
+              <button onClick={() => setShowCreateAccountModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleCreateManager} className="p-6 space-y-5">
+            <form onSubmit={handleCreateAccount} className="p-6 space-y-5">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Utilizador</label>
                 <input type="text" required value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
@@ -471,13 +491,14 @@ export default function CompanyDetailsPage() {
                 <label className="block text-sm font-bold text-slate-700 mb-2">Palavra-passe</label>
                 <input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
-              {/* 👇 NOVO CAMPO DE CONFIRMAÇÃO 👇 */}
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Confirmar Palavra-passe</label>
                 <input type="password" required value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
-              {managerError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{managerError}</div>}
-              <button type="submit" disabled={isCreatingManager} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingManager ? "A Criar..." : "Criar Acesso"}</button>
+              {createAccountError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{createAccountError}</div>}
+              <button type="submit" disabled={isCreatingAccount} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">
+                {isCreatingAccount ? "A Criar..." : `Criar ${newAccountRole}`}
+              </button>
             </form>
           </div>
         </div>
@@ -492,7 +513,7 @@ export default function CompanyDetailsPage() {
               <button onClick={() => setShowResetModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleResetPassword} className="p-6 space-y-5">
-              <p className="text-sm text-slate-500">Vais definir uma nova palavra-passe para o gestor <strong>{resetUsername}</strong>.</p>
+              <p className="text-sm text-slate-500">Vais definir uma nova palavra-passe para <strong>{resetUsername}</strong>.</p>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Nova Palavra-passe</label>
                 <input type="password" required value={resetNewPassword} onChange={(e) => setResetNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-amber-500" />
@@ -510,6 +531,53 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
+      {/* Modal Atribuir Acesso com 2 Dropdowns */}
+      {showAssignModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-purple-600" /> Atribuir Acesso</h3>
+              <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleAssignAccess} className="p-6 space-y-5">
+              <p className="text-sm text-slate-500 mb-2">Seleciona um Gestor ou um Utilizador para dar acesso ao evento.</p>
+              
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Selecionar Gestor</label>
+                <select value={assignManagerId} onChange={(e) => { setAssignManagerId(e.target.value); setAssignUserId(""); }} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
+                  <option value="" disabled={assignUserId !== ""}>Escolhe um gestor...</option>
+                  {managers.map(m => (
+                    <option key={m.id} value={m.id}>{m.username}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-4 py-2">
+                <div className="h-px bg-slate-200 flex-1"></div>
+                <span className="text-xs font-bold text-slate-400 uppercase">Ou</span>
+                <div className="h-px bg-slate-200 flex-1"></div>
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Selecionar Utilizador</label>
+                <select value={assignUserId} onChange={(e) => { setAssignUserId(e.target.value); setAssignManagerId(""); }} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
+                  <option value="" disabled={assignManagerId !== ""}>Escolhe um utilizador...</option>
+                  {companyUsers.map(u => (
+                    <option key={u.id} value={u.id}>{u.username}</option>
+                  ))}
+                </select>
+              </div>
+
+              {assignError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{assignError}</div>}
+              <button type="submit" disabled={isAssigning} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg shadow-emerald-600/20">
+                {isAssigning ? "A Atribuir..." : "Confirmar Atribuição"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
+      {/* Modais de Evento e Upload mantêm-se iguais */}
       {showEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
@@ -560,32 +628,6 @@ export default function CompanyDetailsPage() {
               {editEventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{editEventError}</div>}
               <button type="submit" disabled={isEditingEvent} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">
                 {isEditingEvent ? "A Guardar..." : "Guardar Alterações"}
-              </button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showAssignModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-purple-600" /> Atribuir Acesso</h3>
-              <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={handleAssignManager} className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Selecionar Gestor</label>
-                <select required value={assignUserId} onChange={(e) => setAssignUserId(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
-                  <option value="" disabled>Escolhe um gestor da lista...</option>
-                  {managers.map(m => (
-                    <option key={m.id} value={m.id}>{m.username} ({m.role})</option>
-                  ))}
-                </select>
-              </div>
-              {assignError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{assignError}</div>}
-              <button type="submit" disabled={isAssigning} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg shadow-emerald-600/20">
-                {isAssigning ? "A Atribuir..." : "Confirmar Atribuição"}
               </button>
             </form>
           </div>

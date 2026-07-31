@@ -24,7 +24,7 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpGet]
-        [Authorize(Roles = "SuperAdmin")] // 👈 PROTEGIDO
+        [Authorize(Roles = "SuperAdmin")]
         public async Task<IActionResult> GetCompanies()
         {
             var companies = await _context.Companies
@@ -39,7 +39,6 @@ namespace SeatingManagement.API.Controllers
             return Ok(companies);
         }
 
-        // 👇 PERMITIDO A GESTORES: Vai buscar o Nome e Logo atualizados 👇
         [HttpGet("my-company")]
         public async Task<IActionResult> GetMyCompany()
         {
@@ -158,7 +157,6 @@ namespace SeatingManagement.API.Controllers
             var company = await _context.Companies.FindAsync(id);
             if (company == null) return NotFound(new { Message = "Empresa não encontrada." });
 
-            // Condições de Segurança Mantidas
             var hasUsers = await _context.Users.AnyAsync(u => u.CompanyId == id);
             var hasEvents = await _context.Events.AnyAsync(e => e.CompanyId == id);
 
@@ -186,6 +184,18 @@ namespace SeatingManagement.API.Controllers
             return Ok(managers);
         }
 
+        // 👇 NOVA ROTA PARA IR BUSCAR OS UTILIZADORES 👇
+        [HttpGet("{id}/users")]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<IActionResult> GetUsers(int id)
+        {
+            var users = await _context.Users
+                .Where(u => u.CompanyId == id && u.Role == "Utilizador")
+                .Select(u => new ManagerResponseDto { Id = u.Id, Username = u.Username, Role = u.Role })
+                .ToListAsync();
+            return Ok(users);
+        }
+
         [HttpGet("{id}/events")]
         [Authorize(Roles = "SuperAdmin")]
         public async Task<IActionResult> GetCompanyEvents(int id)
@@ -199,7 +209,8 @@ namespace SeatingManagement.API.Controllers
                     StartDate = e.StartDate,
                     TotalSeats = e.Seats.Count(),
                     TreatedSeats = e.Seats.Count(s => s.Status != 0),
-                    AssignedManagers = e.UserEvents.Select(ue => new { Id = ue.User.Id, Username = ue.User.Username }).ToList()
+                    // 👇 ATUALIZADO: Agora chama-se AssignedUsers porque engloba ambos os roles 👇
+                    AssignedUsers = e.UserEvents.Select(ue => new { Id = ue.User.Id, Username = ue.User.Username }).ToList()
                 })
                 .ToListAsync();
             return Ok(events);
@@ -225,7 +236,7 @@ namespace SeatingManagement.API.Controllers
             var ev = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId && e.CompanyId == companyId);
             if (ev == null) return NotFound("Evento não encontrado.");
             var exists = await _context.EventAccesses.AnyAsync(ea => ea.EventId == eventId && ea.UserId == userId);
-            if (exists) return BadRequest("Gestor já tem acesso.");
+            if (exists) return BadRequest("O utilizador já tem acesso.");
             var access = new EventAccess { EventId = eventId, UserId = userId };
             _context.EventAccesses.Add(access);
             await _context.SaveChangesAsync();
