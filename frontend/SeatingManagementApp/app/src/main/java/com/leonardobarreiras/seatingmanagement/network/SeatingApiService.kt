@@ -17,12 +17,10 @@ import retrofit2.http.Path
 import retrofit2.http.Query
 
 data class LoginRequest(val username: String, val password: String)
-data class AuthResponse(val token: String, val userGuid: String?, val pin: String?, val role: String?, val companyName: String?, val companyLogo: String?)
+data class AuthResponse(val token: String, val userGuid: String?, val role: String?, val companyName: String?, val companyLogo: String?)
 data class ValidateTicketRequest(val eventId: Int, val ticketHash: String)
 data class ValidateTicketResponse(val message: String, val seat: SeatEntity)
 data class BulkUpdateStatusRequest(val status: String)
-data class ClearDatabaseDto(val pin: String)
-
 data class EventDto(val id: Int, val name: String, val startDate: String?, val endDate: String?)
 data class UpdateSingleSeatRequest(val status: Int)
 data class CompanyDto(@SerializedName("name") val name: String, @SerializedName("logoUrl") val logoUrl: String?)
@@ -44,7 +42,6 @@ interface SeatingApiService {
     @GET("api/Seat/{eventId}")
     suspend fun getSeatsByEvent(@Header("Authorization") token: String, @Path("eventId") eventId: Int): List<SeatEntity>
 
-    // 👇 NOVO ENDPOINT DE PALAVRA-PASSE 👇
     @PUT("api/Auth/change-password")
     suspend fun changePassword(@Header("Authorization") token: String, @Body request: ChangePasswordRequest): Response<GenericResponse>
 
@@ -74,15 +71,13 @@ interface SeatingApiService {
     @POST("api/SeatCsv/clear/{eventId}")
     suspend fun clearEventData(
         @Header("Authorization") token: String,
-        @Path("eventId") eventId: Int,
-        @Body request: ClearDatabaseDto
+        @Path("eventId") eventId: Int
     ): Response<Unit>
 
     @POST("api/SeatCsv/remove-duplicates/{eventId}")
     suspend fun removeDuplicates(
         @Header("Authorization") token: String,
-        @Path("eventId") eventId: Int,
-        @Body request: ClearDatabaseDto
+        @Path("eventId") eventId: Int
     ): Response<Unit>
 }
 

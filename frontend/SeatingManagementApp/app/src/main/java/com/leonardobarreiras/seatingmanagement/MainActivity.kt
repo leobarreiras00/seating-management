@@ -100,14 +100,6 @@ class MainActivity : ComponentActivity() {
     }
 }
 
-fun SeatViewModel.requiresPinFor(action: String): Boolean {
-    if (this.userRole == "SuperAdmin" || this.userRole == "Gestor") return false
-
-    // 👇 Adicionado o CLEAR_DB aos comandos protegidos para os Utilizadores
-    val protectedActions = listOf("IMPORT_EMPTY", "EXPORT_CSV", "IMPORT_NEW", "MARK_ALL", "UNMARK_ALL", "CLEAR_DB")
-    return protectedActions.contains(action)
-}
-
 fun getMesaFromSeat(seatNumber: String): String {
     val split = seatNumber.split("-")
     if (split.size > 1) return split[0].trim()
@@ -373,7 +365,6 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                             Text(errorMsg, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
                         }
 
-                        // 👇 NOVO: Divisória e Botão de Logout 👇
                         Spacer(modifier = Modifier.height(16.dp))
                         HorizontalDivider(color = Color(0xFFE2E8F0))
                         Spacer(modifier = Modifier.height(16.dp))
@@ -421,7 +412,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
     var showFilters by remember { mutableStateOf(false) }
     var showActionsSheet by remember { mutableStateOf(false) }
     var showDataActionsSheet by remember { mutableStateOf(false) }
-    var showPinDialog by remember { mutableStateOf(false) }
     var showSettingsSheet by remember { mutableStateOf(false) }
     var requireConfirmation by remember { mutableStateOf(true) }
     var seatToConfirmClick by remember { mutableStateOf<SeatEntity?>(null) }
@@ -432,9 +422,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
     var pendingCsvUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var showCsvModeDialog by remember { mutableStateOf(false) }
     var confirmActionType by remember { mutableStateOf<String?>(null) }
-    var validatedAdminPin by remember { mutableStateOf("1234") }
-
-    var pendingAdminAction by remember { mutableStateOf<(() -> Unit)?>(null) }
 
     val totalSeats by remember(seats) { derivedStateOf { seats.size } }
     val treatedSeats by remember(seats) { derivedStateOf { seats.count { it.status != 0 } } }
@@ -458,15 +445,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
 
     val currentEventName = remember(viewModel.currentEventId, viewModel.myEvents) {
         viewModel.myEvents.find { it.id == viewModel.currentEventId }?.name ?: "Nenhum"
-    }
-
-    val executeProtectedAction: (String, () -> Unit) -> Unit = { actionName, action ->
-        if (viewModel.requiresPinFor(actionName) && !viewModel.isPinTimeoutValid()) {
-            pendingAdminAction = action
-            showPinDialog = true
-        } else {
-            action()
-        }
     }
 
     Box(modifier = Modifier.fillMaxSize()) {
@@ -653,17 +631,16 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         Text("Importe um ficheiro CSV com separador \";\"\npara começar a gerir os seus dados.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
                         Spacer(modifier = Modifier.height(32.dp))
 
-                        Button(
-                            onClick = {
-                                executeProtectedAction("IMPORT_EMPTY") {
-                                    csvLauncher.launch("*/*")
-                                }
-                            },
-                            modifier = Modifier.fillMaxWidth(0.8f).height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
-                        ) {
-                            Icon(Icons.Rounded.Upload, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Importar Ficheiro", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                        // 👇 Oculta o botão de importar se for apenas Utilizador 👇
+                        if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") {
+                            Button(
+                                onClick = { csvLauncher.launch("*/*") },
+                                modifier = Modifier.fillMaxWidth(0.8f).height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
+                            ) {
+                                Icon(Icons.Rounded.Upload, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Importar Ficheiro", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                            }
                         }
                     }
                 } else {
@@ -683,56 +660,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     }
                 }
             }
-        }
-
-        @OptIn(ExperimentalMaterial3Api::class)
-        if (showPinDialog) {
-            var pin by remember { mutableStateOf("") }
-            var isError by remember { mutableStateOf(false) }
-
-            ModernAlertDialog(
-                title = "Área Restrita",
-                message = "Insere o PIN de Gestão para acederes às definições.",
-                icon = Icons.Rounded.Lock,
-                iconTint = CorporateBlue,
-                iconBg = Color(0xFFF1F5F9),
-                confirmText = "Desbloquear",
-                confirmColor = CorporateBlue,
-                content = {
-                    OutlinedTextField(
-                        value = pin,
-                        onValueChange = { pin = it; isError = false },
-                        visualTransformation = PasswordVisualTransformation(),
-                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
-                        singleLine = true,
-                        shape = RoundedCornerShape(16.dp),
-                        isError = isError,
-                        colors = OutlinedTextFieldDefaults.colors(
-                            focusedBorderColor = AccentPurple,
-                            unfocusedBorderColor = Color(0xFFE2E8F0)
-                        ),
-                        modifier = Modifier.fillMaxWidth()
-                    )
-                    if (isError) {
-                        Text("PIN Incorreto", color = ErrorRed, fontSize = 12.sp, modifier = Modifier.padding(top = 4.dp).fillMaxWidth(), textAlign = TextAlign.Start)
-                    }
-                },
-                onConfirm = {
-                    if (viewModel.verifyPin(pin)) {
-                        validatedAdminPin = pin
-                        viewModel.registerPinSuccess()
-                        showPinDialog = false
-                        pendingAdminAction?.invoke()
-                        pendingAdminAction = null
-                    } else {
-                        isError = true
-                    }
-                },
-                onDismiss = {
-                    showPinDialog = false
-                    pendingAdminAction = null
-                }
-            )
         }
 
         if (seatToConfirmClick != null) {
@@ -758,7 +685,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
             )
         }
 
-        // 👇 MENSAGENS E ALERTAS ATUALIZADOS DO "LIMPAR BASE DE DADOS" 👇
         if (confirmActionType != null) {
             val title = when (confirmActionType) {
                 "MARK_ALL" -> "Validar Todos"
@@ -783,7 +709,8 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     when (confirmActionType) {
                         "MARK_ALL" -> viewModel.bulkUpdateStatus("Tratado")
                         "UNMARK_ALL" -> viewModel.bulkUpdateStatus("Vazio")
-                        "CLEAR" -> viewModel.clearEventData(validatedAdminPin)
+                        // Passamos uma string vazia ("") visto que removemos a dependência do PIN
+                        "CLEAR" -> viewModel.clearEventData("")
                     }
                     confirmActionType = null
                 }, onDismiss = { confirmActionType = null }
@@ -814,15 +741,30 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         }
                     }
 
-                    BottomSheetItem(
-                        icon = Icons.Rounded.ListAlt,
-                        title = "Ações",
-                        subtitle = "Exportar, importar e gerir dados",
-                        iconColor = AccentPurple,
-                        iconBg = AccentPurpleLight
-                    ) {
-                        showActionsSheet = false
-                        showDataActionsSheet = true
+                    // 👇 MOSTRA "AÇÕES" APENAS A GESTORES E ADMINS.
+                    // SE FOR UTILIZADOR, MOSTRA APENAS AS CONFIGURAÇÕES DIRETAMENTE 👇
+                    if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") {
+                        BottomSheetItem(
+                            icon = Icons.Rounded.ListAlt,
+                            title = "Ações",
+                            subtitle = "Exportar, importar e gerir dados",
+                            iconColor = AccentPurple,
+                            iconBg = AccentPurpleLight
+                        ) {
+                            showActionsSheet = false
+                            showDataActionsSheet = true
+                        }
+                    } else {
+                        BottomSheetItem(
+                            icon = Icons.Rounded.Settings,
+                            title = "Configurações Marcação",
+                            subtitle = "Preferências da aplicação",
+                            iconColor = AccentPurple,
+                            iconBg = AccentPurpleLight
+                        ) {
+                            showActionsSheet = false
+                            showSettingsSheet = true
+                        }
                     }
 
                     BottomSheetItem(
@@ -854,25 +796,24 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
 
                     BottomSheetItem(icon = Icons.Rounded.Download, title = "Exportar CSV", subtitle = "$totalSeats registos com estado atual", iconColor = PrimaryBlue, iconBg = Color(0xFFEFF6FF)) {
                         showDataActionsSheet = false
-                        executeProtectedAction("EXPORT_CSV") { exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
+                        exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv")
                     }
                     BottomSheetItem(icon = Icons.Rounded.Upload, title = "Importar Novo Ficheiro", subtitle = "Substituir ou adicionar dados", iconColor = SuccessGreen, iconBg = SuccessGreenLight) {
                         showDataActionsSheet = false
-                        executeProtectedAction("IMPORT_NEW") { csvLauncher.launch("*/*") }
+                        csvLauncher.launch("*/*")
                     }
                     BottomSheetItem(icon = Icons.Rounded.CheckCircle, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconColor = SuccessGreen, iconBg = SuccessGreenLight) {
                         showDataActionsSheet = false
-                        executeProtectedAction("MARK_ALL") { confirmActionType = "MARK_ALL" }
+                        confirmActionType = "MARK_ALL"
                     }
                     BottomSheetItem(icon = Icons.Rounded.Cancel, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconColor = TextGray, iconBg = Color(0xFFF1F5F9)) {
                         showDataActionsSheet = false
-                        executeProtectedAction("UNMARK_ALL") { confirmActionType = "UNMARK_ALL" }
+                        confirmActionType = "UNMARK_ALL"
                     }
 
-                    // 👇 ALTERADO AQUI PARA FICAR CLARO QUE APAGA DA BD 👇
                     BottomSheetItem(icon = Icons.Rounded.DeleteForever, title = "Limpar Base de Dados", subtitle = "Apagar permanentemente todos os dados", iconColor = ErrorRed, iconBg = ErrorRedLight) {
                         showDataActionsSheet = false
-                        executeProtectedAction("CLEAR_DB") { confirmActionType = "CLEAR" }
+                        confirmActionType = "CLEAR"
                     }
                     BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações Marcação", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) {
                         showDataActionsSheet = false
@@ -901,7 +842,14 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         }
                     }
                     Spacer(modifier = Modifier.height(24.dp))
-                    Button(onClick = { showSettingsSheet = false; showDataActionsSheet = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)) { Text("Guardar e Fechar", fontWeight = FontWeight.Bold) }
+                    Button(
+                        onClick = {
+                            showSettingsSheet = false
+                            if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") {
+                                showDataActionsSheet = true
+                            }
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)) { Text("Guardar e Fechar", fontWeight = FontWeight.Bold) }
                     Spacer(modifier = Modifier.navigationBarsPadding())
                 }
             }

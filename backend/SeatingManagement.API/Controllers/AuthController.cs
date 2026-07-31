@@ -39,10 +39,10 @@ namespace SeatingManagement.API.Controllers
             {
                 Username = request.Username,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                PinHash = BCrypt.Net.BCrypt.HashPassword(request.Pin),
+                // 👇 PIN REMOVIDO DAQUI 👇
                 UserGuid = Guid.NewGuid(),
                 Role = !string.IsNullOrWhiteSpace(request.Role) ? request.Role : "Utilizador",
-                CompanyId = request.CompanyId // 👇 Associa o Inquilino
+                CompanyId = request.CompanyId 
             };
 
             _context.Users.Add(user);
@@ -67,10 +67,10 @@ namespace SeatingManagement.API.Controllers
             return Ok(new { 
                 Token = token, 
                 UserGuid = user.UserGuid,
-                Pin = user.PinHash,
+                // 👇 PIN REMOVIDO DAQUI 👇
                 Role = user.Role,
-                CompanyName = user.Company.Name,
-                CompanyLogo = user.Company.LogoUrl
+                CompanyName = user.Company?.Name ?? "Sem Empresa",
+                CompanyLogo = user.Company?.LogoUrl ?? ""
             });
         }
 
@@ -85,7 +85,7 @@ namespace SeatingManagement.API.Controllers
             _context.Users.Remove(user);
             await _context.SaveChangesAsync();
 
-            return Ok(new { Message = "Gestor apagado com sucesso." });
+            return Ok(new { Message = "Conta apagada com sucesso." });
         }
 
         [HttpPut("user/{id}/reset-password")]
@@ -131,7 +131,7 @@ namespace SeatingManagement.API.Controllers
                 new Claim(ClaimTypes.NameIdentifier, user.UserGuid.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Role, user.Role),
-                new Claim("CompanyId", user.CompanyId.ToString())
+                new Claim("CompanyId", user.CompanyId.ToString()) 
             };
 
             var issuer = _configuration["Jwt:Issuer"] ?? "SeatingManagementAPI";

@@ -137,37 +137,13 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpPost("clear/{eventId}")]
-        public async Task<IActionResult> ClearDatabase(int eventId, [FromBody] ClearDatabaseDto request)
+        public async Task<IActionResult> ClearDatabase(int eventId)
         {
             var userGuidStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userGuidStr)) return Unauthorized();
 
             var user = await _context.Users.FirstOrDefaultAsync(u => u.UserGuid == Guid.Parse(userGuidStr));
-
-            bool isPinValid = false;
-            if (user != null && !string.IsNullOrEmpty(user.PinHash))
-            {
-                if (user.PinHash == request.Pin)
-                {
-                    isPinValid = true; 
-                }
-                else
-                {
-                    try 
-                    {
-                        isPinValid = BCrypt.Net.BCrypt.Verify(request.Pin, user.PinHash); 
-                    }
-                    catch 
-                    { 
-                        isPinValid = false; 
-                    }
-                }
-            }
-
-            if (!isPinValid)
-            {
-                return BadRequest(new { Message = "PIN de gestão inválido." });
-            }
+            if (user == null) return Unauthorized();
 
             var seatsToDelete = await _context.Seats.Where(s => s.EventId == eventId).ToListAsync();
             _context.Seats.RemoveRange(seatsToDelete);

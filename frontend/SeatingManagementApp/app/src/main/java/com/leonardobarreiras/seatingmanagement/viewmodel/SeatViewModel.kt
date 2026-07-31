@@ -37,10 +37,8 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     var isOffline by mutableStateOf(false)
 
     var jwtToken: String? = null
-    var dynamicAdminPin by mutableStateOf("1234") // Guarda o PIN em memória (default 1234 por segurança)
 
     var userRole by mutableStateOf("Utilizador")
-    var lastPinAuthTime by mutableStateOf(0L)
 
     var companyName by mutableStateOf("Seatly")
     var companyLogo by mutableStateOf("")
@@ -167,11 +165,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 val response: AuthResponse = RetrofitClient.apiService.login(LoginRequest(user, pass))
                 jwtToken = response.token
 
-                // GUARDA O PIN VERDADEIRO RECEBIDO DO C#
-                if (response.pin != null) {
-                    dynamicAdminPin = response.pin
-                }
-
                 // Guarda o Role e Carrega os Eventos
                 if (response.role != null) {
                     userRole = response.role
@@ -231,43 +224,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 onError("Falha na comunicação com o servidor.")
             }
         }
-    }
-
-    fun requiresPinFor(action: String): Boolean {
-        // SuperAdmin e Gestor NUNCA precisam de PIN
-        if (userRole == "SuperAdmin" || userRole == "Gestor") return false
-
-        // Ações que exigem PIN ao 'Utilizador'
-        val protectedActions = listOf(
-            "IMPORT_EMPTY",
-            "EXPORT_CSV",
-            "IMPORT_NEW",
-            "MARK_ALL",
-            "UNMARK_ALL"
-        )
-
-        return protectedActions.contains(action)
-    }
-
-    fun verifyPin(pin: String): Boolean {
-        // Se a app acabou de instalar e ainda não fez login, usa o 1234 de segurança
-        if (dynamicAdminPin == "1234") return pin == "1234"
-
-        return try {
-            // A MAGIA: O Android desencripta e valida o PIN recebido do servidor!
-            org.mindrot.jbcrypt.BCrypt.checkpw(pin, dynamicAdminPin)
-        } catch (e: Exception) {
-            false
-        }
-    }
-
-    fun isPinTimeoutValid(): Boolean {
-        val currentTime = System.currentTimeMillis()
-        return (currentTime - lastPinAuthTime) < 10000;
-    }
-
-    fun registerPinSuccess() {
-        lastPinAuthTime = System.currentTimeMillis()
     }
 
     // NOTA: Esta função foi mantida ativa porque o "Acesso Manual" a utiliza,
@@ -549,14 +505,29 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun clearEventData(pin: String) {
+    fun clearEventData(pin: String = "") {
+        val safeEventId = currentEventId ?: return
+        val token = jwtToken ?: return
+
         viewModelScope.launch {
-            repository.deleteAllSeats()
-            appFeedback = AppFeedback(
-                FeedbackType.INFO,
-                "Ecrã Limpo",
-                "Os dados foram removidos deste dispositivo. Clica em 'Sync' para os recuperar do servidor."
-            )
+            try {
+                // Efetua a chamada ao novo endpoint que limpa a base de dados
+                val response = RetrofitClient.apiService.clearEventData("Bearer $token", safeEventId)
+
+                if (response.isSuccessful) {
+                    // Limpa o Room local para refletir o estado do servidor
+                    repository.deleteAllSeats()
+                    appFeedback = AppFeedback(
+                        FeedbackType.INFO,
+                        "Base de Dados Limpa",
+                        "Os dados foram apagados permanentemente do servidor e deste dispositivo."
+                    )
+                } else {
+                    appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Não foi possível apagar os dados no servidor.")
+                }
+            } catch (e: Exception) {
+                appFeedback = AppFeedback(FeedbackType.ERROR, "Falha de Rede", "Erro de comunicação ao contactar o servidor.")
+            }
         }
     }
 
