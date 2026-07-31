@@ -34,11 +34,13 @@ namespace SeatingManagement.API.Controllers
 
             var myEvents = await _context.UserEvents
                 .Where(ue => ue.UserId == user.Id)
+                .OrderByDescending(ue => ue.Event.StartDate)
                 .Select(ue => new EventResponseDto
                 {
                     Id = ue.Event.Id,
                     Name = ue.Event.Name,
-                    StartDate = ue.Event.StartDate
+                    StartDate = ue.Event.StartDate,
+                    EndDate = ue.Event.EndDate // Já tínhamos adicionado no DTO
                 })
                 .ToListAsync();
 
@@ -57,8 +59,9 @@ namespace SeatingManagement.API.Controllers
             { 
                 Name = request.Name,
                 StartDate = request.StartDate,
-                TotalSeats = request.TotalSeats,
+                EndDate = request.EndDate, // 👈 Nova data de fim
                 CompanyId = user.CompanyId 
+                // O TotalSeats desapareceu daqui!
             };
             
             _context.Events.Add(newEvent);
@@ -83,23 +86,20 @@ namespace SeatingManagement.API.Controllers
             // Atualiza os dados
             ev.Name = request.Name;
             ev.StartDate = request.StartDate;
-            ev.TotalSeats = request.TotalSeats;
+            ev.EndDate = request.EndDate; // 👈 Adicionado
 
             await _context.SaveChangesAsync();
 
-            // Descobre que gestores têm acesso a este evento
             var affectedUserGuids = await _context.UserEvents
                 .Where(ue => ue.EventId == id)
                 .Select(ue => ue.User.UserGuid)
                 .ToListAsync();
 
-            // Avisa o telemóvel de cada um desses gestores para atualizar o nome/data
             foreach (var userGuid in affectedUserGuids)
             {
                 await _mqttService.PublishMessageAsync($"seating/managers/{userGuid}/events", "REFRESH");
             }
             
-            // Opcional: Aviso global de eventos (caso estejas a ouvir na dashboard)
             await _mqttService.PublishMessageAsync("seating/events/updated", id.ToString());
 
             return Ok(new { Message = "Evento atualizado com sucesso." });

@@ -184,7 +184,6 @@ namespace SeatingManagement.API.Controllers
             return Ok(managers);
         }
 
-        // 👇 NOVA ROTA PARA IR BUSCAR OS UTILIZADORES 👇
         [HttpGet("{id}/users")]
         [Authorize(Roles = "SuperAdmin")]
         public async Task<IActionResult> GetUsers(int id)
@@ -202,14 +201,15 @@ namespace SeatingManagement.API.Controllers
         {
             var events = await _context.Events
                 .Where(e => e.CompanyId == id)
+                .OrderByDescending(e => e.StartDate) // 👈 ORDENAÇÃO AQUI (Do mais recente para o mais antigo)
                 .Select(e => new 
                 {
                     Id = e.Id,
                     Name = e.Name,
                     StartDate = e.StartDate,
-                    TotalSeats = e.Seats.Count(),
+                    EndDate = e.EndDate,
+                    TotalSeats = e.Seats.Count(), 
                     TreatedSeats = e.Seats.Count(s => s.Status != 0),
-                    // 👇 ATUALIZADO: Agora chama-se AssignedUsers porque engloba ambos os roles 👇
                     AssignedUsers = e.UserEvents.Select(ue => new { Id = ue.User.Id, Username = ue.User.Username }).ToList()
                 })
                 .ToListAsync();
@@ -223,10 +223,18 @@ namespace SeatingManagement.API.Controllers
             var company = await _context.Companies.FindAsync(id);
             if (company == null) return NotFound("Empresa não encontrada.");
 
-            var newEvent = new Event { Name = dto.Name, StartDate = dto.StartDate, TotalSeats = dto.TotalSeats, TreatedSeats = 0, CompanyId = id };
+            var newEvent = new Event 
+            { 
+                Name = dto.Name, 
+                StartDate = dto.StartDate, 
+                EndDate = dto.EndDate,
+                TreatedSeats = 0, 
+                CompanyId = id 
+            };
+            
             _context.Events.Add(newEvent);
             await _context.SaveChangesAsync();
-            return Ok(new { Id = newEvent.Id, Name = newEvent.Name, StartDate = newEvent.StartDate, TotalSeats = newEvent.TotalSeats, TreatedSeats = newEvent.TreatedSeats, CompanyId = newEvent.CompanyId });
+            return Ok(new { Id = newEvent.Id, Name = newEvent.Name, StartDate = newEvent.StartDate, EndDate = newEvent.EndDate, CompanyId = newEvent.CompanyId });
         }
 
         [HttpPost("{companyId}/events/{eventId}/assign/{userId}")]

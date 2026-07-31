@@ -13,6 +13,7 @@ interface EventStats {
   id: number; 
   name: string; 
   startDate: string; 
+  endDate: string; 
   totalSeats: number; 
   treatedSeats: number; 
   assignedUsers: AssignedUser[]; 
@@ -24,7 +25,7 @@ export default function CompanyDetailsPage() {
 
   const [company, setCompany] = useState<Company | null>(null);
   const [managers, setManagers] = useState<AccountUser[]>([]);
-  const [companyUsers, setCompanyUsers] = useState<AccountUser[]>([]); // 👈 Estado para Utilizadores
+  const [companyUsers, setCompanyUsers] = useState<AccountUser[]>([]); 
   const [events, setEvents] = useState<EventStats[]>([]);
   
   const [activeTab, setActiveTab] = useState<"gestores" | "utilizadores" | "eventos">("gestores");
@@ -51,8 +52,8 @@ export default function CompanyDetailsPage() {
   // Estados do Modal de Criar Evento
   const [showEventModal, setShowEventModal] = useState(false);
   const [eventName, setEventName] = useState("");
-  const [eventDate, setEventDate] = useState("");
-  const [eventSeats, setEventSeats] = useState("");
+  const [eventStartDate, setEventStartDate] = useState(""); 
+  const [eventEndDate, setEventEndDate] = useState(""); 
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [eventError, setEventError] = useState("");
 
@@ -60,12 +61,12 @@ export default function CompanyDetailsPage() {
   const [showEditEventModal, setShowEditEventModal] = useState(false);
   const [editEventId, setEditEventId] = useState<number | null>(null);
   const [editEventName, setEditEventName] = useState("");
-  const [editEventDate, setEditEventDate] = useState("");
-  const [editEventSeats, setEditEventSeats] = useState("");
+  const [editEventStartDate, setEditEventStartDate] = useState(""); 
+  const [editEventEndDate, setEditEventEndDate] = useState(""); 
   const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [editEventError, setEditEventError] = useState("");
 
-  // Estados do Modal de Atribuir Acesso (com 2 Dropdowns)
+  // Estados do Modal de Atribuir Acesso
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignEventId, setAssignEventId] = useState<number | null>(null);
   const [assignManagerId, setAssignManagerId] = useState<string>("");
@@ -216,10 +217,10 @@ export default function CompanyDetailsPage() {
       const res = await fetch(`http://localhost:5162/api/Company/${id}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: eventName, startDate: new Date(eventDate).toISOString(), totalSeats: Number(eventSeats) }),
+        body: JSON.stringify({ name: eventName, startDate: new Date(eventStartDate).toISOString(), endDate: new Date(eventEndDate).toISOString() }),
       });
       if (!res.ok) throw new Error("Erro ao criar o evento.");
-      setEventName(""); setEventDate(""); setEventSeats(""); setShowEventModal(false); fetchCompanyData(); 
+      setEventName(""); setEventStartDate(""); setEventEndDate(""); setShowEventModal(false); fetchCompanyData(); 
     } catch (err: any) { setEventError(err.message); } finally { setIsCreatingEvent(false); }
   };
 
@@ -233,11 +234,23 @@ export default function CompanyDetailsPage() {
       const res = await fetch(`http://localhost:5162/api/Event/${editEventId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ name: editEventName, startDate: new Date(editEventDate).toISOString(), totalSeats: Number(editEventSeats) }),
+        body: JSON.stringify({ name: editEventName, startDate: new Date(editEventStartDate).toISOString(), endDate: new Date(editEventEndDate).toISOString() }),
       });
       if (!res.ok) throw new Error("Erro ao atualizar o evento.");
       setShowEditEventModal(false); fetchCompanyData(); 
     } catch (err: any) { setEditEventError(err.message); } finally { setIsEditingEvent(false); }
+  };
+
+  const openEditEventModal = (event: EventStats) => {
+    setEditEventId(event.id); setEditEventName(event.name);
+    
+    // Fallback de segurança para não rebentar se a data estiver vazia
+    const startStr = event.startDate ? event.startDate.split('T')[0] : "";
+    const endStr = event.endDate ? event.endDate.split('T')[0] : startStr;
+    
+    setEditEventStartDate(startStr); 
+    setEditEventEndDate(endStr);
+    setShowEditEventModal(true);
   };
 
   const handleAssignAccess = async (e: React.FormEvent) => {
@@ -295,12 +308,6 @@ export default function CompanyDetailsPage() {
       await fetch(`http://localhost:5162/api/Company/${id}/events/${eventId}/assign/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       fetchCompanyData();
     } catch (error) { alert("Ocorreu um erro ao tentar remover o acesso."); }
-  };
-
-  const openEditEventModal = (event: EventStats) => {
-    setEditEventId(event.id); setEditEventName(event.name);
-    setEditEventDate(event.startDate.split('T')[0]); setEditEventSeats(event.totalSeats.toString());
-    setShowEditEventModal(true);
   };
 
   const openUploadModal = (eventId: number) => {
@@ -364,6 +371,13 @@ export default function CompanyDetailsPage() {
     </div>
   );
 
+  // 👇 Ordenação dos eventos (do mais recente para o mais antigo) 👇
+  const sortedEvents = [...events].sort((a, b) => {
+    const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
+    const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
+    return dateB - dateA;
+  });
+
   if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
   if (!company) return <div className="p-10 text-center"><h2 className="text-2xl font-bold text-slate-900">Empresa não encontrada</h2><Link href="/companies" className="text-purple-600 mt-4 inline-block">Voltar</Link></div>;
 
@@ -416,19 +430,30 @@ export default function CompanyDetailsPage() {
                 <CalendarPlus className="w-4 h-4" /> Criar Evento
               </button>
             </div>
-            {events.length === 0 ? (
+            {sortedEvents.length === 0 ? (
               <div className="text-center py-12 text-slate-500">Esta empresa ainda não tem eventos criados.</div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {events.map(event => {
+                {/* 👇 Utilização da lista ORDENADA 👇 */}
+                {sortedEvents.map(event => {
                   const progress = event.totalSeats > 0 ? Math.round((event.treatedSeats / event.totalSeats) * 100) : 0;
                   return (
                     <div key={event.id} className="p-5 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors flex flex-col justify-between">
                       <div>
                         <div className="flex justify-between items-start mb-2">
                           <div>
-                            <h3 className="font-bold text-slate-900 text-lg">{event.name}</h3>
-                            <p className="text-sm text-slate-500 mb-4">{new Date(event.startDate).toLocaleDateString('pt-PT')}</p>
+                            <h3 className="font-bold text-slate-900 text-lg mb-1">{event.name}</h3>
+                            {/* 👇 APRESENTAÇÃO NOVA DAS DATAS 👇 */}
+                            <div className="flex flex-col gap-0.5 mt-1 mb-4">
+                              <span className="text-sm text-slate-500">
+                                <strong className="font-semibold text-slate-600">Data de Início:</strong> {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "N/D"}
+                              </span>
+                              {event.endDate && event.endDate !== event.startDate && (
+                                <span className="text-sm text-slate-500">
+                                  <strong className="font-semibold text-slate-600">Data de Fim:</strong> {new Date(event.endDate).toLocaleDateString('pt-PT')}
+                                </span>
+                              )}
+                            </div>
                           </div>
                           <div className="flex gap-1">
                             <button onClick={() => openUploadModal(event.id)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Importar Convidados (CSV)">
@@ -444,7 +469,10 @@ export default function CompanyDetailsPage() {
                         </div>
                         <div className="flex justify-between text-sm mb-2"><span className="font-medium text-slate-600">Progresso</span><span className="font-bold text-purple-600">{progress}%</span></div>
                         <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: `${progress}%` }}></div></div>
-                        <div className="flex justify-between mt-4 pt-4 border-t border-slate-50 text-sm"><span className="text-slate-500">Total: <strong className="text-slate-900">{event.totalSeats}</strong></span><span className="text-slate-500">Tratados: <strong className="text-emerald-600">{event.treatedSeats}</strong></span></div>
+                        <div className="flex justify-between mt-4 pt-4 border-t border-slate-50 text-sm">
+                          <span className="text-slate-500">Capacidade Importada: <strong className="text-slate-900">{event.totalSeats}</strong></span>
+                          <span className="text-slate-500">Tratados: <strong className="text-emerald-600">{event.treatedSeats}</strong></span>
+                        </div>
                         
                         {event.assignedUsers && event.assignedUsers.length > 0 && (
                           <div className="mt-4 pt-4 border-t border-slate-50">
@@ -531,7 +559,7 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* Modal Atribuir Acesso com 2 Dropdowns */}
+      {/* Modal Atribuir Acesso */}
       {showAssignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -577,7 +605,7 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* Modais de Evento e Upload mantêm-se iguais */}
+      {/* Modal Criar Evento */}
       {showEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
@@ -592,11 +620,11 @@ export default function CompanyDetailsPage() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
-                <input type="date" required value={eventDate} onChange={(e) => setEventDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+                <input type="date" required value={eventStartDate} onChange={(e) => setEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Total de Lugares</label>
-                <input type="number" required min="1" value={eventSeats} onChange={(e) => setEventSeats(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label>
+                <input type="date" required value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
               {eventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{eventError}</div>}
               <button type="submit" disabled={isCreatingEvent} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingEvent ? "A Criar..." : "Criar Evento"}</button>
@@ -605,6 +633,7 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
+      {/* Modal Editar Evento */}
       {showEditEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -619,11 +648,11 @@ export default function CompanyDetailsPage() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
-                <input type="date" required value={editEventDate} onChange={(e) => setEditEventDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+                <input type="date" required value={editEventStartDate} onChange={(e) => setEditEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Total de Lugares</label>
-                <input type="number" required min="1" value={editEventSeats} onChange={(e) => setEditEventSeats(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label>
+                <input type="date" required value={editEventEndDate} onChange={(e) => setEditEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
               {editEventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{editEventError}</div>}
               <button type="submit" disabled={isEditingEvent} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">
@@ -634,6 +663,7 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
+      {/* Modal Upload CSV */}
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">

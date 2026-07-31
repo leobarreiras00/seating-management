@@ -79,7 +79,6 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val sharedViewModel: SeatViewModel = viewModel()
 
-                    // 👇 NOVO: Escuta o evento de Logout Forçado via MQTT 👇
                     LaunchedEffect(sharedViewModel.forceLogoutEvent) {
                         if (sharedViewModel.forceLogoutEvent) {
                             sharedViewModel.logout()
@@ -252,8 +251,12 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
 
     var showProfileDialog by remember { mutableStateOf(false) }
 
+    // 👇 ORDENAÇÃO APLICADA (do mais recente ao mais antigo) 👇
+    val sortedEvents = remember(viewModel.myEvents) {
+        viewModel.myEvents.sortedByDescending { it.startDate ?: "" }
+    }
+
     Box(modifier = Modifier.fillMaxSize().background(LightBg)) {
-        // 👇 NOVO: Botão de Perfil no topo direito 👇
         Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.End) {
             IconButton(
                 onClick = { showProfileDialog = true },
@@ -264,7 +267,7 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
         }
 
         Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Spacer(modifier = Modifier.height(12.dp)) // Ajustado para dar espaço ao botão
+            Spacer(modifier = Modifier.height(12.dp))
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 if (viewModel.companyLogo.isNotEmpty()) {
                     val fullLogoUrl = if (viewModel.companyLogo.contains("localhost")) {
@@ -298,7 +301,7 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
 
             if (viewModel.isLoadingEvents) {
                 CircularProgressIndicator(color = AccentPurple, modifier = Modifier.padding(top = 40.dp))
-            } else if (viewModel.myEvents.isEmpty()) {
+            } else if (sortedEvents.isEmpty()) {
                 Card(
                     modifier = Modifier.fillMaxWidth().padding(top = 24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
                     elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(24.dp)
@@ -313,7 +316,8 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
-                    items(viewModel.myEvents) { event ->
+                    // 👇 Utiliza a nova lista de Eventos Ordenados 👇
+                    items(sortedEvents) { event ->
                         Card(
                             onClick = { viewModel.processRoomCheckIn("EVENT:${event.id}") }, modifier = Modifier.fillMaxWidth(),
                             colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(4.dp), shape = RoundedCornerShape(20.dp)
@@ -323,8 +327,13 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(event.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = CorporateBlue)
-                                    Spacer(modifier = Modifier.height(2.dp))
-                                    Text(formatEventDate(event.startDate), color = TextGray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                    Spacer(modifier = Modifier.height(4.dp))
+                                    // 👇 APRESENTAÇÃO NOVA DAS DATAS 👇
+                                    Text("Data de Início: ${formatEventDate(event.startDate)}", color = TextGray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                    if (event.endDate != null && event.endDate != event.startDate) {
+                                        Spacer(modifier = Modifier.height(2.dp))
+                                        Text("Data de Fim: ${formatEventDate(event.endDate)}", color = TextGray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
+                                    }
                                 }
                                 Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = Color(0xFFCBD5E1))
                             }

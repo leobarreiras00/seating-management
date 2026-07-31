@@ -23,7 +23,7 @@ data class ValidateTicketResponse(val message: String, val seat: SeatEntity)
 data class BulkUpdateStatusRequest(val status: String)
 data class ClearDatabaseDto(val pin: String)
 
-data class EventDto(val id: Int, val name: String, val startDate: String?)
+data class EventDto(val id: Int, val name: String, val startDate: String?, val endDate: String?)
 data class UpdateSingleSeatRequest(val status: Int)
 data class CompanyDto(@SerializedName("name") val name: String, @SerializedName("logoUrl") val logoUrl: String?)
 

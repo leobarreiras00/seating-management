@@ -67,20 +67,12 @@ namespace SeatingManagement.API.Controllers
                     csv.TryGetField("ESTADO", out string? rawEstado);
                     
                     string? rawNome = null;
-                    
                     if (!csv.TryGetField("NOME", out rawNome))
                     {
                         if (!csv.TryGetField("NOME,", out rawNome))
                         {
-                            try 
-                            {
-                                if (csv.HeaderRecord != null)
-                                {
-                                    int columnCount = csv.HeaderRecord.Length;
-                                    rawNome = csv.GetField<string>(columnCount - 1);
-                                }
-                            }
-                            catch { /* Ignora se falhar ao ler o índice */ }
+                            try { if (csv.HeaderRecord != null) rawNome = csv.GetField<string>(csv.HeaderRecord.Length - 1); }
+                            catch { /* Ignora se falhar */ }
                         }
                     }
 
@@ -90,11 +82,9 @@ namespace SeatingManagement.API.Controllers
                     string statusStr = SanitizeInput(rawEstado);
                     string nome = SanitizeInput(rawNome);
 
-                    if (string.IsNullOrWhiteSpace(mesa) && string.IsNullOrWhiteSpace(lugar) && string.IsNullOrWhiteSpace(nome))
-                        continue;
+                    if (string.IsNullOrWhiteSpace(mesa) && string.IsNullOrWhiteSpace(lugar) && string.IsNullOrWhiteSpace(nome)) continue;
 
                     string seatNumber = string.IsNullOrWhiteSpace(mesa) ? lugar : (string.IsNullOrWhiteSpace(lugar) ? mesa : $"{mesa}-{lugar}");
-
                     int status = 0; 
                     if (statusStr.Equals("Validado", StringComparison.OrdinalIgnoreCase)) status = 1;
                     else if (statusStr.Equals("Tratado", StringComparison.OrdinalIgnoreCase)) status = 2;
@@ -111,16 +101,6 @@ namespace SeatingManagement.API.Controllers
                     });
                 }
 
-                int currentSeatCount = 0;
-                if (mode.Equals("append", StringComparison.OrdinalIgnoreCase))
-                {
-                    currentSeatCount = await _context.Seats.CountAsync(s => s.EventId == eventId);
-                }
-
-                if (ev.TotalSeats > 0 && (currentSeatCount + newSeats.Count) > ev.TotalSeats)
-                {
-                    return BadRequest(new { Message = $"A capacidade do evento ({ev.TotalSeats}) é inferior aos {currentSeatCount + newSeats.Count} registos da importação." });
-                }
 
                 if (mode.Equals("replace", StringComparison.OrdinalIgnoreCase))
                 {
@@ -133,33 +113,26 @@ namespace SeatingManagement.API.Controllers
 
                 int removedCount = await AutoRemoveDuplicatesAsync(eventId);
 
-                // 👇 AVISOS MQTT GLOBAIS 👇
                 if (_mqttService != null) 
                 {
-                    // 1. Avisa os Androids DENTRO da sala
                     _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
-
-                    // 2. Avisa o Backoffice Web (Next.js)
                     await _mqttService.PublishMessageAsync("seating/backoffice/companies", "REFRESH");
 
-                    // 3. Avisa os Androids nos Ecrãs Principais (Dashboard)
                     var affectedUserGuids = await _context.UserEvents
                         .Where(ue => ue.EventId == eventId)
                         .Select(ue => ue.User.UserGuid)
                         .ToListAsync();
 
                     foreach (var userGuid in affectedUserGuids)
-                    {
                         await _mqttService.PublishMessageAsync($"seating/managers/{userGuid}/events", "REFRESH");
-                    }
                 }
 
-                string extraMessage = removedCount > 0 ? $" Foram removidos {removedCount} registos duplicados automaticamente." : "";
-                return Ok(new { Message = $"Ficheiro importado com sucesso! {newSeats.Count} registos processados em modo '{mode}'.{extraMessage}" });
+                string extraMessage = removedCount > 0 ? $" Foram removidos {removedCount} registos duplicados." : "";
+                return Ok(new { Message = $"Ficheiro importado! {newSeats.Count} registos processados.{extraMessage}" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Message = $"Erro a processar o CSV: {ex.Message}" });
+                return StatusCode(500, new { Message = $"Erro: {ex.Message}" });
             }
         }
 
