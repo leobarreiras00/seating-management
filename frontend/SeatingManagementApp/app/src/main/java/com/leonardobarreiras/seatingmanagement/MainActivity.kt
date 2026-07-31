@@ -103,7 +103,8 @@ class MainActivity : ComponentActivity() {
 fun SeatViewModel.requiresPinFor(action: String): Boolean {
     if (this.userRole == "SuperAdmin" || this.userRole == "Gestor") return false
 
-    val protectedActions = listOf("IMPORT_EMPTY", "EXPORT_CSV", "IMPORT_NEW", "MARK_ALL", "UNMARK_ALL")
+    // 👇 Adicionado o CLEAR_DB aos comandos protegidos para os Utilizadores
+    val protectedActions = listOf("IMPORT_EMPTY", "EXPORT_CSV", "IMPORT_NEW", "MARK_ALL", "UNMARK_ALL", "CLEAR_DB")
     return protectedActions.contains(action)
 }
 
@@ -251,7 +252,6 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
 
     var showProfileDialog by remember { mutableStateOf(false) }
 
-    // 👇 ORDENAÇÃO APLICADA (do mais recente ao mais antigo) 👇
     val sortedEvents = remember(viewModel.myEvents) {
         viewModel.myEvents.sortedByDescending { it.startDate ?: "" }
     }
@@ -316,7 +316,6 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                 }
             } else {
                 LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
-                    // 👇 Utiliza a nova lista de Eventos Ordenados 👇
                     items(sortedEvents) { event ->
                         Card(
                             onClick = { viewModel.processRoomCheckIn("EVENT:${event.id}") }, modifier = Modifier.fillMaxWidth(),
@@ -328,7 +327,6 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(event.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = CorporateBlue)
                                     Spacer(modifier = Modifier.height(4.dp))
-                                    // 👇 APRESENTAÇÃO NOVA DAS DATAS 👇
                                     Text("Data de Início: ${formatEventDate(event.startDate)}", color = TextGray, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                                     if (event.endDate != null && event.endDate != event.startDate) {
                                         Spacer(modifier = Modifier.height(2.dp))
@@ -373,6 +371,24 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                         )
                         if (errorMsg.isNotEmpty()) {
                             Text(errorMsg, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
+                        }
+
+                        // 👇 NOVO: Divisória e Botão de Logout 👇
+                        Spacer(modifier = Modifier.height(16.dp))
+                        HorizontalDivider(color = Color(0xFFE2E8F0))
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Button(
+                            onClick = {
+                                showProfileDialog = false
+                                viewModel.forceLogoutEvent = true
+                            },
+                            modifier = Modifier.fillMaxWidth().height(48.dp),
+                            shape = RoundedCornerShape(16.dp),
+                            colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
+                        ) {
+                            Icon(Icons.Rounded.Logout, contentDescription = "Terminar Sessão", tint = Color.White, modifier = Modifier.size(20.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Terminar Sessão", fontWeight = FontWeight.Bold, color = Color.White)
                         }
                     }
                 },
@@ -742,17 +758,18 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
             )
         }
 
+        // 👇 MENSAGENS E ALERTAS ATUALIZADOS DO "LIMPAR BASE DE DADOS" 👇
         if (confirmActionType != null) {
             val title = when (confirmActionType) {
                 "MARK_ALL" -> "Validar Todos"
                 "UNMARK_ALL" -> "Desmarcar Todos"
-                "CLEAR" -> "Limpar Ecrã"
+                "CLEAR" -> "Limpar Base de Dados"
                 else -> ""
             }
             val msg = when (confirmActionType) {
                 "MARK_ALL" -> "Isto marcará $pendingSeats pendentes como Tratados."
                 "UNMARK_ALL" -> "Vais remover a validação de $treatedSeats convidados."
-                "CLEAR" -> "Isto vai limpar o ecrã. Usa o Sync para recuperar os dados."
+                "CLEAR" -> "Atenção: Esta ação é irreversível. Vais apagar permanentemente todos os convidados e lugares deste evento na base de dados central."
                 else -> ""
             }
 
@@ -852,9 +869,10 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         executeProtectedAction("UNMARK_ALL") { confirmActionType = "UNMARK_ALL" }
                     }
 
-                    BottomSheetItem(icon = Icons.Rounded.Delete, title = "Limpar Ecrã", subtitle = "Remover dados locais", iconColor = ErrorRed, iconBg = ErrorRedLight) {
+                    // 👇 ALTERADO AQUI PARA FICAR CLARO QUE APAGA DA BD 👇
+                    BottomSheetItem(icon = Icons.Rounded.DeleteForever, title = "Limpar Base de Dados", subtitle = "Apagar permanentemente todos os dados", iconColor = ErrorRed, iconBg = ErrorRedLight) {
                         showDataActionsSheet = false
-                        confirmActionType = "CLEAR"
+                        executeProtectedAction("CLEAR_DB") { confirmActionType = "CLEAR" }
                     }
                     BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações Marcação", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) {
                         showDataActionsSheet = false
