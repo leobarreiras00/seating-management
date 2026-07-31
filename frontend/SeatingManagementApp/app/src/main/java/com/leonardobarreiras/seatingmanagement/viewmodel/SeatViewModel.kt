@@ -216,6 +216,23 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
+    fun changePassword(oldPass: String, newPass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        val token = jwtToken ?: return
+        viewModelScope.launch {
+            try {
+                val res = RetrofitClient.apiService.changePassword("Bearer $token", ChangePasswordRequest(oldPass, newPass))
+                if (res.isSuccessful) {
+                    onSuccess()
+                    appFeedback = AppFeedback(FeedbackType.SUCCESS, "Perfil Atualizado", "Palavra-passe alterada com sucesso!")
+                } else {
+                    onError("A palavra-passe atual está incorreta.")
+                }
+            } catch (e: Exception) {
+                onError("Falha na comunicação com o servidor.")
+            }
+        }
+    }
+
     fun requiresPinFor(action: String): Boolean {
         // SuperAdmin e Gestor NUNCA precisam de PIN
         if (userRole == "SuperAdmin" || userRole == "Gestor") return false
@@ -550,7 +567,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 context.contentResolver.openOutputStream(uri)?.use { outputStream ->
                     val writer = BufferedWriter(OutputStreamWriter(outputStream))
 
-                    // Cabeçalho atualizado
                     writer.write("MESA;LUGAR;CATEGORIA;ESTADO;NOME;DATA_HORA\n")
 
                     currentSeats.forEach { seat ->
@@ -560,7 +576,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                         val mesa = if (partes.size > 1) partes[0] else ""
                         val lugar = if (partes.size > 1) partes[1] else seat.seatNumber
 
-                        // Limpa os milissegundos e o 'T' que a API C# devolve para ficar limpo (Ex: 2026-07-12 10:10:53)
                         val dataHora = seat.markedAt?.replace("T", " ")?.substringBefore(".") ?: ""
 
                         writer.write("${mesa};${lugar};${seat.eventName};${statusText};${assigned};${dataHora}\n")

@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Users, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText } from "lucide-react";
+import { ChevronLeft, Users, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock } from "lucide-react";
 import mqtt from "mqtt";
 
 interface Company { id: number; name: string; logoUrl: string | null; }
@@ -33,8 +33,18 @@ export default function CompanyDetailsPage() {
   const [showManagerModal, setShowManagerModal] = useState(false);
   const [newUsername, setNewUsername] = useState("");
   const [newPassword, setNewPassword] = useState("");
+  const [newPasswordConfirm, setNewPasswordConfirm] = useState(""); // 👈 NOVO ESTADO
   const [isCreatingManager, setIsCreatingManager] = useState(false);
   const [managerError, setManagerError] = useState("");
+
+  // Estados do Modal de Repor Password
+  const [showResetModal, setShowResetModal] = useState(false);
+  const [resetUserId, setResetUserId] = useState<number | null>(null);
+  const [resetUsername, setResetUsername] = useState("");
+  const [resetNewPassword, setResetNewPassword] = useState("");
+  const [resetNewPasswordConfirm, setResetNewPasswordConfirm] = useState(""); // 👈 NOVO ESTADO
+  const [isResetting, setIsResetting] = useState(false);
+  const [resetError, setResetError] = useState("");
 
   // Estados do Modal de Criar Evento
   const [showEventModal, setShowEventModal] = useState(false);
@@ -60,7 +70,7 @@ export default function CompanyDetailsPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignError, setAssignError] = useState("");
 
-  // 👇 Estados do Modal de Upload CSV 👇
+  // Estados do Modal de Upload CSV
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadEventId, setUploadEventId] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -79,12 +89,7 @@ export default function CompanyDetailsPage() {
 
       const compRes = await fetch(`http://localhost:5162/api/Company`, { headers });
       
-      if (!compRes.ok) {
-        if (compRes.status === 401) {
-          console.error("Sessão expirada. Redirecionamento para login necessário.");
-        }
-        throw new Error(`Erro na API: ${compRes.status}`);
-      }
+      if (!compRes.ok) throw new Error(`Erro na API: ${compRes.status}`);
 
       const compData: Company[] = await compRes.json();
       const currentComp = compData.find((c) => c.id === Number(id));
@@ -108,27 +113,24 @@ export default function CompanyDetailsPage() {
 
   useEffect(() => {
     if (!id) return;
-    
     const client = mqtt.connect("ws://localhost:9001"); 
-
     client.on("connect", () => {
-      console.log("Backoffice ligado ao MQTT com sucesso!");
       client.subscribe(`seating/events/#`);
       client.subscribe("seating/backoffice/companies");
     });
-
-    client.on("message", (topic, message) => {
-      console.log("Nova atualização MQTT recebida no tópico:", topic);
-      fetchCompanyData();
-    });
-
-    return () => {
-      client.end();
-    };
+    client.on("message", () => fetchCompanyData());
+    return () => { client.end(); };
   }, [id, fetchCompanyData]);
 
   const handleCreateManager = async (e: React.FormEvent) => {
     e.preventDefault();
+    
+    // 👇 VALIDAÇÃO DE PALAVRA-PASSE 👇
+    if (newPassword !== newPasswordConfirm) {
+      setManagerError("As palavras-passe não coincidem.");
+      return;
+    }
+
     setIsCreatingManager(true);
     setManagerError("");
     try {
@@ -139,8 +141,64 @@ export default function CompanyDetailsPage() {
         body: JSON.stringify({ username: newUsername, password: newPassword, role: "Gestor", companyId: Number(id) }),
       });
       if (!res.ok) throw new Error("Erro ao criar o gestor.");
-      setNewUsername(""); setNewPassword(""); setShowManagerModal(false); fetchCompanyData(); 
-    } catch (err: any) { setManagerError(err.message); } finally { setIsCreatingManager(false); }
+      setNewUsername(""); 
+      setNewPassword(""); 
+      setNewPasswordConfirm(""); // Limpar o campo de confirmação
+      setShowManagerModal(false); 
+      fetchCompanyData(); 
+    } catch (err: any) { 
+      setManagerError(err.message); 
+    } finally { 
+      setIsCreatingManager(false); 
+    }
+  };
+
+  const handleResetPassword = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!resetUserId) return;
+
+    // 👇 VALIDAÇÃO DE PALAVRA-PASSE 👇
+    if (resetNewPassword !== resetNewPasswordConfirm) {
+      setResetError("As palavras-passe não coincidem.");
+      return;
+    }
+
+    setIsResetting(true);
+    setResetError("");
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`http://localhost:5162/api/Auth/user/${resetUserId}/reset-password`, {
+        method: "PUT",
+        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        body: JSON.stringify({ newPassword: resetNewPassword }),
+      });
+      if (!res.ok) throw new Error("Erro ao alterar palavra-passe.");
+      setResetNewPassword(""); 
+      setResetNewPasswordConfirm(""); // Limpar o campo de confirmação
+      setShowResetModal(false);
+      alert("Palavra-passe alterada com sucesso!");
+    } catch (err: any) { 
+      setResetError(err.message); 
+    } finally { 
+      setIsResetting(false); 
+    }
+  };
+
+  const openResetPasswordModal = (userId: number, username: string) => {
+    setResetUserId(userId);
+    setResetUsername(username);
+    setResetNewPassword("");
+    setResetNewPasswordConfirm(""); // Garantir que está limpo ao abrir
+    setResetError("");
+    setShowResetModal(true);
+  };
+
+  const openManagerModal = () => {
+    setNewUsername("");
+    setNewPassword("");
+    setNewPasswordConfirm(""); // Garantir que está limpo ao abrir
+    setManagerError("");
+    setShowManagerModal(true);
   };
 
   const handleCreateEvent = async (e: React.FormEvent) => {
@@ -204,99 +262,58 @@ export default function CompanyDetailsPage() {
     if (!window.confirm(`Tens a certeza que queres apagar o evento "${evName}"? Esta ação é irreversível e todos os dados associados serão perdidos.`)) return;
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5162/api/Event/${eventId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error("Erro ao apagar o evento.");
+      await fetch(`http://localhost:5162/api/Event/${eventId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       fetchCompanyData();
-    } catch (error) {
-      alert("Ocorreu um erro ao tentar apagar o evento.");
-    }
+    } catch (error) { alert("Ocorreu um erro ao tentar apagar o evento."); }
   };
 
   const handleDeleteManager = async (managerId: number, managerName: string) => {
     if (!window.confirm(`Tens a certeza que queres remover o acesso ao gestor "${managerName}"? Esta ação é irreversível.`)) return;
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5162/api/Auth/user/${managerId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error("Erro ao apagar o gestor.");
+      await fetch(`http://localhost:5162/api/Auth/user/${managerId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       fetchCompanyData();
-    } catch (error) {
-      alert("Ocorreu um erro ao tentar apagar o gestor.");
-    }
+    } catch (error) { alert("Ocorreu um erro ao tentar apagar o gestor."); }
   };
 
   const handleRemoveAccess = async (eventId: number, userId: number, userName: string, eventNameStr: string) => {
     if (!window.confirm(`Remover acesso de "${userName}" ao evento "${eventNameStr}"?`)) return;
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5162/api/Company/${id}/events/${eventId}/assign/${userId}`, {
-        method: "DELETE",
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (!res.ok) throw new Error("Erro ao remover o acesso.");
+      await fetch(`http://localhost:5162/api/Company/${id}/events/${eventId}/assign/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       fetchCompanyData();
-    } catch (error) {
-      alert("Ocorreu um erro ao tentar remover o acesso.");
-    }
+    } catch (error) { alert("Ocorreu um erro ao tentar remover o acesso."); }
   };
 
   const openEditEventModal = (event: EventStats) => {
-    setEditEventId(event.id);
-    setEditEventName(event.name);
-    setEditEventDate(event.startDate.split('T')[0]);
-    setEditEventSeats(event.totalSeats.toString());
+    setEditEventId(event.id); setEditEventName(event.name);
+    setEditEventDate(event.startDate.split('T')[0]); setEditEventSeats(event.totalSeats.toString());
     setShowEditEventModal(true);
   };
 
-  // 👇 Nova Função para abrir o Modal de Upload 👇
   const openUploadModal = (eventId: number) => {
-    setUploadEventId(eventId);
-    setUploadFile(null);
-    setUploadMode("replace");
-    setUploadError("");
-    setUploadSuccess("");
-    setShowUploadModal(true);
+    setUploadEventId(eventId); setUploadFile(null); setUploadMode("replace");
+    setUploadError(""); setUploadSuccess(""); setShowUploadModal(true);
   };
 
-  // 👇 Nova Função para enviar o ficheiro CSV 👇
   const handleUploadCsv = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadEventId || !uploadFile) return;
-    
-    setIsUploading(true);
-    setUploadError("");
-    setUploadSuccess("");
-
+    setIsUploading(true); setUploadError(""); setUploadSuccess("");
     try {
       const token = localStorage.getItem("token");
       const formData = new FormData();
       formData.append("file", uploadFile);
 
       const res = await fetch(`http://localhost:5162/api/SeatCsv/import/${uploadEventId}?mode=${uploadMode}`, {
-        method: "POST",
-        headers: { Authorization: `Bearer ${token}` },
-        body: formData
+        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData
       });
-
       const data = await res.json().catch(() => ({}));
-
-      if (!res.ok) {
-        throw new Error(data.Message || "Erro ao importar ficheiro.");
-      }
+      if (!res.ok) throw new Error(data.Message || "Erro ao importar ficheiro.");
 
       setUploadSuccess(data.Message || "Ficheiro importado com sucesso!");
-      setUploadFile(null); // Limpa o input para não enviar 2x sem querer
-      fetchCompanyData(); // A interface já deverá atualizar pelo MQTT, mas garantimos aqui
-    } catch (err: any) {
-      setUploadError(err.message);
-    } finally {
-      setIsUploading(false);
-    }
+      setUploadFile(null); fetchCompanyData(); 
+    } catch (err: any) { setUploadError(err.message); } finally { setIsUploading(false); }
   };
 
   if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
@@ -339,7 +356,7 @@ export default function CompanyDetailsPage() {
           <div>
             <div className="flex justify-between items-center mb-6">
               <h2 className="text-xl font-bold text-slate-900">Gestores de Conta</h2>
-              <button onClick={() => setShowManagerModal(true)} className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-2">
+              <button onClick={openManagerModal} className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-2">
                 <UserPlus className="w-4 h-4" /> Criar Gestor
               </button>
             </div>
@@ -356,13 +373,14 @@ export default function CompanyDetailsPage() {
                         <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider">{manager.role}</p>
                       </div>
                     </div>
-                    <button 
-                      onClick={() => handleDeleteManager(manager.id, manager.username)} 
-                      className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" 
-                      title="Apagar Gestor"
-                    >
-                      <Trash2 className="w-5 h-5" />
-                    </button>
+                    <div className="flex gap-2">
+                      <button onClick={() => openResetPasswordModal(manager.id, manager.username)} className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Repor Palavra-passe">
+                        <Lock className="w-5 h-5" />
+                      </button>
+                      <button onClick={() => handleDeleteManager(manager.id, manager.username)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Apagar Gestor">
+                        <Trash2 className="w-5 h-5" />
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>
@@ -392,10 +410,7 @@ export default function CompanyDetailsPage() {
                             <h3 className="font-bold text-slate-900 text-lg">{event.name}</h3>
                             <p className="text-sm text-slate-500 mb-4">{new Date(event.startDate).toLocaleDateString('pt-PT')}</p>
                           </div>
-                          
-                          {/* Botões de Ação do Evento */}
                           <div className="flex gap-1">
-                            {/* 👇 NOVO BOTÃO DE UPLOAD 👇 */}
                             <button onClick={() => openUploadModal(event.id)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Importar Convidados (CSV)">
                               <UploadCloud className="w-5 h-5" />
                             </button>
@@ -427,7 +442,6 @@ export default function CompanyDetailsPage() {
                           </div>
                         )}
                       </div>
-                      
                       <button onClick={() => { setAssignEventId(event.id); setShowAssignModal(true); }} className="mt-5 w-full flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition-colors">
                         <KeyRound className="w-4 h-4 text-purple-500" /> Atribuir Gestor
                       </button>
@@ -457,6 +471,11 @@ export default function CompanyDetailsPage() {
                 <label className="block text-sm font-bold text-slate-700 mb-2">Palavra-passe</label>
                 <input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
+              {/* 👇 NOVO CAMPO DE CONFIRMAÇÃO 👇 */}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Confirmar Palavra-passe</label>
+                <input type="password" required value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
               {managerError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{managerError}</div>}
               <button type="submit" disabled={isCreatingManager} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingManager ? "A Criar..." : "Criar Acesso"}</button>
             </form>
@@ -464,7 +483,33 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* Modal Criar Evento */}
+      {/* Modal Repor Password */}
+      {showResetModal && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Lock className="w-5 h-5 text-amber-500" /> Repor Password</h3>
+              <button onClick={() => setShowResetModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
+            </div>
+            <form onSubmit={handleResetPassword} className="p-6 space-y-5">
+              <p className="text-sm text-slate-500">Vais definir uma nova palavra-passe para o gestor <strong>{resetUsername}</strong>.</p>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Nova Palavra-passe</label>
+                <input type="password" required value={resetNewPassword} onChange={(e) => setResetNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-amber-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Confirmar Nova Palavra-passe</label>
+                <input type="password" required value={resetNewPasswordConfirm} onChange={(e) => setResetNewPasswordConfirm(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-amber-500" />
+              </div>
+              {resetError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{resetError}</div>}
+              <button type="submit" disabled={isResetting} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">
+                {isResetting ? "A Repor..." : "Confirmar Alteração"}
+              </button>
+            </form>
+          </div>
+        </div>
+      )}
+
       {showEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
@@ -492,7 +537,6 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* Modal Editar Evento */}
       {showEditEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -522,7 +566,6 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* Modal Atribuir Gestor */}
       {showAssignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -549,7 +592,6 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* 👇 NOVO MODAL: Upload de CSV 👇 */}
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -558,7 +600,6 @@ export default function CompanyDetailsPage() {
               <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleUploadCsv} className="p-6 space-y-5">
-              
               {uploadSuccess ? (
                 <div className="p-6 bg-emerald-50 rounded-2xl flex flex-col items-center text-center">
                   <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
@@ -579,9 +620,7 @@ export default function CompanyDetailsPage() {
                           <label htmlFor="csv-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-emerald-600 hover:text-emerald-500 focus-within:outline-none">
                             <span>Procurar ficheiro .csv</span>
                             <input id="csv-upload" name="csv-upload" type="file" accept=".csv" className="sr-only" onChange={(e) => {
-                              if (e.target.files && e.target.files.length > 0) {
-                                setUploadFile(e.target.files[0]);
-                              }
+                              if (e.target.files && e.target.files.length > 0) setUploadFile(e.target.files[0]);
                             }} />
                           </label>
                         </div>
@@ -593,29 +632,20 @@ export default function CompanyDetailsPage() {
                       </div>
                     </div>
                   </div>
-
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Método de Importação</label>
                     <div className="grid grid-cols-2 gap-3">
                       <button type="button" onClick={() => setUploadMode("replace")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors ${uploadMode === 'replace' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
-                        <Trash2 className={`w-5 h-5 mb-1 ${uploadMode === 'replace' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                        Substituir Lista
+                        <Trash2 className={`w-5 h-5 mb-1 ${uploadMode === 'replace' ? 'text-emerald-600' : 'text-slate-400'}`} /> Substituir Lista
                       </button>
                       <button type="button" onClick={() => setUploadMode("append")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors ${uploadMode === 'append' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
-                        <CalendarPlus className={`w-5 h-5 mb-1 ${uploadMode === 'append' ? 'text-emerald-600' : 'text-slate-400'}`} />
-                        Adicionar à Lista
+                        <CalendarPlus className={`w-5 h-5 mb-1 ${uploadMode === 'append' ? 'text-emerald-600' : 'text-slate-400'}`} /> Adicionar à Lista
                       </button>
                     </div>
                   </div>
-
                   {uploadError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{uploadError}</div>}
-                  
                   <button type="submit" disabled={isUploading || !uploadFile} className={`w-full text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg ${(isUploading || !uploadFile) ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}>
-                    {isUploading ? (
-                      <div className="flex items-center gap-2">
-                        <div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div> A Processar...
-                      </div>
-                    ) : "Iniciar Importação"}
+                    {isUploading ? <div className="flex items-center gap-2"><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div> A Processar...</div> : "Iniciar Importação"}
                   </button>
                 </>
               )}

@@ -75,7 +75,7 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpDelete("user/{id}")]
-        [Authorize] // Garante que só utilizadores logados (SuperAdmin) podem chamar esta rota
+        [Authorize] 
         public async Task<IActionResult> DeleteUser(int id)
         {
             var user = await _context.Users.FindAsync(id);
@@ -86,6 +86,38 @@ namespace SeatingManagement.API.Controllers
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Gestor apagado com sucesso." });
+        }
+
+        [HttpPut("user/{id}/reset-password")]
+        [Authorize(Roles = "SuperAdmin")]
+        public async Task<IActionResult> ResetUserPassword(int id, [FromBody] ResetPasswordDto request)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) return NotFound(new { Message = "Utilizador não encontrado." });
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Palavra-passe alterada com sucesso!" });
+        }
+
+        [HttpPut("change-password")]
+        [Authorize]
+        public async Task<IActionResult> ChangePassword([FromBody] ChangePasswordDto request)
+        {
+            var userGuidStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
+            if (string.IsNullOrEmpty(userGuidStr)) return Unauthorized();
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.UserGuid == Guid.Parse(userGuidStr));
+            if (user == null) return Unauthorized();
+
+            if (!BCrypt.Net.BCrypt.Verify(request.OldPassword, user.PasswordHash))
+                return BadRequest(new { Message = "A palavra-passe atual está incorreta." });
+
+            user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+            await _context.SaveChangesAsync();
+
+            return Ok(new { Message = "Palavra-passe atualizada com sucesso!" });
         }
 
         private string GenerateJwtToken(User user)
@@ -99,7 +131,7 @@ namespace SeatingManagement.API.Controllers
                 new Claim(ClaimTypes.NameIdentifier, user.UserGuid.ToString()),
                 new Claim(ClaimTypes.Name, user.Username),
                 new Claim(ClaimTypes.Role, user.Role),
-                new Claim("CompanyId", user.CompanyId.ToString()) // 👇 O Inquilino fica blindado no Token
+                new Claim("CompanyId", user.CompanyId.ToString())
             };
 
             var issuer = _configuration["Jwt:Issuer"] ?? "SeatingManagementAPI";
@@ -115,5 +147,16 @@ namespace SeatingManagement.API.Controllers
 
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
+    }
+
+    public class ResetPasswordDto 
+    { 
+        public string NewPassword { get; set; } = string.Empty; 
+    }
+
+    public class ChangePasswordDto 
+    { 
+        public string OldPassword { get; set; } = string.Empty; 
+        public string NewPassword { get; set; } = string.Empty; 
     }
 }

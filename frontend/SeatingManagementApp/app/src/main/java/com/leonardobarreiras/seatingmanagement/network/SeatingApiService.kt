@@ -25,12 +25,10 @@ data class ClearDatabaseDto(val pin: String)
 
 data class EventDto(val id: Int, val name: String, val startDate: String?)
 data class UpdateSingleSeatRequest(val status: Int)
+data class CompanyDto(@SerializedName("name") val name: String, @SerializedName("logoUrl") val logoUrl: String?)
 
-// 👇 ATUALIZADO: Com SerializedName para garantir a leitura do C# 👇
-data class CompanyDto(
-    @SerializedName("name") val name: String,
-    @SerializedName("logoUrl") val logoUrl: String?
-)
+data class ChangePasswordRequest(val oldPassword: String, val newPassword: String)
+data class GenericResponse(val message: String)
 
 interface SeatingApiService {
 
@@ -45,6 +43,10 @@ interface SeatingApiService {
 
     @GET("api/Seat/{eventId}")
     suspend fun getSeatsByEvent(@Header("Authorization") token: String, @Path("eventId") eventId: Int): List<SeatEntity>
+
+    // 👇 NOVO ENDPOINT DE PALAVRA-PASSE 👇
+    @PUT("api/Auth/change-password")
+    suspend fun changePassword(@Header("Authorization") token: String, @Body request: ChangePasswordRequest): Response<GenericResponse>
 
     @POST("api/Seat/validate-ticket")
     suspend fun validateTicket(@Header("Authorization") token: String, @Body request: ValidateTicketRequest): ValidateTicketResponse

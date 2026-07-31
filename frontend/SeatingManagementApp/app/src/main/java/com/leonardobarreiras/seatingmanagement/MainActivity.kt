@@ -248,22 +248,25 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
     }
 
     val context = LocalContext.current
-    val imageLoader = remember {
-        ImageLoader.Builder(context)
-            .components {
-                add(SvgDecoder.Factory())
-            }
-            .build()
-    }
+    val imageLoader = remember { ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build() }
+
+    var showProfileDialog by remember { mutableStateOf(false) }
 
     Box(modifier = Modifier.fillMaxSize().background(LightBg)) {
-        Column(modifier = Modifier.fillMaxSize().padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+        // 👇 NOVO: Botão de Perfil no topo direito 👇
+        Row(modifier = Modifier.fillMaxWidth().padding(16.dp), horizontalArrangement = Arrangement.End) {
+            IconButton(
+                onClick = { showProfileDialog = true },
+                modifier = Modifier.background(Color.White, CircleShape).border(1.dp, Color(0xFFE2E8F0), CircleShape)
+            ) {
+                Icon(Icons.Rounded.Person, contentDescription = "Perfil", tint = CorporateBlue)
+            }
+        }
 
-            Spacer(modifier = Modifier.height(24.dp))
-
+        Column(modifier = Modifier.fillMaxSize().padding(horizontal = 24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Spacer(modifier = Modifier.height(12.dp)) // Ajustado para dar espaço ao botão
             Column(horizontalAlignment = Alignment.CenterHorizontally, modifier = Modifier.fillMaxWidth()) {
                 if (viewModel.companyLogo.isNotEmpty()) {
-
                     val fullLogoUrl = if (viewModel.companyLogo.contains("localhost")) {
                         viewModel.companyLogo.replace("localhost", "10.0.2.2")
                     } else if (viewModel.companyLogo.startsWith("http")) {
@@ -273,60 +276,32 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                     }
 
                     AsyncImage(
-                        model = fullLogoUrl,
-                        imageLoader = imageLoader,
-                        contentDescription = "Logotipo da Empresa",
-                        modifier = Modifier.size(80.dp).clip(RoundedCornerShape(20.dp)),
-                        contentScale = androidx.compose.ui.layout.ContentScale.Crop,
-                        placeholder = painterResource(id = R.drawable.seatly_icon),
-                        error = painterResource(id = R.drawable.seatly_icon)
+                        model = fullLogoUrl, imageLoader = imageLoader, contentDescription = "Logotipo da Empresa",
+                        modifier = Modifier.size(80.dp).clip(RoundedCornerShape(20.dp)), contentScale = androidx.compose.ui.layout.ContentScale.Crop,
+                        placeholder = painterResource(id = R.drawable.seatly_icon), error = painterResource(id = R.drawable.seatly_icon)
                     )
                 } else {
                     Image(
-                        painter = painterResource(id = R.drawable.seatly_icon),
-                        contentDescription = "Seatly Logo",
+                        painter = painterResource(id = R.drawable.seatly_icon), contentDescription = "Seatly Logo",
                         modifier = Modifier.size(80.dp).clip(RoundedCornerShape(20.dp))
                     )
                 }
 
                 Spacer(modifier = Modifier.height(16.dp))
-
-                Text(
-                    text = "Olá, ${viewModel.managerName}",
-                    style = MaterialTheme.typography.titleLarge,
-                    fontWeight = FontWeight.ExtraBold,
-                    color = CorporateBlue
-                )
-
-                Text(
-                    text = viewModel.companyName,
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = TextGray
-                )
+                Text("Olá, ${viewModel.managerName}", style = MaterialTheme.typography.titleLarge, fontWeight = FontWeight.ExtraBold, color = CorporateBlue)
+                Text(viewModel.companyName, style = MaterialTheme.typography.bodyMedium, color = TextGray)
             }
 
             Spacer(modifier = Modifier.height(32.dp))
-
-            Text(
-                text = if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") "Painel de Gestão" else "Os Meus Eventos",
-                style = MaterialTheme.typography.headlineMedium,
-                fontWeight = FontWeight.Bold,
-                color = CorporateBlue
-            )
-            Text(
-                text = "Seleciona um evento para começar",
-                color = TextGray,
-                modifier = Modifier.padding(bottom = 32.dp)
-            )
+            Text(if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") "Painel de Gestão" else "Os Meus Eventos", style = MaterialTheme.typography.headlineMedium, fontWeight = FontWeight.Bold, color = CorporateBlue)
+            Text("Seleciona um evento para começar", color = TextGray, modifier = Modifier.padding(bottom = 32.dp))
 
             if (viewModel.isLoadingEvents) {
                 CircularProgressIndicator(color = AccentPurple, modifier = Modifier.padding(top = 40.dp))
             } else if (viewModel.myEvents.isEmpty()) {
                 Card(
-                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp),
-                    colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(2.dp),
-                    shape = RoundedCornerShape(24.dp)
+                    modifier = Modifier.fillMaxWidth().padding(top = 24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
+                    elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(24.dp)
                 ) {
                     Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                         Icon(Icons.Rounded.EventBusy, contentDescription = null, tint = OfflineGray, modifier = Modifier.size(48.dp))
@@ -337,28 +312,14 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                     }
                 }
             } else {
-                LazyColumn(
-                    verticalArrangement = Arrangement.spacedBy(16.dp),
-                    modifier = Modifier.fillMaxWidth().weight(1f)
-                ) {
+                LazyColumn(verticalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth().weight(1f)) {
                     items(viewModel.myEvents) { event ->
                         Card(
-                            onClick = { viewModel.processRoomCheckIn("EVENT:${event.id}") },
-                            modifier = Modifier.fillMaxWidth(),
-                            colors = CardDefaults.cardColors(containerColor = Color.White),
-                            elevation = CardDefaults.cardElevation(4.dp),
-                            shape = RoundedCornerShape(20.dp)
+                            onClick = { viewModel.processRoomCheckIn("EVENT:${event.id}") }, modifier = Modifier.fillMaxWidth(),
+                            colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(4.dp), shape = RoundedCornerShape(20.dp)
                         ) {
-                            Row(
-                                modifier = Modifier.padding(20.dp).fillMaxWidth(),
-                                verticalAlignment = Alignment.CenterVertically
-                            ) {
-                                Box(
-                                    modifier = Modifier.size(48.dp).background(AccentPurpleLight, RoundedCornerShape(12.dp)),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Icon(Icons.Rounded.Event, contentDescription = null, tint = AccentPurple)
-                                }
+                            Row(modifier = Modifier.padding(20.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                Box(modifier = Modifier.size(48.dp).background(AccentPurpleLight, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Event, contentDescription = null, tint = AccentPurple) }
                                 Spacer(modifier = Modifier.width(16.dp))
                                 Column(modifier = Modifier.weight(1f)) {
                                     Text(event.name, fontWeight = FontWeight.ExtraBold, fontSize = 18.sp, color = CorporateBlue)
@@ -371,6 +332,52 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                     }
                 }
             }
+        }
+
+        if (showProfileDialog) {
+            var oldPass by remember { mutableStateOf("") }
+            var newPass by remember { mutableStateOf("") }
+            var isChanging by remember { mutableStateOf(false) }
+            var errorMsg by remember { mutableStateOf("") }
+
+            ModernAlertDialog(
+                title = "O Meu Perfil",
+                message = "Altera a tua palavra-passe de acesso.",
+                icon = Icons.Rounded.Lock,
+                iconTint = CorporateBlue,
+                iconBg = Color(0xFFF1F5F9),
+                confirmText = if (isChanging) "A Guardar..." else "Guardar Alteração",
+                confirmColor = CorporateBlue,
+                content = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = oldPass, onValueChange = { oldPass = it; errorMsg = "" }, label = { Text("Palavra-passe atual") },
+                            visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
+                        )
+                        OutlinedTextField(
+                            value = newPass, onValueChange = { newPass = it; errorMsg = "" }, label = { Text("Nova palavra-passe") },
+                            visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
+                        )
+                        if (errorMsg.isNotEmpty()) {
+                            Text(errorMsg, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
+                        }
+                    }
+                },
+                onConfirm = {
+                    if (oldPass.isEmpty() || newPass.isEmpty()) { errorMsg = "Preenche todos os campos."; return@ModernAlertDialog }
+                    isChanging = true
+                    viewModel.changePassword(
+                        oldPass = oldPass, newPass = newPass,
+                        onSuccess = { showProfileDialog = false; isChanging = false },
+                        onError = { errorMsg = it; isChanging = false }
+                    )
+                },
+                onDismiss = { showProfileDialog = false }
+            )
         }
 
         if (viewModel.appFeedback != null) {
