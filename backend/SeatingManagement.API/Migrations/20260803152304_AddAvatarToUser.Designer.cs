@@ -12,8 +12,8 @@ using SeatingManagement.API.Data;
 namespace SeatingManagement.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260723184216_SeedInitialCompany")]
-    partial class SeedInitialCompany
+    [Migration("20260803152304_AddAvatarToUser")]
+    partial class AddAvatarToUser
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -24,6 +24,93 @@ namespace SeatingManagement.API.Migrations
                 .HasAnnotation("Relational:MaxIdentifierLength", 128);
 
             SqlServerModelBuilderExtensions.UseIdentityColumns(modelBuilder);
+
+            modelBuilder.Entity("Microsoft.AspNetCore.Identity.IdentityUser", b =>
+                {
+                    b.Property<string>("Id")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("AccessFailedCount")
+                        .HasColumnType("int");
+
+                    b.Property<string>("ConcurrencyStamp")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Email")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("EmailConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<bool>("LockoutEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<DateTimeOffset?>("LockoutEnd")
+                        .HasColumnType("datetimeoffset");
+
+                    b.Property<string>("NormalizedEmail")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("NormalizedUserName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PasswordHash")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PhoneNumber")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("PhoneNumberConfirmed")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("SecurityStamp")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<bool>("TwoFactorEnabled")
+                        .HasColumnType("bit");
+
+                    b.Property<string>("UserName")
+                        .HasColumnType("nvarchar(max)");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("IdentityUser");
+                });
+
+            modelBuilder.Entity("SeatingManagement.API.Models.AuditLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("EventId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PerformedRole")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AuditLogs");
+                });
 
             modelBuilder.Entity("SeatingManagement.API.Models.Company", b =>
                 {
@@ -69,6 +156,9 @@ namespace SeatingManagement.API.Migrations
                     b.Property<DateTime>("CreatedAt")
                         .HasColumnType("datetime2");
 
+                    b.Property<DateTime>("EndDate")
+                        .HasColumnType("datetime2");
+
                     b.Property<string>("Name")
                         .IsRequired()
                         .HasMaxLength(100)
@@ -77,11 +167,29 @@ namespace SeatingManagement.API.Migrations
                     b.Property<DateTime>("StartDate")
                         .HasColumnType("datetime2");
 
+                    b.Property<int>("TreatedSeats")
+                        .HasColumnType("int");
+
                     b.HasKey("Id");
 
                     b.HasIndex("CompanyId");
 
                     b.ToTable("Events");
+                });
+
+            modelBuilder.Entity("SeatingManagement.API.Models.EventAccess", b =>
+                {
+                    b.Property<string>("UserId")
+                        .HasColumnType("nvarchar(450)");
+
+                    b.Property<int>("EventId")
+                        .HasColumnType("int");
+
+                    b.HasKey("UserId", "EventId");
+
+                    b.HasIndex("EventId");
+
+                    b.ToTable("EventAccesses");
                 });
 
             modelBuilder.Entity("SeatingManagement.API.Models.Seat", b =>
@@ -120,6 +228,8 @@ namespace SeatingManagement.API.Migrations
 
                     b.HasKey("Id");
 
+                    b.HasIndex("EventId");
+
                     b.ToTable("Seats");
                 });
 
@@ -131,14 +241,14 @@ namespace SeatingManagement.API.Migrations
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
 
+                    b.Property<string>("AvatarUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
                     b.Property<int>("CompanyId")
                         .HasColumnType("int");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PinHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 
@@ -188,6 +298,34 @@ namespace SeatingManagement.API.Migrations
                     b.Navigation("Company");
                 });
 
+            modelBuilder.Entity("SeatingManagement.API.Models.EventAccess", b =>
+                {
+                    b.HasOne("SeatingManagement.API.Models.Event", "Event")
+                        .WithMany()
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.HasOne("Microsoft.AspNetCore.Identity.IdentityUser", "User")
+                        .WithMany()
+                        .HasForeignKey("UserId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+
+                    b.Navigation("Event");
+
+                    b.Navigation("User");
+                });
+
+            modelBuilder.Entity("SeatingManagement.API.Models.Seat", b =>
+                {
+                    b.HasOne("SeatingManagement.API.Models.Event", null)
+                        .WithMany("Seats")
+                        .HasForeignKey("EventId")
+                        .OnDelete(DeleteBehavior.Cascade)
+                        .IsRequired();
+                });
+
             modelBuilder.Entity("SeatingManagement.API.Models.User", b =>
                 {
                     b.HasOne("SeatingManagement.API.Models.Company", "Company")
@@ -227,6 +365,8 @@ namespace SeatingManagement.API.Migrations
 
             modelBuilder.Entity("SeatingManagement.API.Models.Event", b =>
                 {
+                    b.Navigation("Seats");
+
                     b.Navigation("UserEvents");
                 });
 

@@ -159,6 +159,106 @@ fun ModernAlertDialog(
     }
 }
 
+@OptIn(ExperimentalMaterial3Api::class)
+@Composable
+fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
+    var oldPass by remember { mutableStateOf("") }
+    var newPass by remember { mutableStateOf("") }
+    var isChanging by remember { mutableStateOf(false) }
+    var errorMsg by remember { mutableStateOf("") }
+
+    Dialog(onDismissRequest = onDismiss) {
+        Card(
+            shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
+            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
+        ) {
+            Column(modifier = Modifier.fillMaxWidth()) {
+                // Header
+                Row(modifier = Modifier.fillMaxWidth().background(LightBg).padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
+                    Row(verticalAlignment = Alignment.CenterVertically) {
+                        Box(modifier = Modifier.size(40.dp).background(AccentPurpleLight, CircleShape), contentAlignment = Alignment.Center) {
+                            Icon(Icons.Rounded.Person, contentDescription = null, tint = AccentPurple)
+                        }
+                        Spacer(modifier = Modifier.width(12.dp))
+                        Column {
+                            Text("O Meu Perfil", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = CorporateBlue)
+                            Text(viewModel.managerName, fontSize = 13.sp, color = TextGray)
+                        }
+                    }
+                    IconButton(onClick = onDismiss, modifier = Modifier.size(36.dp).background(Color.White, CircleShape).border(1.dp, Color(0xFFE2E8F0), CircleShape)) {
+                        Icon(Icons.Rounded.Close, contentDescription = "Fechar", tint = TextGray, modifier = Modifier.size(18.dp))
+                    }
+                }
+
+                HorizontalDivider(color = Color(0xFFE2E8F0))
+
+                // Content
+                Column(modifier = Modifier.padding(24.dp).fillMaxWidth()) {
+                    Text("Alterar Palavra-passe", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = CorporateBlue, modifier = Modifier.padding(bottom = 12.dp))
+
+                    OutlinedTextField(
+                        value = oldPass, onValueChange = { oldPass = it; errorMsg = "" }, label = { Text("Palavra-passe atual", fontSize = 13.sp) },
+                        visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
+                    )
+                    Spacer(modifier = Modifier.height(12.dp))
+                    OutlinedTextField(
+                        value = newPass, onValueChange = { newPass = it; errorMsg = "" }, label = { Text("Nova palavra-passe", fontSize = 13.sp) },
+                        visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
+                    )
+
+                    if (errorMsg.isNotEmpty()) {
+                        Spacer(modifier = Modifier.height(8.dp))
+                        Text(errorMsg, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Button(
+                        onClick = {
+                            if (oldPass.isEmpty() || newPass.isEmpty()) { errorMsg = "Preenche todos os campos."; return@Button }
+                            isChanging = true
+                            viewModel.changePassword(
+                                oldPass = oldPass, newPass = newPass,
+                                onSuccess = { onDismiss(); isChanging = false },
+                                onError = { errorMsg = it; isChanging = false }
+                            )
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
+                    ) {
+                        if (isChanging) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text("Guardar Alteração", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(16.dp))
+                    HorizontalDivider(color = Color(0xFFE2E8F0))
+                    Spacer(modifier = Modifier.height(16.dp))
+
+                    OutlinedButton(
+                        onClick = {
+                            onDismiss()
+                            viewModel.forceLogoutEvent = true
+                        },
+                        modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp),
+                        border = BorderStroke(1.dp, ErrorRedLight), colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed)
+                    ) {
+                        Icon(Icons.Rounded.Logout, contentDescription = "Terminar Sessão", modifier = Modifier.size(18.dp))
+                        Spacer(modifier = Modifier.width(8.dp))
+                        Text("Terminar Sessão", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                    }
+                }
+            }
+        }
+    }
+}
+
 @Composable
 fun AppFeedbackDialog(feedback: AppFeedback, onDismiss: () -> Unit) {
     val icon = when (feedback.type) { FeedbackType.SUCCESS -> Icons.Rounded.CheckCircle; FeedbackType.ERROR -> Icons.Rounded.Warning; FeedbackType.EXPORT -> Icons.Rounded.Download; FeedbackType.INFO -> Icons.Rounded.Info; FeedbackType.OFFLINE -> Icons.Rounded.CloudOff }
@@ -334,66 +434,7 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
         }
 
         if (showProfileDialog) {
-            var oldPass by remember { mutableStateOf("") }
-            var newPass by remember { mutableStateOf("") }
-            var isChanging by remember { mutableStateOf(false) }
-            var errorMsg by remember { mutableStateOf("") }
-
-            ModernAlertDialog(
-                title = "O Meu Perfil",
-                message = "Altera a tua palavra-passe de acesso.",
-                icon = Icons.Rounded.Lock,
-                iconTint = CorporateBlue,
-                iconBg = Color(0xFFF1F5F9),
-                confirmText = if (isChanging) "A Guardar..." else "Guardar Alteração",
-                confirmColor = CorporateBlue,
-                content = {
-                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        OutlinedTextField(
-                            value = oldPass, onValueChange = { oldPass = it; errorMsg = "" }, label = { Text("Palavra-passe atual") },
-                            visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
-                        )
-                        OutlinedTextField(
-                            value = newPass, onValueChange = { newPass = it; errorMsg = "" }, label = { Text("Nova palavra-passe") },
-                            visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
-                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
-                        )
-                        if (errorMsg.isNotEmpty()) {
-                            Text(errorMsg, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
-                        }
-
-                        Spacer(modifier = Modifier.height(16.dp))
-                        HorizontalDivider(color = Color(0xFFE2E8F0))
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Button(
-                            onClick = {
-                                showProfileDialog = false
-                                viewModel.forceLogoutEvent = true
-                            },
-                            modifier = Modifier.fillMaxWidth().height(48.dp),
-                            shape = RoundedCornerShape(16.dp),
-                            colors = ButtonDefaults.buttonColors(containerColor = ErrorRed)
-                        ) {
-                            Icon(Icons.Rounded.Logout, contentDescription = "Terminar Sessão", tint = Color.White, modifier = Modifier.size(20.dp))
-                            Spacer(modifier = Modifier.width(8.dp))
-                            Text("Terminar Sessão", fontWeight = FontWeight.Bold, color = Color.White)
-                        }
-                    }
-                },
-                onConfirm = {
-                    if (oldPass.isEmpty() || newPass.isEmpty()) { errorMsg = "Preenche todos os campos."; return@ModernAlertDialog }
-                    isChanging = true
-                    viewModel.changePassword(
-                        oldPass = oldPass, newPass = newPass,
-                        onSuccess = { showProfileDialog = false; isChanging = false },
-                        onError = { errorMsg = it; isChanging = false }
-                    )
-                },
-                onDismiss = { showProfileDialog = false }
-            )
+            ProfileDialog(viewModel = viewModel, onDismiss = { showProfileDialog = false })
         }
 
         if (viewModel.appFeedback != null) {
@@ -628,10 +669,9 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         Spacer(modifier = Modifier.height(24.dp))
                         Text("Sem dados carregados", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
                         Spacer(modifier = Modifier.height(8.dp))
-                        Text("Importe um ficheiro CSV com separador \";\"\npara começar a gerir os seus dados.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
+                        Text("Importe um ficheiro CSV com as colunas\nMESA;LUGAR;CATEGORIA;NOME\npara começar a gerir.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
                         Spacer(modifier = Modifier.height(32.dp))
 
-                        // 👇 Oculta o botão de importar se for apenas Utilizador 👇
                         if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") {
                             Button(
                                 onClick = { csvLauncher.launch("*/*") },
@@ -709,8 +749,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     when (confirmActionType) {
                         "MARK_ALL" -> viewModel.bulkUpdateStatus("Tratado")
                         "UNMARK_ALL" -> viewModel.bulkUpdateStatus("Vazio")
-                        // Passamos uma string vazia ("") visto que removemos a dependência do PIN
-                        "CLEAR" -> viewModel.clearEventData("")
+                        "CLEAR" -> viewModel.clearEventData()
                     }
                     confirmActionType = null
                 }, onDismiss = { confirmActionType = null }
@@ -719,6 +758,75 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
 
         if (viewModel.appFeedback != null) {
             AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
+        }
+
+        // 👇 RENDER DO NOVO ECRÃ DE VALIDAÇÃO DE ERROS 👇
+        if (viewModel.showValidationScreen) {
+            val exportErrorsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
+                if (uri != null) viewModel.exportErrorsCsv(uri, context)
+            }
+
+            Dialog(onDismissRequest = { viewModel.showValidationScreen = false }, properties = androidx.compose.ui.window.DialogProperties(usePlatformDefaultWidth = false)) {
+                Surface(modifier = Modifier.fillMaxSize(), color = LightBg) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Row(modifier = Modifier.fillMaxWidth().background(Color.White).padding(horizontal = 8.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically) {
+                            IconButton(onClick = { viewModel.showValidationScreen = false }) { Icon(Icons.Rounded.Close, contentDescription = "Fechar") }
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text("Relatório de Importação", fontWeight = FontWeight.Bold, fontSize = 20.sp, color = CorporateBlue)
+                        }
+
+                        Column(modifier = Modifier.padding(16.dp).weight(1f)) {
+                            Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = ErrorRedLight), shape = RoundedCornerShape(16.dp)) {
+                                Row(modifier = Modifier.padding(16.dp), verticalAlignment = Alignment.CenterVertically) {
+                                    Icon(Icons.Rounded.Warning, contentDescription = null, tint = ErrorRed, modifier = Modifier.size(32.dp))
+                                    Spacer(modifier = Modifier.width(16.dp))
+                                    Column {
+                                        Text("Ficheiro Recusado", fontWeight = FontWeight.Bold, color = ErrorRed)
+                                        Text("${viewModel.validationErrorsList.size} erros em ${viewModel.totalValidationRows} linhas", color = ErrorRed, fontSize = 14.sp)
+                                    }
+                                }
+                            }
+
+                            Spacer(modifier = Modifier.height(16.dp))
+                            // 👇 UTILIZAÇÃO SEGURA DA CHAVE PARA O COMPOSE NÃO FALHAR 👇
+                            val grouped = viewModel.validationErrorsList.groupBy { it.actualErrorType }
+
+                            LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                                items(grouped.entries.toList()) { entry ->
+                                    Card(modifier = Modifier.fillMaxWidth(), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(2.dp), shape = RoundedCornerShape(16.dp)) {
+                                        Column(modifier = Modifier.padding(16.dp)) {
+                                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                                Box(modifier = Modifier.size(8.dp).background(ErrorRed, CircleShape))
+                                                Spacer(modifier = Modifier.width(8.dp))
+                                                // 👇 ENTRY.KEY AGORA É GARANTIDAMENTE UMA STRING 👇
+                                                Text(entry.key, fontWeight = FontWeight.Bold, color = CorporateBlue, fontSize = 15.sp)
+                                            }
+                                            Text("${entry.value.size} ocorrências", color = TextGray, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, top = 2.dp))
+                                            Spacer(modifier = Modifier.height(12.dp))
+                                            // 👇 UTILIZAÇÃO SEGURA DA LINHA 👇
+                                            val linhas = entry.value.joinToString(", ") { if(it.actualLine == 0) "Geral" else it.actualLine.toString() }
+                                            Text("Linhas: $linhas", color = Color.Gray, fontSize = 13.sp, lineHeight = 20.sp)
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        Box(modifier = Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
+                            Button(
+                                onClick = { exportErrorsLauncher.launch("Relatorio_Erros_Importacao.csv") },
+                                modifier = Modifier.fillMaxWidth().height(52.dp),
+                                shape = RoundedCornerShape(16.dp),
+                                colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue)
+                            ) {
+                                Icon(Icons.Rounded.Download, contentDescription = null, tint = Color.White)
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Text("Exportar Relatório CSV", fontWeight = FontWeight.Bold, color = Color.White)
+                            }
+                        }
+                    }
+                }
+            }
         }
 
         @OptIn(ExperimentalMaterial3Api::class)
@@ -741,8 +849,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         }
                     }
 
-                    // 👇 MOSTRA "AÇÕES" APENAS A GESTORES E ADMINS.
-                    // SE FOR UTILIZADOR, MOSTRA APENAS AS CONFIGURAÇÕES DIRETAMENTE 👇
                     if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") {
                         BottomSheetItem(
                             icon = Icons.Rounded.ListAlt,
@@ -810,7 +916,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         showDataActionsSheet = false
                         confirmActionType = "UNMARK_ALL"
                     }
-
                     BottomSheetItem(icon = Icons.Rounded.DeleteForever, title = "Limpar Base de Dados", subtitle = "Apagar permanentemente todos os dados", iconColor = ErrorRed, iconBg = ErrorRedLight) {
                         showDataActionsSheet = false
                         confirmActionType = "CLEAR"

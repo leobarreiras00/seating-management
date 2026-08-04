@@ -15,6 +15,7 @@ namespace SeatingManagement.API.Data
         public DbSet<Event> Events { get; set; }
         public DbSet<UserEvent> UserEvents { get; set; }
         public DbSet<EventAccess> EventAccesses { get; set; }
+        public DbSet<AuditLog> AuditLogs { get; set; }
 
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {

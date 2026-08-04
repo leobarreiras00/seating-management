@@ -5,10 +5,10 @@ using SeatingManagement.API.Data;
 using SeatingManagement.API.DTOs;
 using SeatingManagement.API.Models;
 using SeatingManagement.API.Services;
+using System.Security.Claims;
 
 namespace SeatingManagement.API.Controllers
 {
-    // 👇 NOVO DTO PARA ATUALIZAR 1 LUGAR 👇
     public class UpdateSingleSeatDto
     {
         public int Status { get; set; }
@@ -60,7 +60,6 @@ namespace SeatingManagement.API.Controllers
                 })
                 .ToListAsync();
 
-            // Retorna array vazio em vez de 404 para o Android não dar erro de HTTP no primeiro carregamento
             return Ok(seats); 
         }
 
@@ -84,7 +83,6 @@ namespace SeatingManagement.API.Controllers
             return Ok(new { version = seat.Version });
         }
 
-        // 👇 O NOVO ENDPOINT DE GRAVAÇÃO INDIVIDUAL 👇
         [HttpPut("{eventId}/update/{seatId}")]
         public async Task<IActionResult> UpdateSingleSeat(int eventId, int seatId, [FromBody] UpdateSingleSeatDto request)
         {
@@ -93,10 +91,30 @@ namespace SeatingManagement.API.Controllers
             if (seat == null) 
                 return NotFound(new { Message = "Lugar não encontrado." });
 
-            // Atualiza a Base de Dados Central (O SQL Server)
+            int oldStatus = (int)seat.Status;
+            
             seat.Status = (SeatStatus)request.Status;
             seat.MarkedAt = request.Status != 0 ? DateTime.UtcNow : null;
             seat.Version++;
+
+            if (oldStatus != request.Status)
+            {
+                var userName = User.Identity?.Name ?? "Sistema";
+                var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+                
+                var actionDesc = request.Status != 0 ? "Validou" : "Removeu a validação de";
+                var guestName = string.IsNullOrWhiteSpace(seat.AssignedTo) ? "Convite Sem Nome" : seat.AssignedTo;
+
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    EventId = eventId,
+                    ActionType = request.Status != 0 ? "VALIDATE_SEAT" : "UNVALIDATE_SEAT",
+                    Description = $"{actionDesc} o lugar {seat.SeatNumber} ({guestName}).",
+                    PerformedBy = userName,
+                    PerformedRole = userRole,
+                    Timestamp = DateTime.UtcNow
+                });
+            }
 
             await _context.SaveChangesAsync();
             
@@ -119,6 +137,20 @@ namespace SeatingManagement.API.Controllers
             seat.MarkedAt = DateTime.UtcNow;
             seat.Version++;
 
+            var userName = User.Identity?.Name ?? "Sistema";
+            var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+            var guestName = string.IsNullOrWhiteSpace(seat.AssignedTo) ? "Convite Sem Nome" : seat.AssignedTo;
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                EventId = request.EventId,
+                ActionType = "QR_VALIDATE",
+                Description = $"Validou o lugar {seat.SeatNumber} ({guestName}) via Scanner QR.",
+                PerformedBy = userName,
+                PerformedRole = userRole,
+                Timestamp = DateTime.UtcNow
+            });
+
             await _context.SaveChangesAsync();
 
             _ = _mqttService.PublishSeatUpdateAsync(seat.EventId, seat.Id, (int)seat.Status);
@@ -132,7 +164,6 @@ namespace SeatingManagement.API.Controllers
             if (!Enum.TryParse(request.Status, true, out SeatStatus statusEnum))
                 return BadRequest(new { Message = "Estado inválido." });
 
-            // Vai buscar todos os lugares do evento e altera-os em memória
             var seats = await _context.Seats.Where(s => s.EventId == eventId).ToListAsync();
             foreach (var seat in seats)
             {
@@ -141,10 +172,22 @@ namespace SeatingManagement.API.Controllers
                 seat.Version++;
             }
 
-            // Grava tudo de uma vez (super rápido)
+            var userName = User.Identity?.Name ?? "Sistema";
+            var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+            var statusDesc = statusEnum != SeatStatus.Vazio ? "Marcados como Tratados" : "Removidos / Desmarcados";
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                EventId = eventId,
+                ActionType = "BULK_UPDATE",
+                Description = $"Ação em massa executada. {seats.Count} lugares afetados ({statusDesc}).",
+                PerformedBy = userName,
+                PerformedRole = userRole,
+                Timestamp = DateTime.UtcNow
+            });
+
             await _context.SaveChangesAsync();
 
-            // BROADCAST: Envia comando para todos os telemóveis atualizarem a vista
             _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
 
             return Ok(new { Message = $"{seats.Count} lugares atualizados com sucesso." });

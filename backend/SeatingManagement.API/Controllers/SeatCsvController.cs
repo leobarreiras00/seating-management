@@ -9,7 +9,6 @@ using SeatingManagement.API.Models;
 using SeatingManagement.API.Services;
 using System.Globalization;
 using System.Security.Claims;
-using System.Text.RegularExpressions;
 
 namespace SeatingManagement.API.Controllers
 {
@@ -31,19 +30,22 @@ namespace SeatingManagement.API.Controllers
         [HttpPost("import/{eventId}")]
         public async Task<IActionResult> ImportCsv(int eventId, IFormFile file, [FromQuery] string mode = "replace")
         {
-            if (file == null || file.Length == 0) return BadRequest(new { Message = "Ficheiro inválido." });
-            if (file.Length > MaxFileSizeBytes) return BadRequest(new { Message = "O ficheiro excede 5MB." });
+            if (file == null || file.Length == 0) return BadRequest(new { message = "Ficheiro inválido." });
+            if (file.Length > MaxFileSizeBytes) return BadRequest(new { message = "O ficheiro excede 5MB." });
 
             var fileName = file.FileName ?? "";
             var extension = Path.GetExtension(fileName)?.ToLowerInvariant();
-            if (extension != ".csv" && extension != ".txt") return BadRequest(new { Message = "Formato de ficheiro não suportado." });
+            if (extension != ".csv" && extension != ".txt") return BadRequest(new { message = "Formato de ficheiro não suportado." });
 
             var ev = await _context.Events.FindAsync(eventId);
-            if (ev == null) return NotFound(new { Message = "Evento não encontrado." });
+            if (ev == null) return NotFound(new { message = "Evento não encontrado." });
 
             try
             {
-                var newSeats = new List<Seat>();
+                var errors = new List<CsvValidationError>();
+                var parsedSeats = new List<Seat>();
+                int totalProcessed = 0;
+
                 using var stream = file.OpenReadStream();
                 using var reader = new StreamReader(stream);
                 
@@ -52,19 +54,26 @@ namespace SeatingManagement.API.Controllers
                     HasHeaderRecord = true,
                     Delimiter = ";", 
                     MissingFieldFound = null,
-                    PrepareHeaderForMatch = args => args.Header.Trim().ToLower()
+                    PrepareHeaderForMatch = args => args.Header.Trim().ToLower(),
+                    BadDataFound = args => throw new Exception($"A estrutura do ficheiro parece corrompida na linha {args.Context?.Parser?.Row ?? 0}.")
                 };
 
                 using var csv = new CsvReader(reader, config);
                 csv.Read();
                 csv.ReadHeader();
 
+                if (csv.HeaderRecord == null || csv.HeaderRecord.Length < 2)
+                {
+                    return BadRequest(new { message = "Erro de Tabela: O ficheiro não tem as colunas separadas. Certifica-te de que guardaste o CSV com separador Ponto e Vírgula (;)." });
+                }
+
                 while (csv.Read())
                 {
+                    int rowNum = csv.Parser.Row;
+
                     csv.TryGetField("MESA", out string? rawMesa);
                     csv.TryGetField("LUGAR", out string? rawLugar);
                     csv.TryGetField("CATEGORIA", out string? rawCategoria);
-                    csv.TryGetField("ESTADO", out string? rawEstado);
                     
                     string? rawNome = null;
                     if (!csv.TryGetField("NOME", out rawNome))
@@ -79,28 +88,60 @@ namespace SeatingManagement.API.Controllers
                     string mesa = SanitizeInput(rawMesa);
                     string lugar = SanitizeInput(rawLugar);
                     string categoria = SanitizeInput(rawCategoria);
-                    string statusStr = SanitizeInput(rawEstado);
                     string nome = SanitizeInput(rawNome);
 
-                    if (string.IsNullOrWhiteSpace(mesa) && string.IsNullOrWhiteSpace(lugar) && string.IsNullOrWhiteSpace(nome)) continue;
-
-                    string seatNumber = string.IsNullOrWhiteSpace(mesa) ? lugar : (string.IsNullOrWhiteSpace(lugar) ? mesa : $"{mesa}-{lugar}");
-                    int status = 0; 
-                    if (statusStr.Equals("Validado", StringComparison.OrdinalIgnoreCase)) status = 1;
-                    else if (statusStr.Equals("Tratado", StringComparison.OrdinalIgnoreCase)) status = 2;
-
-                    newSeats.Add(new Seat
+                    if (string.IsNullOrWhiteSpace(mesa) && string.IsNullOrWhiteSpace(lugar) && 
+                        string.IsNullOrWhiteSpace(nome) && string.IsNullOrWhiteSpace(categoria)) 
                     {
-                        EventId = eventId,
-                        SeatNumber = seatNumber,
-                        EventName = categoria,
-                        Status = (SeatStatus)status, 
-                        AssignedTo = nome,
-                        Version = 1,
-                        MarkedAt = status != 0 ? DateTime.UtcNow : null 
-                    });
+                        continue;
+                    }
+
+                    totalProcessed++;
+                    bool hasError = false;
+
+                    if (string.IsNullOrWhiteSpace(mesa)) { errors.Add(new CsvValidationError { Line = rowNum, ErrorType = "Falta MESA" }); hasError = true; }
+                    if (string.IsNullOrWhiteSpace(lugar)) { errors.Add(new CsvValidationError { Line = rowNum, ErrorType = "Falta LUGAR" }); hasError = true; }
+
+                    if (!hasError)
+                    {
+                        string seatNumber = $"{mesa}-{lugar}";
+
+                        parsedSeats.Add(new Seat
+                        {
+                            EventId = eventId,
+                            SeatNumber = seatNumber,
+                            EventName = categoria,
+                            Status = (SeatStatus)0, 
+                            AssignedTo = nome,
+                            Version = 1,
+                            MarkedAt = null 
+                        });
+                    }
                 }
 
+                if (errors.Any())
+                {
+                    var consolidatedErrors = new List<CsvValidationError>();
+                    var grouped = errors.GroupBy(e => e.ErrorType).ToList();
+                    
+                    foreach (var g in grouped)
+                    {
+                        if (g.Count() == totalProcessed && totalProcessed > 0)
+                        {
+                            consolidatedErrors.Add(new CsvValidationError { Line = 0, ErrorType = $"A coluna '{g.Key.Replace("Falta ", "")}' está totalmente vazia ou ausente." });
+                        }
+                        else
+                        {
+                            consolidatedErrors.AddRange(g);
+                        }
+                    }
+
+                    return BadRequest(new { 
+                        message = "Falha na Validação do Ficheiro",
+                        totalRows = totalProcessed,
+                        errors = consolidatedErrors.OrderBy(e => e.Line).ToList()
+                    });
+                }
 
                 if (mode.Equals("replace", StringComparison.OrdinalIgnoreCase))
                 {
@@ -108,10 +149,26 @@ namespace SeatingManagement.API.Controllers
                     _context.Seats.RemoveRange(existingSeats);
                 }
                 
-                await _context.Seats.AddRangeAsync(newSeats);
+                await _context.Seats.AddRangeAsync(parsedSeats);
                 await _context.SaveChangesAsync();
 
                 int removedCount = await AutoRemoveDuplicatesAsync(eventId);
+
+                // 👇 AUDIT LOG: IMPORTAÇÃO CSV 👇
+                var userName = User.Identity?.Name ?? "Sistema";
+                var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+                var modeDesc = mode.Equals("replace", StringComparison.OrdinalIgnoreCase) ? "Substituição" : "Adição";
+                
+                _context.AuditLogs.Add(new AuditLog
+                {
+                    EventId = eventId,
+                    ActionType = "IMPORT_CSV",
+                    Description = $"Importação por {modeDesc} de {parsedSeats.Count} lugares. {removedCount} duplicados limpos.",
+                    PerformedBy = userName,
+                    PerformedRole = userRole,
+                    Timestamp = DateTime.UtcNow
+                });
+                await _context.SaveChangesAsync();
 
                 if (_mqttService != null) 
                 {
@@ -128,11 +185,12 @@ namespace SeatingManagement.API.Controllers
                 }
 
                 string extraMessage = removedCount > 0 ? $" Foram removidos {removedCount} registos duplicados." : "";
-                return Ok(new { Message = $"Ficheiro importado! {newSeats.Count} registos processados.{extraMessage}" });
+                return Ok(new { message = $"Ficheiro importado! {parsedSeats.Count} registos processados.{extraMessage}" });
             }
             catch (Exception ex)
             {
-                return StatusCode(500, new { Message = $"Erro: {ex.Message}" });
+                if (ex.Message.Contains("linha")) return BadRequest(new { message = ex.Message });
+                return StatusCode(500, new { message = $"Ocorreu um erro inesperado ao ler a estrutura do ficheiro: {ex.Message}" });
             }
         }
 
@@ -146,7 +204,23 @@ namespace SeatingManagement.API.Controllers
             if (user == null) return Unauthorized();
 
             var seatsToDelete = await _context.Seats.Where(s => s.EventId == eventId).ToListAsync();
+            int count = seatsToDelete.Count;
+            
             _context.Seats.RemoveRange(seatsToDelete);
+            await _context.SaveChangesAsync();
+
+            // 👇 AUDIT LOG: LIMPEZA DE BASE DE DADOS 👇
+            var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                EventId = eventId,
+                ActionType = "CLEAR_DB",
+                Description = $"Apagou permanentemente todos os {count} lugares deste evento.",
+                PerformedBy = user.Username,
+                PerformedRole = userRole,
+                Timestamp = DateTime.UtcNow
+            });
             await _context.SaveChangesAsync();
 
             if (_mqttService != null) _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
@@ -163,7 +237,6 @@ namespace SeatingManagement.API.Controllers
             foreach (var group in groupedSeats)
             {
                 var orderedGroup = group.OrderByDescending(s => (int)s.Status).ThenByDescending(s => s.Id).ToList();
-                
                 var duplicates = orderedGroup.Skip(1);
                 seatsToRemove.AddRange(duplicates);
             }
@@ -182,13 +255,15 @@ namespace SeatingManagement.API.Controllers
         {
             if (string.IsNullOrEmpty(input)) return string.Empty;
             input = input.Trim();
-            
             if (input.EndsWith(",")) input = input.TrimEnd(',');
-            
-            if (input.StartsWith("=") || input.StartsWith("+") || input.StartsWith("-") || input.StartsWith("@"))
-                input = Regex.Replace(input, @"^[=\+\-\@]+", "");
-                
+
             return input;
         }
+    }
+
+    public class CsvValidationError
+    {
+        public int Line { get; set; }
+        public string ErrorType { get; set; } = string.Empty;
     }
 }

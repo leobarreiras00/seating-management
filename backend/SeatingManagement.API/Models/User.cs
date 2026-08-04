@@ -20,7 +20,8 @@ namespace SeatingManagement.API.Models
         [MaxLength(20)]
         public string Role { get; set; } = "Utilizador";
 
-        // Associação Multi-Tenant
+        public string AvatarUrl { get; set; } = string.Empty;
+
         public int CompanyId { get; set; }
         public Company Company { get; set; } = null!;
 

@@ -87,4 +87,22 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+using (var scope = app.Services.CreateScope())
+{
+    var services = scope.ServiceProvider;
+    try
+    {
+        var context = services.GetRequiredService<AppDbContext>();
+        // Garante que a base de dados e as tabelas são criadas automaticamente no Deploy
+        context.Database.EnsureCreated(); 
+        // Injeta o Super Admin se estiver vazio
+        DbInitializer.Initialize(context);
+    }
+    catch (Exception ex)
+    {
+        var logger = services.GetRequiredService<ILogger<Program>>();
+        logger.LogError(ex, "Ocorreu um erro ao inicializar a base de dados.");
+    }
+}
+
 app.Run();

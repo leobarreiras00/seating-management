@@ -12,8 +12,8 @@ using SeatingManagement.API.Data;
 namespace SeatingManagement.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260731104913_RemoveTotalSeatsAddEndDate")]
-    partial class RemoveTotalSeatsAddEndDate
+    [Migration("20260802215342_InitialCleanSetup1")]
+    partial class InitialCleanSetup1
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -75,6 +75,41 @@ namespace SeatingManagement.API.Migrations
                     b.HasKey("Id");
 
                     b.ToTable("IdentityUser");
+                });
+
+            modelBuilder.Entity("SeatingManagement.API.Models.AuditLog", b =>
+                {
+                    b.Property<int>("Id")
+                        .ValueGeneratedOnAdd()
+                        .HasColumnType("int");
+
+                    SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("ActionType")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("Description")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<int?>("EventId")
+                        .HasColumnType("int");
+
+                    b.Property<string>("PerformedBy")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<string>("PerformedRole")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
+
+                    b.Property<DateTime>("Timestamp")
+                        .HasColumnType("datetime2");
+
+                    b.HasKey("Id");
+
+                    b.ToTable("AuditLogs");
                 });
 
             modelBuilder.Entity("SeatingManagement.API.Models.Company", b =>
@@ -210,10 +245,6 @@ namespace SeatingManagement.API.Migrations
                         .HasColumnType("int");
 
                     b.Property<string>("PasswordHash")
-                        .IsRequired()
-                        .HasColumnType("nvarchar(max)");
-
-                    b.Property<string>("PinHash")
                         .IsRequired()
                         .HasColumnType("nvarchar(max)");
 

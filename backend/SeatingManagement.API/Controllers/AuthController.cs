@@ -24,10 +24,79 @@ namespace SeatingManagement.API.Controllers
             _configuration = configuration;
         }
 
+        [HttpGet("users")]
+        [Authorize(Roles = "SuperAdmin,Gestor")]
+        public async Task<IActionResult> GetUsers()
+        {
+            var currentUserRole = User.FindFirstValue(ClaimTypes.Role);
+            var currentCompanyIdStr = User.FindFirstValue("CompanyId");
+
+            var query = _context.Users
+                .Include(u => u.Company)
+                .Include(u => u.UserEvents)
+                .ThenInclude(ue => ue.Event)
+                .AsQueryable();
+
+            if (currentUserRole == "Gestor" && int.TryParse(currentCompanyIdStr, out int companyId))
+            {
+                query = query.Where(u => u.CompanyId == companyId && u.Role != "SuperAdmin");
+            }
+
+            var users = await query.Select(u => new
+            {
+                u.Id,
+                u.Username,
+                u.Role,
+                CompanyName = u.Company != null ? u.Company.Name : "Administração Central",
+                CompanyLogo = u.Company != null ? u.Company.LogoUrl : "",
+                AvatarUrl = u.AvatarUrl,
+                
+                Events = u.UserEvents.Select(ue => new { 
+                    Id = ue.EventId, 
+                    Name = ue.Event.Name 
+                }).ToList()
+            }).ToListAsync();
+
+            return Ok(users);
+        }
+
+        // 👇 NOVO ENDPOINT: Carregar Fotografia de Perfil 👇
+        [HttpPut("user/{id}/avatar")]
+        [Authorize]
+        public async Task<IActionResult> UpdateAvatar(int id, [FromBody] UpdateAvatarDto request)
+        {
+            var user = await _context.Users.FindAsync(id);
+            if (user == null) return NotFound(new { Message = "Utilizador não encontrado." });
+
+            user.AvatarUrl = request.AvatarBase64;
+            
+            var performedRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+            var performedBy = User.Identity?.Name ?? "Sistema";
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                EventId = null,
+                ActionType = "UPDATE_USER",
+                Description = $"Atualizou a fotografia de perfil de '{user.Username}'.",
+                PerformedBy = performedBy, 
+                PerformedRole = performedRole,
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+            return Ok(new { Message = "Avatar atualizado com sucesso!", AvatarUrl = user.AvatarUrl });
+        }
+
         [HttpPost("register")]
         [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> Register(RegisterDto request)
         {
+            var isCurrentUserSuperAdmin = User.IsInRole("SuperAdmin");
+            if (request.Role == "SuperAdmin" && !isCurrentUserSuperAdmin)
+            {
+                return StatusCode(403, new { Message = "Acesso Negado: Apenas um Super Admin pode criar outro Super Admin." });
+            }
+
             if (await _context.Users.AnyAsync(u => u.Username == request.Username))
                 return BadRequest(new { Message = "O utilizador já existe no sistema." });
 
@@ -39,13 +108,26 @@ namespace SeatingManagement.API.Controllers
             {
                 Username = request.Username,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.Password),
-                // 👇 PIN REMOVIDO DAQUI 👇
                 UserGuid = Guid.NewGuid(),
                 Role = !string.IsNullOrWhiteSpace(request.Role) ? request.Role : "Utilizador",
                 CompanyId = request.CompanyId 
             };
 
             _context.Users.Add(user);
+
+            var performedBy = User.Identity?.Name ?? "Sistema";
+            var performedRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                EventId = null,
+                ActionType = "CREATE_USER",
+                Description = $"Criou o utilizador '{user.Username}' com a função de '{user.Role}'.",
+                PerformedBy = performedBy,
+                PerformedRole = performedRole,
+                Timestamp = DateTime.UtcNow
+            });
+
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Utilizador registado com sucesso!" });
@@ -67,7 +149,6 @@ namespace SeatingManagement.API.Controllers
             return Ok(new { 
                 Token = token, 
                 UserGuid = user.UserGuid,
-                // 👇 PIN REMOVIDO DAQUI 👇
                 Role = user.Role,
                 CompanyName = user.Company?.Name ?? "Sem Empresa",
                 CompanyLogo = user.Company?.LogoUrl ?? ""
@@ -82,7 +163,23 @@ namespace SeatingManagement.API.Controllers
             if (user == null) 
                 return NotFound(new { Message = "Utilizador não encontrado." });
 
+            string deletedUsername = user.Username;
+
             _context.Users.Remove(user);
+
+            var performedBy = User.Identity?.Name ?? "Sistema";
+            var performedRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                EventId = null,
+                ActionType = "DELETE_USER",
+                Description = $"Apagou a conta do utilizador '{deletedUsername}'.",
+                PerformedBy = performedBy,
+                PerformedRole = performedRole,
+                Timestamp = DateTime.UtcNow
+            });
+
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Conta apagada com sucesso." });
@@ -96,6 +193,20 @@ namespace SeatingManagement.API.Controllers
             if (user == null) return NotFound(new { Message = "Utilizador não encontrado." });
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+
+            var performedBy = User.Identity?.Name ?? "Sistema";
+            var performedRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                EventId = null,
+                ActionType = "RESET_PASSWORD",
+                Description = $"Repôs a palavra-passe do utilizador '{user.Username}'.",
+                PerformedBy = performedBy,
+                PerformedRole = performedRole,
+                Timestamp = DateTime.UtcNow
+            });
+
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Palavra-passe alterada com sucesso!" });
@@ -115,6 +226,19 @@ namespace SeatingManagement.API.Controllers
                 return BadRequest(new { Message = "A palavra-passe atual está incorreta." });
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
+
+            var performedRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+
+            _context.AuditLogs.Add(new AuditLog
+            {
+                EventId = null,
+                ActionType = "CHANGE_PASSWORD",
+                Description = "Alterou a sua própria palavra-passe.",
+                PerformedBy = user.Username, 
+                PerformedRole = performedRole,
+                Timestamp = DateTime.UtcNow
+            });
+
             await _context.SaveChangesAsync();
 
             return Ok(new { Message = "Palavra-passe atualizada com sucesso!" });
@@ -149,14 +273,8 @@ namespace SeatingManagement.API.Controllers
         }
     }
 
-    public class ResetPasswordDto 
-    { 
-        public string NewPassword { get; set; } = string.Empty; 
-    }
-
-    public class ChangePasswordDto 
-    { 
-        public string OldPassword { get; set; } = string.Empty; 
-        public string NewPassword { get; set; } = string.Empty; 
-    }
+    public class ResetPasswordDto { public string NewPassword { get; set; } = string.Empty; }
+    public class ChangePasswordDto { public string OldPassword { get; set; } = string.Empty; public string NewPassword { get; set; } = string.Empty; }
+    // DTO para a Fotografia
+    public class UpdateAvatarDto { public string AvatarBase64 { get; set; } = string.Empty; }
 }

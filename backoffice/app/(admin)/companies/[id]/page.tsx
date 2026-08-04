@@ -3,7 +3,7 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock } from "lucide-react";
+import { ChevronLeft, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock, AlertTriangle, Download } from "lucide-react";
 import mqtt from "mqtt";
 
 interface Company { id: number; name: string; logoUrl: string | null; }
@@ -19,19 +19,26 @@ interface EventStats {
   assignedUsers: AssignedUser[]; 
 }
 
+interface CsvValidationError {
+  line?: number;
+  Line?: number;
+  errorType?: string;
+  ErrorType?: string;
+}
+
 export default function CompanyDetailsPage() {
   const params = useParams();
   const id = params.id as string;
 
   const [company, setCompany] = useState<Company | null>(null);
   const [managers, setManagers] = useState<AccountUser[]>([]);
-  const [companyUsers, setCompanyUsers] = useState<AccountUser[]>([]); 
+  const [companyUsers, setCompanyUsers] = useState<AccountUser[]>([]);
   const [events, setEvents] = useState<EventStats[]>([]);
   
   const [activeTab, setActiveTab] = useState<"gestores" | "utilizadores" | "eventos">("gestores");
   const [isLoading, setIsLoading] = useState(true);
 
-  // Estados Unificados do Modal de Criar Conta (Gestor ou Utilizador)
+  // Modais de Conta
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
   const [newAccountRole, setNewAccountRole] = useState<"Gestor" | "Utilizador">("Gestor");
   const [newUsername, setNewUsername] = useState("");
@@ -40,7 +47,6 @@ export default function CompanyDetailsPage() {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [createAccountError, setCreateAccountError] = useState("");
 
-  // Estados do Modal de Repor Password (Serve para Gestor e Utilizador)
   const [showResetModal, setShowResetModal] = useState(false);
   const [resetUserId, setResetUserId] = useState<number | null>(null);
   const [resetUsername, setResetUsername] = useState("");
@@ -49,7 +55,7 @@ export default function CompanyDetailsPage() {
   const [isResetting, setIsResetting] = useState(false);
   const [resetError, setResetError] = useState("");
 
-  // Estados do Modal de Criar Evento
+  // Modais de Evento
   const [showEventModal, setShowEventModal] = useState(false);
   const [eventName, setEventName] = useState("");
   const [eventStartDate, setEventStartDate] = useState(""); 
@@ -57,7 +63,6 @@ export default function CompanyDetailsPage() {
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [eventError, setEventError] = useState("");
 
-  // Estados do Modal de Editar Evento
   const [showEditEventModal, setShowEditEventModal] = useState(false);
   const [editEventId, setEditEventId] = useState<number | null>(null);
   const [editEventName, setEditEventName] = useState("");
@@ -66,7 +71,7 @@ export default function CompanyDetailsPage() {
   const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [editEventError, setEditEventError] = useState("");
 
-  // Estados do Modal de Atribuir Acesso
+  // Modais de Acesso
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignEventId, setAssignEventId] = useState<number | null>(null);
   const [assignManagerId, setAssignManagerId] = useState<string>("");
@@ -74,7 +79,7 @@ export default function CompanyDetailsPage() {
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignError, setAssignError] = useState("");
 
-  // Estados do Modal de Upload CSV
+  // Modais de Upload CSV
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadEventId, setUploadEventId] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -82,6 +87,10 @@ export default function CompanyDetailsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
+  
+  // Estados de Validação Estrutural
+  const [validationErrors, setValidationErrors] = useState<CsvValidationError[] | null>(null);
+  const [totalValidationRows, setTotalValidationRows] = useState(0);
 
   const fetchCompanyData = useCallback(async () => {
     if (!id) return;
@@ -243,11 +252,8 @@ export default function CompanyDetailsPage() {
 
   const openEditEventModal = (event: EventStats) => {
     setEditEventId(event.id); setEditEventName(event.name);
-    
-    // Fallback de segurança para não rebentar se a data estiver vazia
     const startStr = event.startDate ? event.startDate.split('T')[0] : "";
     const endStr = event.endDate ? event.endDate.split('T')[0] : startStr;
-    
     setEditEventStartDate(startStr); 
     setEditEventEndDate(endStr);
     setShowEditEventModal(true);
@@ -312,13 +318,13 @@ export default function CompanyDetailsPage() {
 
   const openUploadModal = (eventId: number) => {
     setUploadEventId(eventId); setUploadFile(null); setUploadMode("replace");
-    setUploadError(""); setUploadSuccess(""); setShowUploadModal(true);
+    setUploadError(""); setUploadSuccess(""); setValidationErrors(null); setShowUploadModal(true);
   };
 
   const handleUploadCsv = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!uploadEventId || !uploadFile) return;
-    setIsUploading(true); setUploadError(""); setUploadSuccess("");
+    setIsUploading(true); setUploadError(""); setUploadSuccess(""); setValidationErrors(null);
     try {
       const token = localStorage.getItem("token");
       const formData = new FormData();
@@ -328,11 +334,46 @@ export default function CompanyDetailsPage() {
         method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData
       });
       const data = await res.json().catch(() => ({}));
-      if (!res.ok) throw new Error(data.Message || "Erro ao importar ficheiro.");
+      
+      if (!res.ok) {
+        const apiErrors = data.errors || data.Errors;
+        const apiTotalRows = data.totalRows || data.TotalRows || 0;
 
-      setUploadSuccess(data.Message || "Ficheiro importado com sucesso!");
+        if (apiErrors && Array.isArray(apiErrors) && apiErrors.length > 0) {
+          setValidationErrors(apiErrors);
+          setTotalValidationRows(apiTotalRows);
+          setIsUploading(false);
+          return; 
+        }
+        
+        throw new Error(data.message || data.Message || "Erro ao importar ficheiro.");
+      }
+
+      setUploadSuccess(data.message || data.Message || "Ficheiro importado com sucesso!");
       setUploadFile(null); fetchCompanyData(); 
-    } catch (err: any) { setUploadError(err.message); } finally { setIsUploading(false); }
+    } catch (err: any) { 
+      setUploadError(err.message); 
+    } finally { 
+      setIsUploading(false); 
+    }
+  };
+
+  const handleExportErrors = () => {
+    if (!validationErrors) return;
+    let csvContent = "Linha;Erro\n";
+    validationErrors.forEach(e => { 
+      const line = e.line !== undefined ? e.line : (e.Line !== undefined ? e.Line : 0);
+      const type = e.errorType || e.ErrorType || "Erro Desconhecido";
+      csvContent += `${line === 0 ? 'Geral' : line};${type}\n`; 
+    });
+    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", "relatorio_erros.csv");
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
   };
 
   const renderAccountList = (list: AccountUser[], title: string, roleType: "Gestor" | "Utilizador", emptyMsg: string) => (
@@ -371,7 +412,6 @@ export default function CompanyDetailsPage() {
     </div>
   );
 
-  // 👇 Ordenação dos eventos (do mais recente para o mais antigo) 👇
   const sortedEvents = [...events].sort((a, b) => {
     const dateA = a.startDate ? new Date(a.startDate).getTime() : 0;
     const dateB = b.startDate ? new Date(b.startDate).getTime() : 0;
@@ -380,6 +420,15 @@ export default function CompanyDetailsPage() {
 
   if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
   if (!company) return <div className="p-10 text-center"><h2 className="text-2xl font-bold text-slate-900">Empresa não encontrada</h2><Link href="/companies" className="text-purple-600 mt-4 inline-block">Voltar</Link></div>;
+
+  const groupedErrors = validationErrors ? validationErrors.reduce((acc, err) => {
+    const type = err.errorType || err.ErrorType || "Erro Desconhecido";
+    const line = err.line !== undefined ? err.line : (err.Line !== undefined ? err.Line : 0);
+    
+    if (!acc[type]) acc[type] = [];
+    acc[type].push(line);
+    return acc;
+  }, {} as Record<string, number[]>) : {};
 
   return (
     <div className="max-w-6xl mx-auto relative">
@@ -434,7 +483,6 @@ export default function CompanyDetailsPage() {
               <div className="text-center py-12 text-slate-500">Esta empresa ainda não tem eventos criados.</div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
-                {/* 👇 Utilização da lista ORDENADA 👇 */}
                 {sortedEvents.map(event => {
                   const progress = event.totalSeats > 0 ? Math.round((event.treatedSeats / event.totalSeats) * 100) : 0;
                   return (
@@ -443,7 +491,6 @@ export default function CompanyDetailsPage() {
                         <div className="flex justify-between items-start mb-2">
                           <div>
                             <h3 className="font-bold text-slate-900 text-lg mb-1">{event.name}</h3>
-                            {/* 👇 APRESENTAÇÃO NOVA DAS DATAS 👇 */}
                             <div className="flex flex-col gap-0.5 mt-1 mb-4">
                               <span className="text-sm text-slate-500">
                                 <strong className="font-semibold text-slate-600">Data de Início:</strong> {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "N/D"}
@@ -502,7 +549,6 @@ export default function CompanyDetailsPage() {
         )}
       </div>
 
-      {/* Modal Criar Conta Genérico (Gestor/Utilizador) */}
       {showCreateAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
@@ -532,7 +578,6 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* Modal Repor Password */}
       {showResetModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -559,7 +604,6 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* Modal Atribuir Acesso */}
       {showAssignModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -605,7 +649,6 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* Modal Criar Evento */}
       {showEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
@@ -633,7 +676,6 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* Modal Editar Evento */}
       {showEditEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -663,17 +705,17 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* Modal Upload CSV */}
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+          <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><UploadCloud className="w-5 h-5 text-emerald-600" /> Importar CSV</h3>
               <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleUploadCsv} className="p-6 space-y-5">
+            
+            <div className="p-6">
               {uploadSuccess ? (
-                <div className="p-6 bg-emerald-50 rounded-2xl flex flex-col items-center text-center">
+                <div className="bg-emerald-50 rounded-2xl flex flex-col items-center text-center p-6">
                   <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
                     <FileText className="w-6 h-6 text-emerald-600" />
                   </div>
@@ -681,8 +723,39 @@ export default function CompanyDetailsPage() {
                   <p className="text-sm text-emerald-600 font-medium">{uploadSuccess}</p>
                   <button type="button" onClick={() => setShowUploadModal(false)} className="mt-6 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-colors">Fechar</button>
                 </div>
+              ) : validationErrors && validationErrors.length > 0 ? (
+                <div className="animate-in fade-in duration-300">
+                  <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3 mb-6">
+                    <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
+                    <div>
+                      <h4 className="font-bold text-red-800 text-base mb-1">Importação Recusada</h4>
+                      <p className="text-sm text-red-600 font-medium">Foram encontrados {validationErrors.length} erros em {totalValidationRows} linhas. Corrige o ficheiro e tenta novamente.</p>
+                    </div>
+                  </div>
+
+                  <div className="max-h-64 overflow-y-auto mb-6 pr-2">
+                    {Object.entries(groupedErrors).map(([type, lines]) => (
+                      <details key={type} className="mb-2 bg-white rounded-xl border border-red-100 overflow-hidden group">
+                        <summary className="bg-white px-4 py-3.5 font-semibold text-slate-800 cursor-pointer hover:bg-red-50 flex items-center justify-between transition-colors">
+                          <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500"></span> {type}</span>
+                          <span className="bg-red-100 text-red-800 text-xs py-1 px-2.5 rounded-lg font-bold">{lines.length} ocorrências</span>
+                        </summary>
+                        <div className="p-4 pt-2 text-sm text-slate-600 border-t border-red-50 bg-slate-50/50">
+                          <span className="font-semibold text-slate-700 mb-1 block">Linhas afetadas:</span>
+                          <br/>
+                          {lines.map(l => l === 0 ? "Geral" : l).join(", ")}
+                        </div>
+                      </details>
+                    ))}
+                  </div>
+
+                  <div className="flex gap-3">
+                    <button type="button" onClick={() => setValidationErrors(null)} className="flex-1 py-3.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors">Tentar Novamente</button>
+                    <button type="button" onClick={handleExportErrors} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="w-4 h-4" /> Exportar Relatório</button>
+                  </div>
+                </div>
               ) : (
-                <>
+                <form onSubmit={handleUploadCsv} className="space-y-5">
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Ficheiro de Convidados</label>
                     <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl hover:bg-slate-50 transition-colors bg-white">
@@ -699,7 +772,8 @@ export default function CompanyDetailsPage() {
                         {uploadFile ? (
                           <p className="text-xs text-emerald-600 font-bold mt-2 border border-emerald-100 bg-emerald-50 p-2 rounded-lg truncate px-4">{uploadFile.name}</p>
                         ) : (
-                          <p className="text-xs text-slate-500 mt-2">Colunas: MESA;LUGAR;NOME;ESTADO</p>
+                          // 👇 TEXTO ATUALIZADO SEM O ;ESTADO 👇
+                          <p className="text-xs text-slate-500 mt-2">Colunas: MESA;LUGAR;CATEGORIA;NOME</p>
                         )}
                       </div>
                     </div>
@@ -715,13 +789,23 @@ export default function CompanyDetailsPage() {
                       </button>
                     </div>
                   </div>
-                  {uploadError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{uploadError}</div>}
+                  
+                  {uploadError && (
+                    <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 shadow-sm">
+                      <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
+                      <div>
+                        <h4 className="font-bold text-red-800 text-sm">Falha na Leitura</h4>
+                        <p className="text-sm text-red-600 font-medium mt-0.5">{uploadError}</p>
+                      </div>
+                    </div>
+                  )}
+
                   <button type="submit" disabled={isUploading || !uploadFile} className={`w-full text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg ${(isUploading || !uploadFile) ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}>
                     {isUploading ? <div className="flex items-center gap-2"><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div> A Processar...</div> : "Iniciar Importação"}
                   </button>
-                </>
+                </form>
               )}
-            </form>
+            </div>
           </div>
         </div>
       )}
