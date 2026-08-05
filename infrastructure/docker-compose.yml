@@ -1,0 +1,29 @@
+version: '3.8'
+
+services:
+  # A TUA BASE DE DADOS EXISTENTE
+  seating_db:
+    image: mcr.microsoft.com/azure-sql-edge
+    container_name: seating_db
+    environment:
+      - ACCEPT_EULA=Y
+      - MSSQL_SA_PASSWORD=AdminPassword2026!
+    ports:
+      - "1433:1433"
+    volumes:
+      - sqledge_data:/var/opt/mssql
+    restart: always
+
+  # O NOVO SERVIDOR DE MENSAGENS EM TEMPO REAL
+  mqtt_broker:
+    image: eclipse-mosquitto:latest
+    container_name: mqtt_broker
+    ports:
+      - "1883:1883"
+      - "9001:9001" # 👇 NOVA PORTA WEBSOCKETS AQUI 👇
+    volumes:
+      - ./mosquitto.conf:/mosquitto/config/mosquitto.conf
+    restart: always
+
+volumes:
+  sqledge_data:

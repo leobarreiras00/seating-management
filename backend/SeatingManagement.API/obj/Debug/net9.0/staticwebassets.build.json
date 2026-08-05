@@ -1,0 +1,12 @@
+{
+  "Version": 1,
+  "Hash": "Q3DJbTS3IPfzLW4fe4EkOkmfFMoWi4PZU5aqnu03UWA=",
+  "Source": "SeatingManagement.API",
+  "BasePath": "_content/SeatingManagement.API",
+  "Mode": "Default",
+  "ManifestType": "Build",
+  "ReferencedProjectsConfiguration": [],
+  "DiscoveryPatterns": [],
+  "Assets": [],
+  "Endpoints": []
+}

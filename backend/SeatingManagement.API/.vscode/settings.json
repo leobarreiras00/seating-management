@@ -1,0 +1,4 @@
+{
+    "appService.defaultWebAppToDeploy": "/subscriptions/ed3f4bd1-b1d3-493f-ba92-bceb5dd1ad12/resourceGroups/Seatly-RG/providers/Microsoft.Web/sites/api-seatly",
+    "appService.deploySubpath": "publish"
+}
