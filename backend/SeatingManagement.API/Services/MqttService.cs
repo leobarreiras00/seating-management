@@ -22,9 +22,12 @@ namespace SeatingManagement.API.Services
             var factory = new MqttClientFactory();
             _mqttClient = factory.CreateMqttClient();
             
+            // --- CONFIGURAÇÃO PARA O HIVEMQ CLOUD ---
             _options = new MqttClientOptionsBuilder()
                 .WithClientId("SeatingManagementAPI_" + Guid.NewGuid().ToString())
-                .WithTcpServer("localhost", 1883)
+                .WithTcpServer("cec974b49a5f43c8a19ef81e6f877b64.s1.eu.hivemq.cloud", 8883)
+                .WithCredentials("lbseatly-mqtt", "Dvs.8713")
+                .WithTlsOptions(o => o.UseTls())
                 .Build();
         }
 

@@ -18,7 +18,6 @@ namespace SeatingManagement.API.Controllers
             _context = context;
         }
 
-        // Devolve os eventos com as suas estatísticas e a contagem de logs
         [HttpGet("events-overview")]
         [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> GetEventsOverview()
@@ -45,16 +44,26 @@ namespace SeatingManagement.API.Controllers
             return Ok(events);
         }
 
-        // Devolve todos os logs detalhados de um evento específico
         [HttpGet("event/{eventId}")]
-        public async Task<IActionResult> GetEventLogs(int eventId)
+        public async Task<IActionResult> GetEventLogs(int eventId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
         {
-            var logs = await _context.AuditLogs
+            var query = _context.AuditLogs
                 .Where(al => al.EventId == eventId)
-                .OrderByDescending(al => al.Timestamp)
+                .OrderByDescending(al => al.Timestamp);
+
+            var totalLogs = await query.CountAsync();
+
+            var logs = await query
+                .Skip((page - 1) * pageSize)
+                .Take(pageSize)
                 .ToListAsync();
 
-            return Ok(logs);
+            return Ok(new {
+                TotalLogs = totalLogs,
+                Page = page,
+                PageSize = pageSize,
+                Logs = logs
+            });
         }
     }
 }

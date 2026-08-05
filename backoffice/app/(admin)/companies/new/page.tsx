@@ -32,7 +32,7 @@ export default function NewCompanyPage() {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Sessão expirada.");
 
-      const createRes = await fetch("http://localhost:5162/api/Company", {
+      const createRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: name, logoUrl: "" }),
@@ -46,7 +46,7 @@ export default function NewCompanyPage() {
         const formData = new FormData();
         formData.append("file", file);
 
-        const uploadRes = await fetch(`http://localhost:5162/api/Company/${companyId}/logo`, {
+        const uploadRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${companyId}/logo`, {
           method: "PUT",
           headers: { Authorization: `Bearer ${token}` },
           body: formData,

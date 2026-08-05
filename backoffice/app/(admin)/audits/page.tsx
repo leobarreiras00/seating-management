@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Search, History, CalendarDays, ChevronRight, X, User, Activity, Database, CheckCircle, XCircle, Trash2, UploadCloud, Download, Loader2 } from "lucide-react";
+import { Search, History, CalendarDays, ChevronRight, X, User, Activity, Database, CheckCircle, XCircle, Trash2, UploadCloud, Download, Loader2, ArrowDown } from "lucide-react";
 import mqtt from "mqtt";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -36,6 +36,10 @@ export default function AuditsPage() {
   const [isLoadingLogs, setIsLoadingLogs] = useState(false);
   const [isExporting, setIsExporting] = useState(false);
   
+  const [page, setPage] = useState(1);
+  const [hasMore, setHasMore] = useState(false);
+  const [isLoadingMore, setIsLoadingMore] = useState(false);
+  
   const selectedEventIdRef = useRef<number | null>(null);
 
   useEffect(() => {
@@ -47,7 +51,7 @@ export default function AuditsPage() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
-      const res = await fetch(`http://localhost:5162/api/Audit/events-overview?t=${Date.now()}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Audit/events-overview?t=${Date.now()}`, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Cache-Control': 'no-cache, no-store, must-revalidate'
@@ -65,20 +69,25 @@ export default function AuditsPage() {
     }
   }, []);
 
-  const fetchEventLogs = async (eventId: number) => {
+  const fetchEventLogs = async (eventId: number, pageNumber = 1) => {
     try {
       const token = localStorage.getItem("token");
       
-      const res = await fetch(`http://localhost:5162/api/Audit/event/${eventId}?t=${Date.now()}`, {
-        headers: { 
-          Authorization: `Bearer ${token}`,
-          'Cache-Control': 'no-cache, no-store, must-revalidate'
-        },
-        cache: 'no-store'
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Audit/event/${eventId}?page=${pageNumber}&pageSize=50&t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` }
       });
 
       if (res.ok) {
-        setEventLogs(await res.json());
+        const data = await res.json();
+        
+        if (pageNumber === 1) {
+          setEventLogs(data.logs);
+        } else {
+          setEventLogs(prev => [...prev, ...data.logs]);
+        }
+        
+        setHasMore(data.totalLogs > data.logs.length + (pageNumber - 1) * 50);
+        setPage(pageNumber);
       }
     } catch (error) {
       console.error("Erro ao carregar logs do evento:", error);
@@ -88,7 +97,11 @@ export default function AuditsPage() {
   useEffect(() => {
     fetchEventsOverview();
 
-    const client = mqtt.connect("ws://localhost:9001"); 
+    const client = mqtt.connect(process.env.NEXT_PUBLIC_MQTT_URL as string, {
+      username: process.env.NEXT_PUBLIC_MQTT_USERNAME as string,
+      password: process.env.NEXT_PUBLIC_MQTT_PASSWORD as string,
+    });
+
     client.on("connect", () => {
       client.subscribe("seating/events/#");
       client.subscribe("seating/backoffice/#");
@@ -97,7 +110,7 @@ export default function AuditsPage() {
     client.on("message", () => {
       fetchEventsOverview();
       if (selectedEventIdRef.current) {
-        fetchEventLogs(selectedEventIdRef.current);
+        fetchEventLogs(selectedEventIdRef.current, 1);
       }
     });
 
@@ -108,8 +121,15 @@ export default function AuditsPage() {
     setSelectedEvent(event);
     setIsLoadingLogs(true);
     setEventLogs([]);
-    await fetchEventLogs(event.id);
+    await fetchEventLogs(event.id, 1);
     setIsLoadingLogs(false);
+  };
+
+  const loadMoreLogs = async () => {
+    if (!selectedEvent) return;
+    setIsLoadingMore(true);
+    await fetchEventLogs(selectedEvent.id, page + 1);
+    setIsLoadingMore(false);
   };
 
   const getBase64ImageFromURL = (url: string): Promise<string> => {
@@ -127,37 +147,48 @@ export default function AuditsPage() {
   };
 
   const exportToPDF = async () => {
-    if (!selectedEvent || eventLogs.length === 0) return;
+    if (!selectedEvent) return;
     setIsExporting(true);
 
     try {
+      const token = localStorage.getItem("token");
+      // Para o PDF, pedimos todos os logs de uma vez (pageSize gigante) para garantir que não falta nada no relatório
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Audit/event/${selectedEvent.id}?page=1&pageSize=100000`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      
+      const data = await res.json();
+      const logsToExport = data.logs;
+
+      if(logsToExport.length === 0) {
+        setIsExporting(false);
+        return;
+      }
+
       const doc = new jsPDF();
 
-      // SOMBRA DO CABEÇALHO (Ilusão de Liquid Glass)
       doc.setFillColor(241, 245, 249); 
       doc.roundedRect(15, 15, 182, 30, 5, 5, 'F'); 
 
-      // CABEÇALHO PRINCIPAL
       doc.setFillColor(255, 255, 255); 
       doc.setDrawColor(226, 232, 240); 
       doc.setLineWidth(0.3);
       doc.roundedRect(14, 14, 182, 30, 5, 5, 'FD'); 
 
-      // LOGÓTIPO OU INICIAIS
       let logoDrawn = false;
       
       if (selectedEvent.companyLogo) {
         try {
           const logoUrl = selectedEvent.companyLogo.startsWith('http')
             ? selectedEvent.companyLogo
-            : `http://localhost:5162${selectedEvent.companyLogo}`;
+            : `${process.env.NEXT_PUBLIC_API_URL}${selectedEvent.companyLogo}`;
 
           const base64Img = await getBase64ImageFromURL(logoUrl);
           
           doc.addImage(base64Img, "PNG", 18, 18, 22, 22);
           logoDrawn = true;
         } catch (e) {
-          console.warn("Falha ao converter logótipo. A avançar para as iniciais.", e);
+          console.warn("Falha ao converter logótipo.", e);
         }
       }
 
@@ -177,7 +208,6 @@ export default function AuditsPage() {
         doc.text(initials, 29, 30.5, { align: "center" });
       }
 
-      // TEXTOS DO CABEÇALHO
       doc.setFont("helvetica", "bold");
       doc.setFontSize(14);
       doc.setTextColor(15, 23, 42); 
@@ -187,11 +217,10 @@ export default function AuditsPage() {
       doc.setFontSize(9);
       doc.setTextColor(100, 116, 139); 
       doc.text(`Empresa: ${selectedEvent.companyName}   |   Evento: ${selectedEvent.name} (ID #${selectedEvent.id})`, 46, 31);
-      doc.text(`Registos: ${eventLogs.length}   |   Emitido a: ${new Date().toLocaleDateString('pt-PT')} às ${new Date().toLocaleTimeString('pt-PT', {hour: '2-digit', minute: '2-digit'})}`, 46, 36.5);
+      doc.text(`Registos: ${logsToExport.length}   |   Emitido a: ${new Date().toLocaleDateString('pt-PT')} às ${new Date().toLocaleTimeString('pt-PT', {hour: '2-digit', minute: '2-digit'})}`, 46, 36.5);
 
-      // TABELA ALINHADA MILIMETRICAMENTE
       const tableColumn = ["Data e Hora", "Ação", "Descrição", "Utilizador", "Cargo"];
-      const tableRows = eventLogs.map(log => {
+      const tableRows = logsToExport.map((log: any) => {
         const date = new Date(log.timestamp);
         return [
           `${date.toLocaleDateString('pt-PT')}\n${date.toLocaleTimeString('pt-PT')}`,
@@ -214,7 +243,7 @@ export default function AuditsPage() {
           fontSize: 9,
           halign: 'left',
           valign: 'middle',
-          cellPadding: 5 // 👇 ISTO RESOLVE O DESALINHAMENTO COM O CORPO 👇
+          cellPadding: 5 
         },
         bodyStyles: { 
           fontSize: 8,
@@ -237,38 +266,17 @@ export default function AuditsPage() {
         },
         willDrawCell: (data) => {
           if (data.section === 'body') {
-            
-            // Cores das Ações
             if (data.column.index === 1) { 
               const action = data.cell.raw as string;
-              
-              if (action.includes("UNVALIDATE")) { 
-                doc.setTextColor(239, 68, 68); 
-                doc.setFont("helvetica", "bold");
-              } 
-              else if (action.includes("VALIDATE") || action.includes("QR")) {
-                doc.setTextColor(16, 185, 129); 
-                doc.setFont("helvetica", "bold");
-              } 
-              else {
-                doc.setTextColor(168, 85, 247); 
-                doc.setFont("helvetica", "bold");
-              }
+              if (action.includes("UNVALIDATE")) { doc.setTextColor(239, 68, 68); doc.setFont("helvetica", "bold"); } 
+              else if (action.includes("VALIDATE") || action.includes("QR")) { doc.setTextColor(16, 185, 129); doc.setFont("helvetica", "bold"); } 
+              else { doc.setTextColor(168, 85, 247); doc.setFont("helvetica", "bold"); }
             }
-
-            // Cores dos Cargos
             if (data.column.index === 4) { 
               const role = data.cell.raw as string;
-              if (role === "SuperAdmin") {
-                doc.setTextColor(239, 68, 68); 
-                doc.setFont("helvetica", "bold");
-              } else if (role === "Gestor") {
-                doc.setTextColor(59, 130, 246); 
-                doc.setFont("helvetica", "bold");
-              } else {
-                doc.setTextColor(16, 185, 129); 
-                doc.setFont("helvetica", "bold");
-              }
+              if (role === "SuperAdmin") { doc.setTextColor(239, 68, 68); doc.setFont("helvetica", "bold"); } 
+              else if (role === "Gestor") { doc.setTextColor(59, 130, 246); doc.setFont("helvetica", "bold"); } 
+              else { doc.setTextColor(16, 185, 129); doc.setFont("helvetica", "bold"); }
             }
           }
         }
@@ -282,8 +290,7 @@ export default function AuditsPage() {
       setIsExporting(false);
     }
   };
-  // ------------------------------------
-
+  
   const getActionStyles = (actionType: string) => {
     switch (actionType) {
       case "IMPORT_CSV": return { color: "text-blue-600", bg: "bg-blue-500/10", border: "border-blue-200", icon: <UploadCloud className="w-4 h-4" /> };
@@ -454,6 +461,21 @@ export default function AuditsPage() {
                       </div>
                     );
                   })}
+
+                  {/* 👇 BOTÃO DE CARREGAR MAIS 👇 */}
+                  {hasMore && (
+                    <div className="pt-6 pb-2 flex justify-center pl-6">
+                      <button 
+                        onClick={loadMoreLogs} 
+                        disabled={isLoadingMore}
+                        className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-600 hover:text-purple-600 rounded-2xl font-bold text-sm shadow-sm transition-all"
+                      >
+                        {isLoadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowDown className="w-4 h-4" />}
+                        {isLoadingMore ? 'A Carregar...' : 'Ver Registos Anteriores'}
+                      </button>
+                    </div>
+                  )}
+
                 </div>
               )}
             </div>

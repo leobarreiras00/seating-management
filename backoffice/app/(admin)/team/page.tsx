@@ -38,7 +38,7 @@ export default function TeamPage() {
       const payload = JSON.parse(atob(token.split('.')[1]));
       setCurrentUserRole(payload["http://schemas.microsoft.com/ws/2008/06/identity/claims/role"]);
 
-      const res = await fetch(`http://localhost:5162/api/Auth/users?t=${Date.now()}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/users?t=${Date.now()}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
 
@@ -60,7 +60,7 @@ export default function TeamPage() {
     
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5162/api/Auth/user/${deleteModalOpen.id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${deleteModalOpen.id}`, {
         method: 'DELETE',
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -86,7 +86,7 @@ export default function TeamPage() {
     
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5162/api/Auth/user/${resetModalOpen.id}/reset-password`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${resetModalOpen.id}/reset-password`, {
         method: 'PUT',
         headers: { 
             Authorization: `Bearer ${token}`,
@@ -122,7 +122,7 @@ export default function TeamPage() {
       const base64String = reader.result as string;
       try {
         const token = localStorage.getItem("token");
-        const res = await fetch(`http://localhost:5162/api/Auth/user/${detailsModalOpen.id}/avatar`, {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${detailsModalOpen.id}/avatar`, {
           method: 'PUT',
           headers: { 
             Authorization: `Bearer ${token}`,
@@ -299,7 +299,6 @@ export default function TeamPage() {
                     detailsModalOpen.role === "SuperAdmin" ? "bg-red-50 text-red-600" : 
                     detailsModalOpen.role === "Gestor" ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
                   }`}>
-                    {/* 👇 O Novo Componente Seguro é chamado aqui 👇 */}
                     <SafeAvatar user={detailsModalOpen} iconSize="w-10 h-10" />
                   </div>
 
@@ -441,18 +440,16 @@ export default function TeamPage() {
   );
 }
 
-// 👇 NOVO COMPONENTE SEGURO PARA O AVATAR 👇
+// COMPONENTE SEGURO PARA O AVATAR
 function SafeAvatar({ user, iconSize = "w-6 h-6" }: any) {
   const [error, setError] = useState(false);
 
-  // Se o link do avatar mudar, limpamos o erro para tentar carregar de novo
   useEffect(() => {
     setError(false);
   }, [user?.avatarUrl]);
 
   if (!user) return null;
 
-  // 1. Tenta carregar o avatar da base de dados. Se falhar, o onError ativa o fallback.
   if (user.avatarUrl && !error) {
     return (
       <img 
@@ -464,24 +461,30 @@ function SafeAvatar({ user, iconSize = "w-6 h-6" }: any) {
     );
   }
 
-  // 2. Fallback para SuperAdmin (imagem local premium)
   if (user.role === "SuperAdmin") {
     return <img src="/superadmin_default.png" alt="SuperAdmin" className="w-full h-full object-cover" />;
   }
 
-  // 3. Fallback para Gestores e Utilizadores (Ícone)
   const Icon = user.role === "SuperAdmin" ? Shield : User; 
   return <Icon className={iconSize} />;
 }
 
-// COMPONENTE SEGURO PARA O LOGO DA EMPRESA
+// 👇 COMPONENTE SEGURO PARA O LOGO DA EMPRESA (Atualizado com object-cover) 👇
 function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: any) {
   const [error, setError] = useState(false);
   
-  // Limpar o erro se o logo mudar
   useEffect(() => {
     setError(false);
   }, [logoUrl]);
+
+  if (companyName?.toLowerCase().includes("seatly admin") || companyName?.toLowerCase().includes("seatly")) {
+    return (
+      <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm shrink-0 flex items-center justify-center ${className}`}>
+        {/* Usamos object-cover e removemos o p-2 para ele preencher o espaço todo perfeitamente */}
+        <img src="/seatly_icon.png" alt="Seatly Admin" className="w-full h-full object-cover" />
+      </div>
+    );
+  }
 
   if (!logoUrl || error) {
     return (
@@ -491,14 +494,15 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
     );
   }
 
-  const src = logoUrl.startsWith('http') ? logoUrl : `http://localhost:5162${logoUrl}`;
+  const src = logoUrl.startsWith('http') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
 
   return (
     <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm shrink-0 flex items-center justify-center ${className}`}>
+      {/* Aqui também aplicamos o object-cover para esticar perfeitamente os outros logos para as margens */}
       <img 
         src={src} 
         alt={companyName} 
-        className="w-full h-full object-contain p-2" 
+        className="w-full h-full object-cover" 
         onError={() => setError(true)} 
       />
     </div>
@@ -518,7 +522,6 @@ function UserCard({ user, currentUserRole, onClick, onDelete, onReset }: any) {
     <div onClick={onClick} className="bg-white/80 backdrop-blur-xl p-4 rounded-[1.25rem] border border-white/60 shadow-sm hover:border-purple-200 hover:shadow-md hover:-translate-y-1 transition-all group flex items-center justify-between cursor-pointer">
       <div className="flex items-center gap-4">
         <div className={`w-12 h-12 rounded-[1rem] flex items-center justify-center shrink-0 border overflow-hidden relative shadow-sm ${colorClass}`}>
-          {/* 👇 O Novo Componente Seguro é chamado aqui também 👇 */}
           <SafeAvatar user={user} iconSize="w-6 h-6" />
         </div>
         <div>

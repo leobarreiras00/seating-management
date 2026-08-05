@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Building2, Plus, ChevronRight, Image as ImageIcon, Edit2, Trash2, X, Upload } from "lucide-react";
+import { Building2, Plus, ChevronRight, Edit2, Trash2, X, Upload } from "lucide-react";
 import mqtt from "mqtt";
 
 interface Company {
@@ -26,7 +26,7 @@ export default function CompaniesPage() {
   const fetchCompanies = useCallback(async () => {
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:5162/api/Company", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company`, {
         headers: { Authorization: `Bearer ${token}` },
       });
       if (!res.ok) throw new Error("Falha ao carregar as empresas.");
@@ -42,7 +42,10 @@ export default function CompaniesPage() {
   useEffect(() => {
     fetchCompanies();
 
-    const client = mqtt.connect("ws://localhost:9001"); 
+    const client = mqtt.connect(process.env.NEXT_PUBLIC_MQTT_URL as string, {
+      username: process.env.NEXT_PUBLIC_MQTT_USERNAME as string,
+      password: process.env.NEXT_PUBLIC_MQTT_PASSWORD as string,
+    });
     
     client.on("connect", () => {
       client.subscribe("seating/backoffice/companies");
@@ -63,7 +66,7 @@ export default function CompaniesPage() {
     
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5162/api/Company/${id}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -98,7 +101,7 @@ export default function CompaniesPage() {
       const currentCompany = companies.find(c => c.id === editCompanyId);
       
       // 1. Atualiza o nome da Empresa
-      const resName = await fetch(`http://localhost:5162/api/Company/${editCompanyId}`, {
+      const resName = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${editCompanyId}`, {
         method: "PUT",
         headers: { 
           "Content-Type": "application/json",
@@ -117,7 +120,7 @@ export default function CompaniesPage() {
         const formData = new FormData();
         formData.append("file", editCompanyLogo);
 
-        const resLogo = await fetch(`http://localhost:5162/api/Company/${editCompanyId}/logo`, {
+        const resLogo = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${editCompanyId}/logo`, {
           method: "PUT",
           headers: { Authorization: `Bearer ${token}` },
           body: formData
@@ -169,14 +172,15 @@ export default function CompaniesPage() {
             <div key={company.id} className="relative group">
               <Link href={`/companies/${company.id}`} className="block bg-white border border-slate-100 hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/5 transition-all rounded-3xl p-6 h-full flex flex-col">
                 <div className="flex items-center gap-4 mb-6">
-                  <div className="w-16 h-16 rounded-2xl bg-slate-50 border border-slate-100 flex items-center justify-center overflow-hidden shrink-0">
-                    {company.logoUrl ? (
-                      // eslint-disable-next-line @next/next/no-img-element
-                      <img src={company.logoUrl} alt={company.name} className="w-full h-full object-cover" />
-                    ) : (
-                      <ImageIcon className="w-6 h-6 text-slate-300" />
-                    )}
-                  </div>
+                  
+                  {/* 👇 O Novo Componente Seguro Substitui a Imagem Antiga 👇 */}
+                  <SafeCompanyLogo 
+                    logoUrl={company.logoUrl} 
+                    companyName={company.name} 
+                    className="w-16 h-16" 
+                    fallbackSize="w-6 h-6" 
+                  />
+                  
                   <div className="flex-1 min-w-0 pr-8">
                     <h3 className="text-lg font-bold text-slate-900 truncate">{company.name}</h3>
                     <p className="text-sm text-slate-500">ID: {company.id}</p>
@@ -262,6 +266,37 @@ export default function CompaniesPage() {
           </div>
         </div>
       )}
+    </div>
+  );
+}
+
+function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: any) {
+  const [error, setError] = useState(false);
+  
+  useEffect(() => {
+    setError(false);
+  }, [logoUrl]);
+
+  if (logoUrl && !error) {
+    const src = logoUrl.startsWith('http') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
+    return (
+      <div className={`relative bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}>
+        <img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} />
+      </div>
+    );
+  }
+
+  if (companyName?.toLowerCase().includes("seatly admin") || companyName?.toLowerCase().includes("seatly")) {
+    return (
+      <div className={`relative bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}>
+        <img src="/seatly_icon.png" alt="Seatly Admin Default" className="w-full h-full object-cover" />
+      </div>
+    );
+  }
+
+  return (
+    <div className={`flex items-center justify-center bg-slate-50 border border-slate-100 rounded-2xl shrink-0 ${className}`}>
+      <Building2 className={`${fallbackSize} text-slate-300`} />
     </div>
   );
 }

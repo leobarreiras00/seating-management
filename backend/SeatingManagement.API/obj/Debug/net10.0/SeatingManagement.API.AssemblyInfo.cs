@@ -13,7 +13,7 @@ using System.Reflection;
 [assembly: System.Reflection.AssemblyCompanyAttribute("SeatingManagement.API")]
 [assembly: System.Reflection.AssemblyConfigurationAttribute("Debug")]
 [assembly: System.Reflection.AssemblyFileVersionAttribute("1.0.0.0")]
-[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+bf4c696edb25eb6a90b29737fc72c75f3991e448")]
+[assembly: System.Reflection.AssemblyInformationalVersionAttribute("1.0.0+929ee7e65bdab4a00e81203c2253ac913affdfa9")]
 [assembly: System.Reflection.AssemblyProductAttribute("SeatingManagement.API")]
 [assembly: System.Reflection.AssemblyTitleAttribute("SeatingManagement.API")]
 [assembly: System.Reflection.AssemblyVersionAttribute("1.0.0.0")]

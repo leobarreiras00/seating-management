@@ -9,7 +9,7 @@ import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
-import com.google.gson.annotations.SerializedName // 👇 Importação do Gson adicionada
+import com.google.gson.annotations.SerializedName
 import com.leonardobarreiras.seatingmanagement.data.AppDatabase
 import com.leonardobarreiras.seatingmanagement.data.SeatEntity
 import com.leonardobarreiras.seatingmanagement.data.SeatRepository
@@ -27,7 +27,6 @@ import java.util.Locale
 enum class FeedbackType { SUCCESS, ERROR, EXPORT, INFO, OFFLINE }
 data class AppFeedback(val type: FeedbackType, val title: String, val message: String)
 
-// 👇 Correção do Clash: O Gson mapeia ambas as variações de chaves JSON para uma única variável 👇
 data class CsvValidationError(
     @SerializedName(value = "line", alternate = ["Line"])
     val line: Int?,
@@ -82,6 +81,9 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     var validationErrorsList by mutableStateOf<List<CsvValidationError>>(emptyList())
     var totalValidationRows by mutableStateOf(0)
     var showValidationScreen by mutableStateOf(false)
+
+    // Memória de patamares para evitar enviar repetidas vezes a mesma notificação
+    private val announcedCapacityThresholds = mutableSetOf<Int>()
 
     init {
         val db = AppDatabase.getDatabase(application)
@@ -163,6 +165,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         companyLogo = ""
         managerName = ""
         userGuid = ""
+        announcedCapacityThresholds.clear()
         viewModelScope.launch {
             repository.deleteAllSeats()
         }
@@ -170,6 +173,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
 
     fun clearCurrentEvent() {
         currentEventId = null
+        announcedCapacityThresholds.clear()
         viewModelScope.launch {
             repository.deleteAllSeats()
         }
@@ -276,6 +280,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                     val seatsFromApi = RetrofitClient.apiService.getSeatsByEvent("Bearer $jwtToken", id)
 
                     currentEventId = id
+                    announcedCapacityThresholds.clear()
                     repository.deleteAllSeats()
                     repository.insertAll(seatsFromApi)
                     mqttManager.subscribeToEventRoom(id)
@@ -307,6 +312,43 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                     )
                 } catch (e: Exception) {
                     repository.updateSeatStatusLocally(seat.id, newStatus, isPendingSync = true, markedAt = timestamp)
+                }
+            }
+
+            // 👇 LÓGICA DE LOTAÇÃO (CLIQUE ÚNICO) 👇
+            if (!isOffline && newStatus != 0) {
+                val allSeats = repository.allSeats.first()
+                val totalSeats = allSeats.size
+
+                if (totalSeats > 0) {
+                    var validatedCount = 0
+
+                    allSeats.forEach { s ->
+                        if (s.id == seat.id) {
+                            validatedCount++
+                        } else if (s.status != 0) {
+                            validatedCount++
+                        }
+                    }
+
+                    val percentage = (validatedCount * 100) / totalSeats
+
+                    val threshold = when {
+                        percentage == 100 -> 100
+                        percentage in 90..99 -> 90
+                        percentage in 75..89 -> 75
+                        percentage in 50..74 -> 50
+                        percentage in 25..49 -> 25
+                        else -> 0
+                    }
+
+                    if (threshold > 0 && !announcedCapacityThresholds.contains(threshold)) {
+                        // Marca o patamar atingido e todos os inferiores (para evitar alertas repetidos se saltou algum)
+                        announcedCapacityThresholds.addAll(listOf(25, 50, 75, 90, 100).filter { it <= threshold })
+
+                        val eventName = myEvents.find { it.id == safeEventId }?.name ?: "Evento #${safeEventId}"
+                        mqttManager.publishCapacityAlert(eventName, threshold, validatedCount, totalSeats)
+                    }
                 }
             }
         }
@@ -370,6 +412,29 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 if (response.isSuccessful) {
                     fetchSeatsFromApi()
                     appFeedback = AppFeedback(FeedbackType.SUCCESS, "Sucesso", "Registos atualizados com sucesso.")
+
+                    // 👇 NOVA LÓGICA DE LOTAÇÃO PARA O BOTÃO "VALIDAR TODOS" 👇
+                    if (novoEstado != "0" && novoEstado.lowercase() != "pendente") {
+                        val allSeats = repository.allSeats.first()
+                        val totalSeats = allSeats.size
+
+                        if (totalSeats > 0) {
+                            val threshold = 100 // Como é Bulk Update, atinge os 100%
+
+                            if (!announcedCapacityThresholds.contains(threshold)) {
+                                // Adiciona todos à lista para só notificar 1 vez e ignorar os inferiores
+                                announcedCapacityThresholds.addAll(listOf(25, 50, 75, 90, 100))
+
+                                val eventName = myEvents.find { it.id == safeEventId }?.name ?: "Evento #${safeEventId}"
+                                mqttManager.publishCapacityAlert(eventName, threshold, totalSeats, totalSeats)
+                            }
+                        }
+                    } else {
+                        // Se a ação em massa for "Desvalidar Todos", limpamos a memória
+                        // para que as notificações voltem a ser disparadas caso se volte a validar!
+                        announcedCapacityThresholds.clear()
+                    }
+
                 } else {
                     appFeedback = AppFeedback(FeedbackType.ERROR, "Erro no Servidor", "O servidor recusou a atualização. (Código: ${response.code()})")
                 }
@@ -443,7 +508,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                     try {
                         val errorResponse = com.google.gson.Gson().fromJson(errorJson, UploadErrorResponse::class.java)
 
-                        // 👇 Adaptado à nova estrutura limpa sem propriedades duplicadas 👇
                         val apiErrors = errorResponse?.errors
                         val apiTotalRows = errorResponse?.totalRows ?: 0
 

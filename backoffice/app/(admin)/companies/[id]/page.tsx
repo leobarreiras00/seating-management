@@ -100,20 +100,20 @@ export default function CompanyDetailsPage() {
 
       const headers = { Authorization: `Bearer ${token}` };
 
-      const compRes = await fetch(`http://localhost:5162/api/Company`, { headers });
+      const compRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company`, { headers });
       if (!compRes.ok) throw new Error(`Erro na API: ${compRes.status}`);
 
       const compData: Company[] = await compRes.json();
       const currentComp = compData.find((c) => c.id === Number(id));
       if (currentComp) setCompany(currentComp);
 
-      const manRes = await fetch(`http://localhost:5162/api/Company/${id}/managers`, { headers });
+      const manRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}/managers`, { headers });
       if (manRes.ok) setManagers(await manRes.json());
 
-      const userRes = await fetch(`http://localhost:5162/api/Company/${id}/users`, { headers });
+      const userRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}/users`, { headers });
       if (userRes.ok) setCompanyUsers(await userRes.json());
 
-      const evRes = await fetch(`http://localhost:5162/api/Company/${id}/events`, { headers });
+      const evRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}/events`, { headers });
       if (evRes.ok) setEvents(await evRes.json());
     } catch (error) {
       console.error("Erro ao carregar os dados:", error);
@@ -128,7 +128,10 @@ export default function CompanyDetailsPage() {
 
   useEffect(() => {
     if (!id) return;
-    const client = mqtt.connect("ws://localhost:9001"); 
+    const client = mqtt.connect(process.env.NEXT_PUBLIC_MQTT_URL as string, {
+      username: process.env.NEXT_PUBLIC_MQTT_USERNAME as string,
+      password: process.env.NEXT_PUBLIC_MQTT_PASSWORD as string,
+    });
     client.on("connect", () => {
       client.subscribe(`seating/events/#`);
       client.subscribe("seating/backoffice/companies");
@@ -157,7 +160,7 @@ export default function CompanyDetailsPage() {
     setCreateAccountError("");
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch("http://localhost:5162/api/Auth/register", {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/register`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ username: newUsername, password: newPassword, role: newAccountRole, companyId: Number(id) }),
@@ -193,7 +196,7 @@ export default function CompanyDetailsPage() {
     setResetError("");
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5162/api/Auth/user/${resetUserId}/reset-password`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${resetUserId}/reset-password`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ newPassword: resetNewPassword }),
@@ -212,7 +215,7 @@ export default function CompanyDetailsPage() {
     if (!window.confirm(`Tens a certeza que queres remover o acesso do ${role.toLowerCase()} "${username}"? Esta ação é irreversível.`)) return;
     try {
       const token = localStorage.getItem("token");
-      await fetch(`http://localhost:5162/api/Auth/user/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       fetchCompanyData();
     } catch (error) { alert("Ocorreu um erro ao tentar apagar o acesso."); }
   };
@@ -223,7 +226,7 @@ export default function CompanyDetailsPage() {
     setEventError("");
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5162/api/Company/${id}/events`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}/events`, {
         method: "POST",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: eventName, startDate: new Date(eventStartDate).toISOString(), endDate: new Date(eventEndDate).toISOString() }),
@@ -240,7 +243,7 @@ export default function CompanyDetailsPage() {
     setEditEventError("");
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`http://localhost:5162/api/Event/${editEventId}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${editEventId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: editEventName, startDate: new Date(editEventStartDate).toISOString(), endDate: new Date(editEventEndDate).toISOString() }),
@@ -273,14 +276,14 @@ export default function CompanyDetailsPage() {
       const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
 
       if (assignManagerId) {
-        const resM = await fetch(`http://localhost:5162/api/Event/${assignEventId}/assign-user`, {
+        const resM = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${assignEventId}/assign-user`, {
           method: "POST", headers, body: JSON.stringify({ userId: assignManagerId })
         });
         if (!resM.ok) throw new Error("Erro ao atribuir o gestor.");
       }
 
       if (assignUserId) {
-        const resU = await fetch(`http://localhost:5162/api/Event/${assignEventId}/assign-user`, {
+        const resU = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${assignEventId}/assign-user`, {
           method: "POST", headers, body: JSON.stringify({ userId: assignUserId })
         });
         if (!resU.ok) throw new Error("Erro ao atribuir o utilizador.");
@@ -302,7 +305,7 @@ export default function CompanyDetailsPage() {
     if (!window.confirm(`Tens a certeza que queres apagar o evento "${evName}"? Esta ação é irreversível e todos os dados associados serão perdidos.`)) return;
     try {
       const token = localStorage.getItem("token");
-      await fetch(`http://localhost:5162/api/Event/${eventId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${eventId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       fetchCompanyData();
     } catch (error) { alert("Ocorreu um erro ao tentar apagar o evento."); }
   };
@@ -311,7 +314,7 @@ export default function CompanyDetailsPage() {
     if (!window.confirm(`Remover acesso de "${userName}" ao evento "${eventNameStr}"?`)) return;
     try {
       const token = localStorage.getItem("token");
-      await fetch(`http://localhost:5162/api/Company/${id}/events/${eventId}/assign/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}/events/${eventId}/assign/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
       fetchCompanyData();
     } catch (error) { alert("Ocorreu um erro ao tentar remover o acesso."); }
   };
@@ -330,7 +333,7 @@ export default function CompanyDetailsPage() {
       const formData = new FormData();
       formData.append("file", uploadFile);
 
-      const res = await fetch(`http://localhost:5162/api/SeatCsv/import/${uploadEventId}?mode=${uploadMode}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/SeatCsv/import/${uploadEventId}?mode=${uploadMode}`, {
         method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData
       });
       const data = await res.json().catch(() => ({}));

@@ -88,6 +88,35 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
             }
     }
 
+    // Dispara a notificação de lotação para o Backoffice
+    fun publishCapacityAlert(eventName: String, threshold: Int, validated: Int, total: Int) {
+        val topic = "seating/alerts/capacity"
+
+        val title = if (threshold == 100) "Lotação Esgotada!" else "Lotação a $threshold%!"
+        val type = if (threshold >= 90) "warning" else "info"
+
+        val msg = if (threshold == 100) {
+            "O evento '$eventName' atingiu a capacidade máxima ($validated/$total lugares validados)."
+        } else {
+            "O evento '$eventName' já ultrapassou os $threshold% da sua lotação ($validated/$total lugares)."
+        }
+
+        // Constrói o JSON exatamente como o Backoffice está à espera
+        val payload = "{\"title\": \"$title\", \"message\": \"$msg\", \"type\": \"$type\"}".toByteArray()
+
+        client.publishWith()
+            .topic(topic)
+            .payload(payload)
+            .send()
+            .whenComplete { _, exception ->
+                if (exception != null) {
+                    Log.e("MQTT", "Erro ao publicar alerta de capacidade", exception)
+                } else {
+                    Log.d("MQTT", "Alerta de lotação ($threshold%) publicado com sucesso!")
+                }
+            }
+    }
+
     fun subscribeToManagerEvents(userGuid: String) {
         val novoTopico = "seating/managers/$userGuid/#"
         if (currentManagerTopic == novoTopico) return

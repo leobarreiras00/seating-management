@@ -73,11 +73,8 @@ builder.Services.AddHostedService(provider => (MqttService)provider.GetRequiredS
 
 var app = builder.Build();
 
-if (app.Environment.IsDevelopment())
-{
-    app.UseSwagger();
-    app.UseSwaggerUI();
-}
+app.UseSwagger();
+app.UseSwaggerUI();
 
 app.UseCors("StrictPolicy");
 app.UseStaticFiles();

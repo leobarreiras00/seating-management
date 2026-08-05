@@ -26,7 +26,7 @@ export default function DashboardPage() {
       const token = localStorage.getItem("token");
       if (!token) return;
 
-      const res = await fetch(`http://localhost:5162/api/Analytics/dashboard?t=${Date.now()}`, {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Analytics/dashboard?t=${Date.now()}`, {
         headers: { 
           Authorization: `Bearer ${token}`,
           'Cache-Control': 'no-cache, no-store, must-revalidate'
@@ -47,7 +47,10 @@ export default function DashboardPage() {
   useEffect(() => {
     fetchDashboardData();
 
-    const client = mqtt.connect("ws://localhost:9001"); 
+    const client = mqtt.connect(process.env.NEXT_PUBLIC_MQTT_URL as string, {
+      username: process.env.NEXT_PUBLIC_MQTT_USERNAME as string,
+      password: process.env.NEXT_PUBLIC_MQTT_PASSWORD as string,
+    });
     client.on("connect", () => {
       client.subscribe("seating/events/#");
     });
