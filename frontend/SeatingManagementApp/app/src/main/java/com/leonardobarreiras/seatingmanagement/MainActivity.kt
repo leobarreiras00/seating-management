@@ -457,8 +457,13 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
     var requireConfirmation by remember { mutableStateOf(true) }
     var seatToConfirmClick by remember { mutableStateOf<SeatEntity?>(null) }
 
-    var selectedTable by remember { mutableStateOf("Todas") }
+    var selectedTables by remember { mutableStateOf(setOf<String>()) }
+    var selectedCategories by remember { mutableStateOf(setOf<String>()) }
     var selectedStatus by remember { mutableStateOf("Todos") }
+
+    var isTableSectionOpen by remember { mutableStateOf(true) }
+    var isCategorySectionOpen by remember { mutableStateOf(true) }
+    var isStatusSectionOpen by remember { mutableStateOf(true) }
 
     var pendingCsvUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var showCsvModeDialog by remember { mutableStateOf(false) }
@@ -617,8 +622,11 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(onClick = { showFilters = !showFilters }, modifier = Modifier.size(48.dp).background(Color.White, RoundedCornerShape(16.dp))) {
-                        Icon(Icons.Rounded.Tune, contentDescription = "Filtros", tint = TextGray)
+                    IconButton(
+                        onClick = { showFilters = !showFilters },
+                        modifier = Modifier.size(48.dp).background(if (showFilters) AccentPurple else Color.White, RoundedCornerShape(16.dp))
+                    ) {
+                        Icon(Icons.Rounded.Tune, contentDescription = "Filtros", tint = if (showFilters) Color.White else TextGray)
                     }
                 }
 
@@ -626,76 +634,183 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     derivedStateOf { seats.map { getMesaFromSeat(it.seatNumber) }.distinct().sorted() }
                 }
 
-                AnimatedVisibility(visible = showFilters) {
-                    Column(modifier = Modifier.fillMaxWidth().padding(vertical = 12.dp)) {
-                        Text("MESA", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                            FilterChipCustom("Todas", selectedTable == "Todas") { selectedTable = "Todas" }
-                            mesasUnicas.forEach { mesa -> FilterChipCustom(mesa, selectedTable == mesa) { selectedTable = mesa } }
-                        }
-                        Spacer(modifier = Modifier.height(16.dp))
-                        Text("ESTADO", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-                            listOf("Todos", "Tratados", "Pendentes").forEach { status -> FilterChipCustom(status, selectedStatus == status) { selectedStatus = status } }
-                        }
-                    }
+                val categoriasUnicas by remember(seats) {
+                    derivedStateOf { seats.map { it.eventName }.distinct().filter { it.isNotBlank() }.sorted() }
                 }
 
-                Spacer(modifier = Modifier.height(16.dp))
-
-                val filteredSeats by remember(seats, searchQuery, selectedTable, selectedStatus) {
+                val filteredSeats by remember(seats, searchQuery, selectedTables, selectedStatus, selectedCategories) {
                     derivedStateOf {
                         seats.filter { seat ->
                             val matchesSearch = seat.assignedTo?.contains(searchQuery, ignoreCase = true) == true || seat.seatNumber.contains(searchQuery, ignoreCase = true) || seat.eventName.contains(searchQuery, ignoreCase = true)
-                            val matchesTable = if (selectedTable == "Todas") true else getMesaFromSeat(seat.seatNumber) == selectedTable
-                            val matchesStatus = when (selectedStatus) { "Tratados" -> seat.status != 0; "Pendentes" -> seat.status == 0; else -> true }
-                            matchesSearch && matchesTable && matchesStatus
+                            val matchesTable = if (selectedTables.isEmpty()) true else selectedTables.contains(getMesaFromSeat(seat.seatNumber))
+                            val matchesCategory = if (selectedCategories.isEmpty()) true else selectedCategories.contains(seat.eventName)
+                            val matchesStatus = when (selectedStatus) {
+                                "Tratados" -> seat.status != 0
+                                "Pendentes" -> seat.status == 0
+                                else -> true
+                            }
+                            matchesSearch && matchesTable && matchesStatus && matchesCategory
                         }
                     }
                 }
 
-                Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                    Text("${filteredSeats.size} registos", color = CorporateBlue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
-                    Text("Toque para validar", color = Color.Gray, fontSize = 12.sp)
-                }
-
-                if (seats.isEmpty()) {
-                    Column(modifier = Modifier.fillMaxSize().padding(top = 40.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                        Box(modifier = Modifier.size(96.dp).background(AccentPurpleLight, RoundedCornerShape(32.dp)), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.Description, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(48.dp))
-                        }
-                        Spacer(modifier = Modifier.height(24.dp))
-                        Text("Sem dados carregados", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
-                        Spacer(modifier = Modifier.height(8.dp))
-                        Text("Importe um ficheiro CSV com as colunas\nMESA;LUGAR;CATEGORIA;NOME\npara começar a gerir.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
-                        Spacer(modifier = Modifier.height(32.dp))
-
-                        if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") {
-                            Button(
-                                onClick = { csvLauncher.launch("*/*") },
-                                modifier = Modifier.fillMaxWidth(0.8f).height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
+                // 👇 NOVO PAINEL DE FILTROS: Ocupa todo o espaço (esconde a lista) 👇
+                AnimatedVisibility(
+                    visible = showFilters,
+                    modifier = if (showFilters) Modifier.weight(1f) else Modifier
+                ) {
+                    Column(
+                        modifier = Modifier
+                            .fillMaxSize()
+                            .padding(vertical = 12.dp)
+                            .verticalScroll(rememberScrollState())
+                    ) {
+                        Row(
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
+                        ) {
+                            Text("Filtros Ativos", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
+                            TextButton(
+                                onClick = {
+                                    selectedTables = emptySet()
+                                    selectedCategories = emptySet()
+                                    selectedStatus = "Todos"
+                                },
+                                contentPadding = PaddingValues(0.dp),
+                                modifier = Modifier.height(24.dp)
                             ) {
-                                Icon(Icons.Rounded.Upload, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
-                                Spacer(modifier = Modifier.width(8.dp))
-                                Text("Importar Ficheiro", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                Text("Limpar", color = ErrorRed, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                            }
+                        }
+
+                        // --- Secção MESA ---
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { isTableSectionOpen = !isTableSectionOpen }.padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("MESA", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                            Icon(imageVector = if (isTableSectionOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null, tint = Color.Gray)
+                        }
+                        AnimatedVisibility(visible = isTableSectionOpen) {
+                            FlowRow(
+                                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChipCustom("Todas", selectedTables.isEmpty()) { selectedTables = emptySet() }
+                                mesasUnicas.forEach { mesa ->
+                                    FilterChipCustom(mesa, selectedTables.contains(mesa)) {
+                                        selectedTables = if (selectedTables.contains(mesa)) selectedTables - mesa else selectedTables + mesa
+                                    }
+                                }
+                            }
+                        }
+
+                        // --- Secção CATEGORIA ---
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { isCategorySectionOpen = !isCategorySectionOpen }.padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("CATEGORIA", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                            Icon(imageVector = if (isCategorySectionOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null, tint = Color.Gray)
+                        }
+                        AnimatedVisibility(visible = isCategorySectionOpen) {
+                            FlowRow(
+                                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp),
+                                verticalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                FilterChipCustom("Todas", selectedCategories.isEmpty()) { selectedCategories = emptySet() }
+                                categoriasUnicas.forEach { categoria ->
+                                    FilterChipCustom(categoria, selectedCategories.contains(categoria)) {
+                                        selectedCategories = if (selectedCategories.contains(categoria)) selectedCategories - categoria else selectedCategories + categoria
+                                    }
+                                }
+                            }
+                        }
+
+                        // --- Secção ESTADO ---
+                        Row(
+                            modifier = Modifier.fillMaxWidth().clickable { isStatusSectionOpen = !isStatusSectionOpen }.padding(vertical = 6.dp),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.SpaceBetween
+                        ) {
+                            Text("ESTADO", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
+                            Icon(imageVector = if (isStatusSectionOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null, tint = Color.Gray)
+                        }
+                        AnimatedVisibility(visible = isStatusSectionOpen) {
+                            Row(
+                                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
+                                horizontalArrangement = Arrangement.spacedBy(8.dp)
+                            ) {
+                                listOf("Todos", "Tratados", "Pendentes").forEach { status ->
+                                    FilterChipCustom(status, selectedStatus == status) { selectedStatus = status }
+                                }
                             }
                         }
                     }
-                } else {
-                    LazyColumn(contentPadding = PaddingValues(bottom = 16.dp), verticalArrangement = Arrangement.spacedBy(12.dp)) {
-                        items(
-                            items = filteredSeats,
-                            key = { seat -> seat.id }
-                        ) { seat ->
-                            GuestListItem(
-                                seat = seat,
-                                onAssignClick = {
-                                    val novoEstado = if (seat.status == 0) 1 else 0
-                                    if (requireConfirmation) seatToConfirmClick = seat else viewModel.updateSeatStatus(seat, novoEstado)
+                }
+
+                // 👇 LISTA DE CONVIDADOS: Aparece só quando os Filtros estão fechados 👇
+                AnimatedVisibility(
+                    visible = !showFilters,
+                    modifier = if (!showFilters) Modifier.weight(1f) else Modifier
+                ) {
+                    Column(modifier = Modifier.fillMaxSize()) {
+                        Spacer(modifier = Modifier.height(16.dp))
+
+                        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                            Text("${filteredSeats.size} registos", color = CorporateBlue, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                            Text("Toque para validar", color = Color.Gray, fontSize = 12.sp)
+                        }
+
+                        if (seats.isEmpty()) {
+                            Column(
+                                modifier = Modifier.fillMaxWidth().weight(1f).padding(top = 40.dp),
+                                horizontalAlignment = Alignment.CenterHorizontally
+                            ) {
+                                Box(modifier = Modifier.size(96.dp).background(AccentPurpleLight, RoundedCornerShape(32.dp)), contentAlignment = Alignment.Center) {
+                                    Icon(Icons.Rounded.Description, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(48.dp))
                                 }
-                            )
+                                Spacer(modifier = Modifier.height(24.dp))
+                                Text("Sem dados carregados", fontSize = 20.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
+                                Spacer(modifier = Modifier.height(8.dp))
+                                Text("Importe um ficheiro CSV com as colunas\nMESA;LUGAR;CATEGORIA;NOME\npara começar a gerir.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
+                                Spacer(modifier = Modifier.height(32.dp))
+
+                                if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") {
+                                    Button(
+                                        onClick = { csvLauncher.launch("*/*") },
+                                        modifier = Modifier.fillMaxWidth(0.8f).height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
+                                    ) {
+                                        Icon(Icons.Rounded.Upload, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp))
+                                        Spacer(modifier = Modifier.width(8.dp))
+                                        Text("Importar Ficheiro", fontWeight = FontWeight.Bold, fontSize = 15.sp)
+                                    }
+                                }
+                            }
+                        } else {
+                            LazyColumn(
+                                modifier = Modifier.fillMaxWidth().weight(1f),
+                                contentPadding = PaddingValues(bottom = 16.dp),
+                                verticalArrangement = Arrangement.spacedBy(12.dp)
+                            ) {
+                                items(
+                                    items = filteredSeats,
+                                    key = { seat -> seat.id }
+                                ) { seat ->
+                                    GuestListItem(
+                                        seat = seat,
+                                        onAssignClick = {
+                                            val novoEstado = if (seat.status == 0) 1 else 0
+                                            if (requireConfirmation) seatToConfirmClick = seat else viewModel.updateSeatStatus(seat, novoEstado)
+                                        }
+                                    )
+                                }
+                            }
                         }
                     }
                 }
@@ -760,7 +875,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
             AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
         }
 
-        // 👇 RENDER DO NOVO ECRÃ DE VALIDAÇÃO DE ERROS 👇
         if (viewModel.showValidationScreen) {
             val exportErrorsLauncher = rememberLauncherForActivityResult(ActivityResultContracts.CreateDocument("text/csv")) { uri ->
                 if (uri != null) viewModel.exportErrorsCsv(uri, context)
@@ -788,7 +902,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                             }
 
                             Spacer(modifier = Modifier.height(16.dp))
-                            // 👇 UTILIZAÇÃO SEGURA DA CHAVE PARA O COMPOSE NÃO FALHAR 👇
+
                             val grouped = viewModel.validationErrorsList.groupBy { it.actualErrorType }
 
                             LazyColumn(verticalArrangement = Arrangement.spacedBy(12.dp)) {
@@ -798,12 +912,10 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                                             Row(verticalAlignment = Alignment.CenterVertically) {
                                                 Box(modifier = Modifier.size(8.dp).background(ErrorRed, CircleShape))
                                                 Spacer(modifier = Modifier.width(8.dp))
-                                                // 👇 ENTRY.KEY AGORA É GARANTIDAMENTE UMA STRING 👇
                                                 Text(entry.key, fontWeight = FontWeight.Bold, color = CorporateBlue, fontSize = 15.sp)
                                             }
                                             Text("${entry.value.size} ocorrências", color = TextGray, fontSize = 12.sp, modifier = Modifier.padding(start = 16.dp, top = 2.dp))
                                             Spacer(modifier = Modifier.height(12.dp))
-                                            // 👇 UTILIZAÇÃO SEGURA DA LINHA 👇
                                             val linhas = entry.value.joinToString(", ") { if(it.actualLine == 0) "Geral" else it.actualLine.toString() }
                                             Text("Linhas: $linhas", color = Color.Gray, fontSize = 13.sp, lineHeight = 20.sp)
                                         }

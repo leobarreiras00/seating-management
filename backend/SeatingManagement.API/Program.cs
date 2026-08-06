@@ -11,17 +11,30 @@ var builder = WebApplication.CreateBuilder(args);
 builder.Services.AddControllers();
 builder.Services.AddEndpointsApiExplorer();
 
+// Permitir ligações vindas da Vercel
 builder.Services.AddCors(options =>
 {
     options.AddPolicy("StrictPolicy", policy =>
     {
-        policy.WithOrigins("http://localhost:3000")
+        policy.SetIsOriginAllowed(origin => 
+              {
+                  var uri = new Uri(origin);
+                  var host = uri.Host;
+
+                  bool isProduction = host == "seatly-backoffice.vercel.app";
+
+                  bool isMyVercelPreview = host.StartsWith("seatly-backoffice-") && host.EndsWith(".vercel.app");
+
+                  bool isLocal = host == "localhost" || host == "127.0.0.1";
+
+                  return isProduction || isMyVercelPreview || isLocal;
+              })
               .AllowAnyMethod()
               .AllowAnyHeader();
     });
 });
 
-// 1. Configurar o Swagger para aceitar Tokens (Cadeado visual)
+// 2. Configurar o Swagger para aceitar Tokens (Cadeado visual)
 builder.Services.AddSwaggerGen(options =>
 {
     options.AddSecurityDefinition("Bearer", new OpenApiSecurityScheme
@@ -45,10 +58,11 @@ builder.Services.AddSwaggerGen(options =>
     });
 });
 
+// Configuração da Base de Dados
 builder.Services.AddDbContext<AppDbContext>(options =>
     options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
 
-// 2. Configurar a Autenticação JWT
+// 3. Configurar a Autenticação JWT
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is missing");
 builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
     .AddJwtBearer(options =>
@@ -65,9 +79,6 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
         };
     });
 
-builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
-
 builder.Services.AddSingleton<IMqttService, MqttService>();
 builder.Services.AddHostedService(provider => (MqttService)provider.GetRequiredService<IMqttService>());
 
@@ -79,7 +90,7 @@ app.UseSwaggerUI();
 app.UseCors("StrictPolicy");
 app.UseStaticFiles();
 
-// 3. Ativar Autenticação ANTES da Autorização
+// 4. Ativar Autenticação ANTES da Autorização
 app.UseAuthentication(); 
 app.UseAuthorization();
 app.MapControllers();

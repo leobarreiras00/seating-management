@@ -14,23 +14,29 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
     var onProfileRefresh: (() -> Unit)? = null
 
     private var currentManagerTopic: String? = null
+
     private val client: Mqtt3AsyncClient = MqttClient.builder()
         .useMqttVersion3()
         .identifier(UUID.randomUUID().toString())
-        .serverHost("10.0.2.2") // IP padrão do emulador
-        .serverPort(1883)
+        .serverHost("cec974b49a5f43c8a19ef81e6f877b64.s1.eu.hivemq.cloud") // Host do HiveMQ Cloud
+        .serverPort(8883) // Porta segura SSL/TLS
+        .sslWithDefaultConfig() // Ativa a encriptação SSL exigida pelo HiveMQ Cloud
         .buildAsync()
 
     private var currentTopic: String? = null
 
     fun connect() {
         client.connectWith()
+            .simpleAuth()
+            .username("lbseatly-mqtt") // <-- Substitui pelo username da tua conta HiveMQ
+            .password("Dvs.8713".toByteArray()) // <-- Substitui pela password da tua conta HiveMQ
+            .applySimpleAuth()
             .send()
             .whenComplete { _, throwable ->
                 if (throwable != null) {
-                    Log.e("MQTT", "Erro ao ligar ao broker Mosquitto", throwable)
+                    Log.e("MQTT", "Erro ao ligar ao HiveMQ Cloud", throwable)
                 } else {
-                    Log.d("MQTT", "Ligado ao Mosquitto com sucesso!")
+                    Log.d("MQTT", "Ligado ao HiveMQ Cloud com sucesso!")
                 }
             }
     }
@@ -101,7 +107,6 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
             "O evento '$eventName' já ultrapassou os $threshold% da sua lotação ($validated/$total lugares)."
         }
 
-        // Constrói o JSON exatamente como o Backoffice está à espera
         val payload = "{\"title\": \"$title\", \"message\": \"$msg\", \"type\": \"$type\"}".toByteArray()
 
         client.publishWith()
