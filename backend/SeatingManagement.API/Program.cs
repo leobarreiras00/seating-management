@@ -113,4 +113,5 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
+app.MapGet("/", () => "A API do Seatly está online e a correr a 100%!");
 app.Run();
