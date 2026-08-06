@@ -49,65 +49,122 @@ export default function LoginScreen() {
   };
 
   return (
-    <div className="flex min-h-screen bg-slate-50">
-      {/* Lado Esquerdo - Imagem/Branding */}
-      <div className="hidden lg:flex w-1/2 bg-slate-900 flex-col items-center justify-center p-12">
-        <div className="w-32 h-32 mb-8 flex items-center justify-center shadow-2xl rounded-3xl overflow-hidden border-4 border-slate-800">
-           {/* 👇 LOGOTIPO OFICIAL ATUALIZADO PARA .PNG 👇 */}
-           <Image src="/seatly_icon.png" alt="Seatly Logo" width={128} height={128} className="object-cover" />
-        </div>
-        <h1 className="text-white text-4xl font-bold mb-4">Seatly Backoffice</h1>
-        <p className="text-slate-400 text-center max-w-md">
-          A plataforma central de administração. Gere os teus clientes, instâncias e acessos num só lugar.
-        </p>
-      </div>
+    /* Wrapper Principal - Usa Flex Column para empurrar o footer de forma natural */
+    <div className="flex flex-col min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-50 via-slate-50 to-slate-100 p-4 sm:p-6 md:p-8">
+      
+      {/* Spacer invisível para ajudar a centrar o card ignorando o footer */}
+      <div className="flex-1"></div>
 
-      {/* Lado Direito - Formulário */}
-      <div className="w-full lg:w-1/2 flex items-center justify-center p-8">
-        <div className="w-full max-w-md bg-white p-10 rounded-3xl shadow-xl border border-slate-100">
-          <h2 className="text-2xl font-extrabold text-slate-900 mb-2">Bem-vindo de volta</h2>
+      {/* Card Central - Largura adaptável com w-full e max-w */}
+      <div className="w-full max-w-[440px] bg-white/90 backdrop-blur-xl p-8 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)] border border-white transition-all">
+        
+        {/* Cabeçalho / Branding */}
+        <div className="flex flex-col items-center mb-8 text-center">
+          <div className="mb-6 flex justify-center">
+            {/* Imagem responsiva via Next.js */}
+            <Image 
+              src="/seatly_wrt.png" 
+              alt="Seatly Logo" 
+              width={160} 
+              height={55} 
+              className="object-contain w-32 sm:w-40 h-auto"
+              priority
+            />
+          </div>
           
-          <p className="text-slate-500 mb-8 text-sm">Insere as tuas credenciais.</p>
+          <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mb-1">
+            Bem-vindo de volta
+          </h2>
+          <p className="text-slate-500 text-xs sm:text-sm font-medium">
+            Insere as tuas credenciais para aceder ao sistema.
+          </p>
+        </div>
 
-          <form onSubmit={handleLogin} className="space-y-5">
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Utilizador</label>
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                required
-              />
+        {/* Formulário */}
+        <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Utilizador</label>
+            <input
+              type="text"
+              value={username}
+              onChange={(e) => setUsername(e.target.value)}
+              className="w-full px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-slate-800 text-sm sm:text-base font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+              placeholder="Ex: admin"
+              required
+            />
+          </div>
+
+          <div>
+            <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Palavra-passe</label>
+            <input
+              type="password"
+              value={password}
+              onChange={(e) => setPassword(e.target.value)}
+              className="w-full px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-slate-800 text-sm sm:text-base font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+              placeholder="••••••••"
+              required
+            />
+          </div>
+
+          {/* Mensagem de Erro */}
+          {error && (
+            <div className="p-3 sm:p-4 bg-red-50 text-red-600 text-xs sm:text-sm font-semibold rounded-2xl border border-red-100 flex items-start gap-2 sm:gap-3 animate-pulse">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
+                <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
+              </svg>
+              <span>{error}</span>
             </div>
+          )}
 
-            <div>
-              <label className="block text-sm font-bold text-slate-700 mb-2">Palavra-passe</label>
-              <input
-                type="password"
-                value={password}
-                onChange={(e) => setPassword(e.target.value)}
-                className="w-full px-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all"
-                required
-              />
-            </div>
-
-            {error && (
-              <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl border border-red-100">
-                {error}
-              </div>
+          {/* Botão de Submit */}
+          <button
+            type="submit"
+            disabled={isLoading}
+            className="w-full bg-[#8B5CF6] hover:bg-[#7C3AED] text-white font-bold py-3.5 sm:py-4 rounded-2xl transition-all duration-300 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 mt-2 flex justify-center items-center active:scale-[0.98] text-sm sm:text-base"
+          >
+            {isLoading ? (
+              <span className="flex items-center gap-2">
+                <svg className="animate-spin h-4 w-4 sm:h-5 sm:w-5 text-white" xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24">
+                  <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4"></circle>
+                  <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z"></path>
+                </svg>
+                A verificar...
+              </span>
+            ) : (
+              "ENTRAR NO SISTEMA"
             )}
+          </button>
+        </form>
 
-            <button
-              type="submit"
-              disabled={isLoading}
-              className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-4 flex justify-center items-center"
-            >
-              {isLoading ? "A verificar..." : "ENTRAR NO SISTEMA"}
-            </button>
-          </form>
+        {/* Indicadores de Segurança */}
+        <div className="mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-100 flex flex-col gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 text-slate-500">
+            <div className="bg-purple-100 p-1 sm:p-1.5 rounded-full text-purple-600">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
+              </svg>
+            </div>
+            <span className="text-[11px] sm:text-xs font-medium">Acesso restrito a SuperAdmins</span>
+          </div>
+          <div className="flex items-center gap-2 sm:gap-3 text-slate-500">
+            <div className="bg-purple-100 p-1 sm:p-1.5 rounded-full text-purple-600">
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
+                <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
+              </svg>
+            </div>
+            <span className="text-[11px] sm:text-xs font-medium">Ligação encriptada de ponta-a-ponta</span>
+          </div>
+        </div>
+
+      </div>
+
+      {/* Footer dinâmico na base com flex-1 a empurrar */}
+      <div className="flex-1 flex items-end pb-2 sm:pb-6">
+        <div className="text-slate-400 text-xs sm:text-sm font-medium mt-8">
+          Copyright © Seatly 2026.
         </div>
       </div>
+
     </div>
   );
 }
