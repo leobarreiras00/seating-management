@@ -49,14 +49,14 @@ export default function LoginScreen() {
   };
 
   return (
-    /* Wrapper Principal - Usa Flex Column para empurrar o footer de forma natural */
-    <div className="flex flex-col min-h-screen items-center justify-center bg-[radial-gradient(ellipse_at_top,_var(--tw-gradient-stops))] from-purple-50 via-slate-50 to-slate-100 p-4 sm:p-6 md:p-8">
+    /* Wrapper Principal - Novo fundo gradiente prateado/cinzento */
+    <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-slate-300 via-slate-100 to-slate-200 p-4 sm:p-6 md:p-8 text-slate-900">
       
       {/* Spacer invisível para ajudar a centrar o card ignorando o footer */}
       <div className="flex-1"></div>
 
-      {/* Card Central - Largura adaptável com w-full e max-w */}
-      <div className="w-full max-w-[440px] bg-white/90 backdrop-blur-xl p-8 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)] border border-white transition-all">
+      {/* Card Central - Efeito Liquid Glass aprimorado (bg-white/70, blur-2xl, border-white/60) */}
+      <div className="w-full max-w-[440px] bg-white/70 backdrop-blur-2xl p-8 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(168,85,247,0.25)] border border-white/60 transition-all">
         
         {/* Cabeçalho / Branding */}
         <div className="flex flex-col items-center mb-8 text-center">
@@ -88,7 +88,7 @@ export default function LoginScreen() {
               type="text"
               value={username}
               onChange={(e) => setUsername(e.target.value)}
-              className="w-full px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-slate-800 text-sm sm:text-base font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+              className="w-full px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-50/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 text-slate-800 text-sm sm:text-base font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
               placeholder="Ex: admin"
               required
             />
@@ -100,7 +100,7 @@ export default function LoginScreen() {
               type="password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-50 rounded-2xl border border-slate-200 text-slate-800 text-sm sm:text-base font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
+              className="w-full px-4 sm:px-5 py-3 sm:py-3.5 bg-slate-50/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 text-slate-800 text-sm sm:text-base font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300"
               placeholder="••••••••"
               required
             />
@@ -108,7 +108,7 @@ export default function LoginScreen() {
 
           {/* Mensagem de Erro */}
           {error && (
-            <div className="p-3 sm:p-4 bg-red-50 text-red-600 text-xs sm:text-sm font-semibold rounded-2xl border border-red-100 flex items-start gap-2 sm:gap-3 animate-pulse">
+            <div className="p-3 sm:p-4 bg-red-50/90 text-red-600 text-xs sm:text-sm font-semibold rounded-2xl border border-red-100 flex items-start gap-2 sm:gap-3 animate-pulse">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4 sm:h-5 sm:w-5 shrink-0 mt-0.5" viewBox="0 0 20 20" fill="currentColor">
                 <path fillRule="evenodd" d="M18 10a8 8 0 11-16 0 8 8 0 0116 0zm-7 4a1 1 0 11-2 0 1 1 0 012 0zm-1-9a1 1 0 00-1 1v4a1 1 0 102 0V6a1 1 0 00-1-1z" clipRule="evenodd" />
               </svg>
@@ -137,8 +137,8 @@ export default function LoginScreen() {
         </form>
 
         {/* Indicadores de Segurança */}
-        <div className="mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-100 flex flex-col gap-2.5 sm:gap-3">
-          <div className="flex items-center gap-2 sm:gap-3 text-slate-500">
+        <div className="mt-6 sm:mt-8 pt-5 sm:pt-6 border-t border-slate-200/60 flex flex-col gap-2.5 sm:gap-3">
+          <div className="flex items-center gap-2 sm:gap-3 text-slate-600">
             <div className="bg-purple-100 p-1 sm:p-1.5 rounded-full text-purple-600">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z" />
@@ -146,7 +146,7 @@ export default function LoginScreen() {
             </div>
             <span className="text-[11px] sm:text-xs font-medium">Acesso restrito a SuperAdmins</span>
           </div>
-          <div className="flex items-center gap-2 sm:gap-3 text-slate-500">
+          <div className="flex items-center gap-2 sm:gap-3 text-slate-600">
             <div className="bg-purple-100 p-1 sm:p-1.5 rounded-full text-purple-600">
               <svg xmlns="http://www.w3.org/2000/svg" className="h-3 w-3 sm:h-4 sm:w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor" strokeWidth={2}>
                 <path strokeLinecap="round" strokeLinejoin="round" d="M9 12l2 2 4-4m5.618-4.016A11.955 11.955 0 0112 2.944a11.955 11.955 0 01-8.618 3.04A12.02 12.02 0 003 9c0 5.591 3.824 10.29 9 11.622 5.176-1.332 9-6.03 9-11.622 0-1.042-.133-2.052-.382-3.016z" />
@@ -158,9 +158,9 @@ export default function LoginScreen() {
 
       </div>
 
-      {/* Footer dinâmico na base com flex-1 a empurrar */}
+      {/* Footer dinâmico na base */}
       <div className="flex-1 flex items-end pb-2 sm:pb-6">
-        <div className="text-slate-400 text-xs sm:text-sm font-medium mt-8">
+        <div className="text-slate-500 text-xs sm:text-sm font-medium mt-8">
           Copyright © Seatly 2026.
         </div>
       </div>
