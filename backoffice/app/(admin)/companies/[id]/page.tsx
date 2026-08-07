@@ -3,28 +3,18 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock, AlertTriangle, Download } from "lucide-react";
+import { ChevronLeft, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock, AlertTriangle, Download, CheckCircle2, Info, Loader2 } from "lucide-react";
 import mqtt from "mqtt";
 
 interface Company { id: number; name: string; logoUrl: string | null; }
 interface AccountUser { id: number; username: string; role: string; }
 interface AssignedUser { id: number; username: string; }
-interface EventStats { 
-  id: number; 
-  name: string; 
-  startDate: string; 
-  endDate: string; 
-  totalSeats: number; 
-  treatedSeats: number; 
-  assignedUsers: AssignedUser[]; 
+interface EventStats {
+  id: number; name: string; startDate: string; endDate: string;
+  totalSeats: number; treatedSeats: number; assignedUsers: AssignedUser[];
 }
 
-interface CsvValidationError {
-  line?: number;
-  Line?: number;
-  errorType?: string;
-  ErrorType?: string;
-}
+interface CsvValidationError { line?: number; Line?: number; errorType?: string; ErrorType?: string; }
 
 export default function CompanyDetailsPage() {
   const params = useParams();
@@ -34,9 +24,12 @@ export default function CompanyDetailsPage() {
   const [managers, setManagers] = useState<AccountUser[]>([]);
   const [companyUsers, setCompanyUsers] = useState<AccountUser[]>([]);
   const [events, setEvents] = useState<EventStats[]>([]);
-  
   const [activeTab, setActiveTab] = useState<"gestores" | "utilizadores" | "eventos">("gestores");
   const [isLoading, setIsLoading] = useState(true);
+
+  // Sistema de Diálogos (Liquid Glass)
+  const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void } | null>(null);
+  const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' } | null>(null);
 
   // Modais de Conta
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
@@ -58,24 +51,23 @@ export default function CompanyDetailsPage() {
   // Modais de Evento
   const [showEventModal, setShowEventModal] = useState(false);
   const [eventName, setEventName] = useState("");
-  const [eventStartDate, setEventStartDate] = useState(""); 
-  const [eventEndDate, setEventEndDate] = useState(""); 
+  const [eventStartDate, setEventStartDate] = useState("");
+  const [eventEndDate, setEventEndDate] = useState("");
   const [isCreatingEvent, setIsCreatingEvent] = useState(false);
   const [eventError, setEventError] = useState("");
 
   const [showEditEventModal, setShowEditEventModal] = useState(false);
   const [editEventId, setEditEventId] = useState<number | null>(null);
   const [editEventName, setEditEventName] = useState("");
-  const [editEventStartDate, setEditEventStartDate] = useState(""); 
-  const [editEventEndDate, setEditEventEndDate] = useState(""); 
+  const [editEventStartDate, setEditEventStartDate] = useState("");
+  const [editEventEndDate, setEditEventEndDate] = useState("");
   const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [editEventError, setEditEventError] = useState("");
 
-  // Modais de Acesso
+  // Novos Modais de Acesso Multi-Select
   const [showAssignModal, setShowAssignModal] = useState(false);
-  const [assignEventId, setAssignEventId] = useState<number | null>(null);
-  const [assignManagerId, setAssignManagerId] = useState<string>("");
-  const [assignUserId, setAssignUserId] = useState<string>("");
+  const [assignEvent, setAssignEvent] = useState<EventStats | null>(null);
+  const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignError, setAssignError] = useState("");
 
@@ -87,8 +79,6 @@ export default function CompanyDetailsPage() {
   const [isUploading, setIsUploading] = useState(false);
   const [uploadError, setUploadError] = useState("");
   const [uploadSuccess, setUploadSuccess] = useState("");
-  
-  // Estados de Validação Estrutural
   const [validationErrors, setValidationErrors] = useState<CsvValidationError[] | null>(null);
   const [totalValidationRows, setTotalValidationRows] = useState(0);
 
@@ -97,12 +87,10 @@ export default function CompanyDetailsPage() {
     try {
       const token = localStorage.getItem("token");
       if (!token) throw new Error("Token não encontrado.");
-
       const headers = { Authorization: `Bearer ${token}` };
 
       const compRes = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company`, { headers });
       if (!compRes.ok) throw new Error(`Erro na API: ${compRes.status}`);
-
       const compData: Company[] = await compRes.json();
       const currentComp = compData.find((c) => c.id === Number(id));
       if (currentComp) setCompany(currentComp);
@@ -122,9 +110,7 @@ export default function CompanyDetailsPage() {
     }
   }, [id]);
 
-  useEffect(() => {
-    fetchCompanyData();
-  }, [fetchCompanyData]);
+  useEffect(() => { fetchCompanyData(); }, [fetchCompanyData]);
 
   useEffect(() => {
     if (!id) return;
@@ -140,116 +126,86 @@ export default function CompanyDetailsPage() {
     return () => { client.end(); };
   }, [id, fetchCompanyData]);
 
+  // Contas
   const openCreateAccountModal = (role: "Gestor" | "Utilizador") => {
-    setNewAccountRole(role);
-    setNewUsername("");
-    setNewPassword("");
-    setNewPasswordConfirm("");
-    setCreateAccountError("");
-    setShowCreateAccountModal(true);
+    setNewAccountRole(role); setNewUsername(""); setNewPassword(""); setNewPasswordConfirm(""); setCreateAccountError(""); setShowCreateAccountModal(true);
   };
 
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword !== newPasswordConfirm) {
-      setCreateAccountError("As palavras-passe não coincidem.");
-      return;
-    }
-
-    setIsCreatingAccount(true);
-    setCreateAccountError("");
+    if (newPassword !== newPasswordConfirm) { setCreateAccountError("As palavras-passe não coincidem."); return; }
+    setIsCreatingAccount(true); setCreateAccountError("");
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/register`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ username: newUsername, password: newPassword, role: newAccountRole, companyId: Number(id) }),
       });
       if (!res.ok) throw new Error(`Erro ao criar o ${newAccountRole.toLowerCase()}.`);
-      setShowCreateAccountModal(false); 
-      fetchCompanyData(); 
-    } catch (err: any) { 
-      setCreateAccountError(err.message); 
-    } finally { 
-      setIsCreatingAccount(false); 
-    }
+      setShowCreateAccountModal(false); fetchCompanyData();
+    } catch (err: any) { setCreateAccountError(err.message); } finally { setIsCreatingAccount(false); }
   };
 
   const openResetPasswordModal = (userId: number, username: string) => {
-    setResetUserId(userId);
-    setResetUsername(username);
-    setResetNewPassword("");
-    setResetNewPasswordConfirm("");
-    setResetError("");
-    setShowResetModal(true);
+    setResetUserId(userId); setResetUsername(username); setResetNewPassword(""); setResetNewPasswordConfirm(""); setResetError(""); setShowResetModal(true);
   };
 
   const handleResetPassword = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!resetUserId) return;
-    if (resetNewPassword !== resetNewPasswordConfirm) {
-      setResetError("As palavras-passe não coincidem.");
-      return;
-    }
-
-    setIsResetting(true);
-    setResetError("");
+    if (resetNewPassword !== resetNewPasswordConfirm) { setResetError("As palavras-passe não coincidem."); return; }
+    setIsResetting(true); setResetError("");
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${resetUserId}/reset-password`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ newPassword: resetNewPassword }),
       });
       if (!res.ok) throw new Error("Erro ao alterar palavra-passe.");
       setShowResetModal(false);
-      alert("Palavra-passe alterada com sucesso!");
-    } catch (err: any) { 
-      setResetError(err.message); 
-    } finally { 
-      setIsResetting(false); 
-    }
+      setAlertDialog({ isOpen: true, title: "Sucesso", message: "A palavra-passe foi alterada com sucesso!", type: 'success' });
+    } catch (err: any) { setResetError(err.message); } finally { setIsResetting(false); }
   };
 
-  const handleDeleteUser = async (userId: number, username: string, role: string) => {
-    if (!window.confirm(`Tens a certeza que queres remover o acesso do ${role.toLowerCase()} "${username}"? Esta ação é irreversível.`)) return;
-    try {
-      const token = localStorage.getItem("token");
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      fetchCompanyData();
-    } catch (error) { alert("Ocorreu um erro ao tentar apagar o acesso."); }
+  const promptDeleteUser = (userId: number, username: string, role: string) => {
+    setConfirmDialog({
+      isOpen: true, title: "Remover Acesso", message: `Tens a certeza que queres apagar permanentemente o ${role.toLowerCase()} "${username}"?`,
+      onConfirm: async () => {
+        try {
+          const token = localStorage.getItem("token");
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+          fetchCompanyData();
+        } catch (error) { setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao tentar apagar o acesso.", type: 'error' }); }
+      }
+    });
   };
 
+  // Eventos
   const handleCreateEvent = async (e: React.FormEvent) => {
-    e.preventDefault();
-    setIsCreatingEvent(true);
-    setEventError("");
+    e.preventDefault(); setIsCreatingEvent(true); setEventError("");
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}/events`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: eventName, startDate: new Date(eventStartDate).toISOString(), endDate: new Date(eventEndDate).toISOString() }),
       });
       if (!res.ok) throw new Error("Erro ao criar o evento.");
-      setEventName(""); setEventStartDate(""); setEventEndDate(""); setShowEventModal(false); fetchCompanyData(); 
+      setEventName(""); setEventStartDate(""); setEventEndDate(""); setShowEventModal(false); fetchCompanyData();
     } catch (err: any) { setEventError(err.message); } finally { setIsCreatingEvent(false); }
   };
 
   const handleUpdateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editEventId) return;
-    setIsEditingEvent(true);
-    setEditEventError("");
+    setIsEditingEvent(true); setEditEventError("");
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${editEventId}`, {
-        method: "PUT",
-        headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
+        method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: editEventName, startDate: new Date(editEventStartDate).toISOString(), endDate: new Date(editEventEndDate).toISOString() }),
       });
       if (!res.ok) throw new Error("Erro ao atualizar o evento.");
-      setShowEditEventModal(false); fetchCompanyData(); 
+      setShowEditEventModal(false); fetchCompanyData();
     } catch (err: any) { setEditEventError(err.message); } finally { setIsEditingEvent(false); }
   };
 
@@ -257,68 +213,75 @@ export default function CompanyDetailsPage() {
     setEditEventId(event.id); setEditEventName(event.name);
     const startStr = event.startDate ? event.startDate.split('T')[0] : "";
     const endStr = event.endDate ? event.endDate.split('T')[0] : startStr;
-    setEditEventStartDate(startStr); 
-    setEditEventEndDate(endStr);
-    setShowEditEventModal(true);
+    setEditEventStartDate(startStr); setEditEventEndDate(endStr); setShowEditEventModal(true);
   };
 
-  const handleAssignAccess = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!assignManagerId && !assignUserId) { 
-      setAssignError("Por favor, seleciona pelo menos uma pessoa."); 
-      return; 
-    }
-    
-    setIsAssigning(true);
+  const promptDeleteEvent = (eventId: number, evName: string) => {
+    setConfirmDialog({
+      isOpen: true, title: "Apagar Evento", message: `Tens a certeza que queres apagar o evento "${evName}"? Todos os bilhetes e validações serão permanentemente destruídos.`,
+      onConfirm: async () => {
+        try {
+          const token = localStorage.getItem("token");
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${eventId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+          fetchCompanyData();
+        } catch (error) { setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao tentar apagar o evento.", type: 'error' }); }
+      }
+    });
+  };
+
+  // Lógica Multi-Select de Acessos
+  const openAssignModal = (event: EventStats) => {
+    setAssignEvent(event);
+    setSelectedUserIds([]);
     setAssignError("");
+    setShowAssignModal(true);
+  };
+
+  const toggleUserSelection = (userId: number) => {
+    setSelectedUserIds(prev => 
+      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
+    );
+  };
+
+  const handleAssignAccess = async () => {
+    if (selectedUserIds.length === 0 || !assignEvent) return;
+    setIsAssigning(true); setAssignError("");
     try {
       const token = localStorage.getItem("token");
       const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-
-      if (assignManagerId) {
-        const resM = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${assignEventId}/assign-user`, {
-          method: "POST", headers, body: JSON.stringify({ userId: assignManagerId })
-        });
-        if (!resM.ok) throw new Error("Erro ao atribuir o gestor.");
-      }
-
-      if (assignUserId) {
-        const resU = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${assignEventId}/assign-user`, {
-          method: "POST", headers, body: JSON.stringify({ userId: assignUserId })
-        });
-        if (!resU.ok) throw new Error("Erro ao atribuir o utilizador.");
-      }
-
+      
+      const promises = selectedUserIds.map(userId => 
+        fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${assignEvent.id}/assign-user`, { 
+          method: "POST", headers, body: JSON.stringify({ userId }) 
+        }).then(res => { if (!res.ok) throw new Error("Erro na atribuição"); })
+      );
+      
+      await Promise.all(promises);
+      
       setShowAssignModal(false);
-      setAssignManagerId("");
-      setAssignUserId("");
-      alert("Acesso atribuído com sucesso!");
+      setAlertDialog({ isOpen: true, title: "Sucesso", message: "Os acessos foram atribuídos com sucesso à equipa selecionada!", type: 'success' });
       fetchCompanyData();
-    } catch (err: any) { 
-      setAssignError(err.message); 
-    } finally { 
-      setIsAssigning(false); 
+    } catch (err: any) {
+      setAssignError("Alguns acessos podem não ter sido atribuídos corretamente devido a um erro de comunicação.");
+    } finally {
+      setIsAssigning(false);
     }
   };
 
-  const handleDeleteEvent = async (eventId: number, evName: string) => {
-    if (!window.confirm(`Tens a certeza que queres apagar o evento "${evName}"? Esta ação é irreversível e todos os dados associados serão perdidos.`)) return;
-    try {
-      const token = localStorage.getItem("token");
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${eventId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      fetchCompanyData();
-    } catch (error) { alert("Ocorreu um erro ao tentar apagar o evento."); }
+  const promptRemoveAccess = (eventId: number, userId: number, userName: string, eventNameStr: string) => {
+    setConfirmDialog({
+      isOpen: true, title: "Remover Acesso", message: `Queres remover a permissão de "${userName}" para aceder e operar no evento "${eventNameStr}"?`,
+      onConfirm: async () => {
+        try {
+          const token = localStorage.getItem("token");
+          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}/events/${eventId}/assign/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
+          fetchCompanyData();
+        } catch (error) { setAlertDialog({ isOpen: true, title: "Erro", message: "Falha ao remover o acesso do utilizador.", type: 'error' }); }
+      }
+    });
   };
 
-  const handleRemoveAccess = async (eventId: number, userId: number, userName: string, eventNameStr: string) => {
-    if (!window.confirm(`Remover acesso de "${userName}" ao evento "${eventNameStr}"?`)) return;
-    try {
-      const token = localStorage.getItem("token");
-      await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}/events/${eventId}/assign/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
-      fetchCompanyData();
-    } catch (error) { alert("Ocorreu um erro ao tentar remover o acesso."); }
-  };
-
+  // Upload CSV
   const openUploadModal = (eventId: number) => {
     setUploadEventId(eventId); setUploadFile(null); setUploadMode("replace");
     setUploadError(""); setUploadSuccess(""); setValidationErrors(null); setShowUploadModal(true);
@@ -330,53 +293,35 @@ export default function CompanyDetailsPage() {
     setIsUploading(true); setUploadError(""); setUploadSuccess(""); setValidationErrors(null);
     try {
       const token = localStorage.getItem("token");
-      const formData = new FormData();
-      formData.append("file", uploadFile);
-
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/SeatCsv/import/${uploadEventId}?mode=${uploadMode}`, {
-        method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData
-      });
+      const formData = new FormData(); formData.append("file", uploadFile);
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/SeatCsv/import/${uploadEventId}?mode=${uploadMode}`, { method: "POST", headers: { Authorization: `Bearer ${token}` }, body: formData });
       const data = await res.json().catch(() => ({}));
-      
       if (!res.ok) {
         const apiErrors = data.errors || data.Errors;
         const apiTotalRows = data.totalRows || data.TotalRows || 0;
-
         if (apiErrors && Array.isArray(apiErrors) && apiErrors.length > 0) {
-          setValidationErrors(apiErrors);
-          setTotalValidationRows(apiTotalRows);
-          setIsUploading(false);
-          return; 
+          setValidationErrors(apiErrors); setTotalValidationRows(apiTotalRows); setIsUploading(false); return;
         }
-        
         throw new Error(data.message || data.Message || "Erro ao importar ficheiro.");
       }
-
       setUploadSuccess(data.message || data.Message || "Ficheiro importado com sucesso!");
-      setUploadFile(null); fetchCompanyData(); 
-    } catch (err: any) { 
-      setUploadError(err.message); 
-    } finally { 
-      setIsUploading(false); 
-    }
+      setUploadFile(null); fetchCompanyData();
+    } catch (err: any) { setUploadError(err.message); } finally { setIsUploading(false); }
   };
 
   const handleExportErrors = () => {
     if (!validationErrors) return;
     let csvContent = "Linha;Erro\n";
-    validationErrors.forEach(e => { 
+    validationErrors.forEach(e => {
       const line = e.line !== undefined ? e.line : (e.Line !== undefined ? e.Line : 0);
       const type = e.errorType || e.ErrorType || "Erro Desconhecido";
-      csvContent += `${line === 0 ? 'Geral' : line};${type}\n`; 
+      csvContent += `${line === 0 ? 'Geral' : line};${type}\n`;
     });
     const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
-    link.href = url;
-    link.setAttribute("download", "relatorio_erros.csv");
-    document.body.appendChild(link);
-    link.click();
-    document.body.removeChild(link);
+    link.href = url; link.setAttribute("download", "relatorio_erros.csv");
+    document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
   const renderAccountList = (list: AccountUser[], title: string, roleType: "Gestor" | "Utilizador", emptyMsg: string) => (
@@ -404,7 +349,7 @@ export default function CompanyDetailsPage() {
                 <button onClick={() => openResetPasswordModal(account.id, account.username)} className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Repor Palavra-passe">
                   <Lock className="w-5 h-5" />
                 </button>
-                <button onClick={() => handleDeleteUser(account.id, account.username, account.role)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title={`Apagar ${account.role}`}>
+                <button onClick={() => promptDeleteUser(account.id, account.username, account.role)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title={`Apagar ${account.role}`}>
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
@@ -427,14 +372,21 @@ export default function CompanyDetailsPage() {
   const groupedErrors = validationErrors ? validationErrors.reduce((acc, err) => {
     const type = err.errorType || err.ErrorType || "Erro Desconhecido";
     const line = err.line !== undefined ? err.line : (err.Line !== undefined ? err.Line : 0);
-    
     if (!acc[type]) acc[type] = [];
     acc[type].push(line);
     return acc;
   }, {} as Record<string, number[]>) : {};
 
+  // Lógica de Filtro para os Modais de Acessos
+  let availableManagers: AccountUser[] = [];
+  let availableUsers: AccountUser[] = [];
+  if (assignEvent) {
+    availableManagers = managers.filter(m => !assignEvent.assignedUsers.some(au => au.id === m.id));
+    availableUsers = companyUsers.filter(u => !assignEvent.assignedUsers.some(au => au.id === u.id));
+  }
+
   return (
-    <div className="max-w-6xl mx-auto relative">
+    <div className="w-full max-w-7xl mx-auto relative px-2 sm:px-4 lg:px-8">
       <Link href="/companies" className="inline-flex items-center text-slate-500 hover:text-purple-600 font-medium mb-8 transition-colors">
         <ChevronLeft className="w-5 h-5 mr-1" /> Voltar para Empresas
       </Link>
@@ -442,7 +394,6 @@ export default function CompanyDetailsPage() {
       <div className="flex items-center gap-6 mb-10 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
         <div className="w-24 h-24 rounded-3xl bg-slate-50 border border-slate-100 flex items-center justify-center p-2 shrink-0 shadow-inner">
           {company.logoUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
             <img src={company.logoUrl} alt={company.name} className="w-full h-full object-contain" />
           ) : (
             <span className="text-slate-400 font-bold text-xl">{company.name.charAt(0)}</span>
@@ -470,7 +421,6 @@ export default function CompanyDetailsPage() {
 
       <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 min-h-[400px]">
         {activeTab === "gestores" && renderAccountList(managers, "Gestores de Conta", "Gestor", "Ainda não existem gestores atribuídos a esta empresa.")}
-        
         {activeTab === "utilizadores" && renderAccountList(companyUsers, "Utilizadores de Conta", "Utilizador", "Ainda não existem utilizadores atribuídos a esta empresa.")}
 
         {activeTab === "eventos" && (
@@ -494,32 +444,23 @@ export default function CompanyDetailsPage() {
                           <div>
                             <h3 className="font-bold text-slate-900 text-lg mb-1">{event.name}</h3>
                             <div className="flex flex-col gap-0.5 mt-1 mb-4">
-                              <span className="text-sm text-slate-500">
-                                <strong className="font-semibold text-slate-600">Data de Início:</strong> {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "N/D"}
-                              </span>
+                              <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Data de Início:</strong> {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "N/D"}</span>
                               {event.endDate && event.endDate !== event.startDate && (
-                                <span className="text-sm text-slate-500">
-                                  <strong className="font-semibold text-slate-600">Data de Fim:</strong> {new Date(event.endDate).toLocaleDateString('pt-PT')}
-                                </span>
+                                <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Data de Fim:</strong> {new Date(event.endDate).toLocaleDateString('pt-PT')}</span>
                               )}
                             </div>
                           </div>
                           <div className="flex gap-1">
-                            <button onClick={() => openUploadModal(event.id)} className="p-2 text-slate-300 hover:text-emerald-600 hover:bg-emerald-50 rounded-lg transition-colors" title="Importar Convidados (CSV)">
-                              <UploadCloud className="w-5 h-5" />
-                            </button>
-                            <button onClick={() => openEditEventModal(event)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors" title="Editar Evento">
-                              <Edit2 className="w-5 h-5" />
-                            </button>
-                            <button onClick={() => handleDeleteEvent(event.id, event.name)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title="Apagar Evento">
-                              <Trash2 className="w-5 h-5" />
-                            </button>
+                            <button onClick={() => openEditEventModal(event)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-5 h-5" /></button>
+                            <button onClick={() => promptDeleteEvent(event.id, event.name)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-5 h-5" /></button>
                           </div>
                         </div>
+                        
                         <div className="flex justify-between text-sm mb-2"><span className="font-medium text-slate-600">Progresso</span><span className="font-bold text-purple-600">{progress}%</span></div>
                         <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: `${progress}%` }}></div></div>
+                        
                         <div className="flex justify-between mt-4 pt-4 border-t border-slate-50 text-sm">
-                          <span className="text-slate-500">Capacidade Importada: <strong className="text-slate-900">{event.totalSeats}</strong></span>
+                          <span className="text-slate-500">Capacidade: <strong className="text-slate-900">{event.totalSeats}</strong></span>
                           <span className="text-slate-500">Tratados: <strong className="text-emerald-600">{event.treatedSeats}</strong></span>
                         </div>
                         
@@ -530,18 +471,22 @@ export default function CompanyDetailsPage() {
                               {event.assignedUsers.map(au => (
                                 <span key={au.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-100 text-sm font-semibold text-purple-700 shadow-sm">
                                   {au.username}
-                                  <button onClick={() => handleRemoveAccess(event.id, au.id, au.username, event.name)} className="hover:bg-purple-200 p-0.5 rounded-md transition-colors" title="Remover Acesso">
-                                    <X className="w-3.5 h-3.5" />
-                                  </button>
+                                  <button onClick={() => promptRemoveAccess(event.id, au.id, au.username, event.name)} className="hover:bg-purple-200 p-0.5 rounded-md transition-colors"><X className="w-3.5 h-3.5" /></button>
                                 </span>
                               ))}
                             </div>
                           </div>
                         )}
                       </div>
-                      <button onClick={() => { setAssignEventId(event.id); setShowAssignModal(true); }} className="mt-5 w-full flex items-center justify-center gap-2 bg-slate-50 hover:bg-slate-100 border border-slate-200 text-slate-700 font-semibold py-2.5 rounded-xl transition-colors">
-                        <KeyRound className="w-4 h-4 text-purple-500" /> Atribuir Acesso
-                      </button>
+                      
+                      <div className="mt-5 grid grid-cols-2 gap-3">
+                        <button onClick={() => openUploadModal(event.id)} className="w-full flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-bold py-2.5 rounded-xl transition-colors text-sm">
+                          <UploadCloud className="w-4 h-4" /> Importar CSV
+                        </button>
+                        <button onClick={() => openAssignModal(event)} className="w-full flex items-center justify-center gap-2 bg-purple-50 hover:bg-purple-100 border border-purple-100 text-purple-700 font-bold py-2.5 rounded-xl transition-colors text-sm">
+                          <KeyRound className="w-4 h-4" /> Atribuir Acesso
+                        </button>
+                      </div>
                     </div>
                   );
                 })}
@@ -551,6 +496,7 @@ export default function CompanyDetailsPage() {
         )}
       </div>
 
+      {/* --- MODAIS DE CRIAÇÃO/EDIÇÃO --- */}
       {showCreateAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
@@ -559,22 +505,11 @@ export default function CompanyDetailsPage() {
               <button onClick={() => setShowCreateAccountModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateAccount} className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Utilizador</label>
-                <input type="text" required value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Palavra-passe</label>
-                <input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Confirmar Palavra-passe</label>
-                <input type="password" required value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Utilizador</label><input type="text" required value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Palavra-passe</label><input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Confirmar Palavra-passe</label><input type="password" required value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
               {createAccountError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{createAccountError}</div>}
-              <button type="submit" disabled={isCreatingAccount} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">
-                {isCreatingAccount ? "A Criar..." : `Criar ${newAccountRole}`}
-              </button>
+              <button type="submit" disabled={isCreatingAccount} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingAccount ? "A Criar..." : `Criar ${newAccountRole}`}</button>
             </form>
           </div>
         </div>
@@ -589,64 +524,76 @@ export default function CompanyDetailsPage() {
             </div>
             <form onSubmit={handleResetPassword} className="p-6 space-y-5">
               <p className="text-sm text-slate-500">Vais definir uma nova palavra-passe para <strong>{resetUsername}</strong>.</p>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Nova Palavra-passe</label>
-                <input type="password" required value={resetNewPassword} onChange={(e) => setResetNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-amber-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Confirmar Nova Palavra-passe</label>
-                <input type="password" required value={resetNewPasswordConfirm} onChange={(e) => setResetNewPasswordConfirm(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-amber-500" />
-              </div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nova Palavra-passe</label><input type="password" required value={resetNewPassword} onChange={(e) => setResetNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-amber-500" /></div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Confirmar Nova Palavra-passe</label><input type="password" required value={resetNewPasswordConfirm} onChange={(e) => setResetNewPasswordConfirm(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-amber-500" /></div>
               {resetError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{resetError}</div>}
-              <button type="submit" disabled={isResetting} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">
-                {isResetting ? "A Repor..." : "Confirmar Alteração"}
-              </button>
+              <button type="submit" disabled={isResetting} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isResetting ? "A Repor..." : "Confirmar Alteração"}</button>
             </form>
           </div>
         </div>
       )}
 
-      {showAssignModal && (
+      {/* NOVO MODAL MULTI-SELECT DE ATRIBUIÇÃO DE ACESSOS */}
+      {showAssignModal && assignEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-purple-600" /> Atribuir Acesso</h3>
+          <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 shrink-0">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-purple-600" /> Atribuir Acessos</h3>
               <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleAssignAccess} className="p-6 space-y-5">
-              <p className="text-sm text-slate-500 mb-2">Seleciona um Gestor ou um Utilizador para dar acesso ao evento.</p>
-              
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Selecionar Gestor</label>
-                <select value={assignManagerId} onChange={(e) => { setAssignManagerId(e.target.value); setAssignUserId(""); }} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
-                  <option value="" disabled={assignUserId !== ""}>Escolhe um gestor...</option>
-                  {managers.map(m => (
-                    <option key={m.id} value={m.id}>{m.username}</option>
-                  ))}
-                </select>
-              </div>
+            
+            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+              <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+                Seleciona a equipa que queres atribuir ao evento <strong className="text-slate-800">{assignEvent.name}</strong>. Os utilizadores que já têm acesso não aparecem na lista.
+              </p>
 
-              <div className="flex items-center gap-4 py-2">
-                <div className="h-px bg-slate-200 flex-1"></div>
-                <span className="text-xs font-bold text-slate-400 uppercase">Ou</span>
-                <div className="h-px bg-slate-200 flex-1"></div>
-              </div>
+              <div className="space-y-6">
+                <div>
+                  <h4 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-3">Gestores Disponíveis</h4>
+                  {availableManagers.length === 0 ? (
+                    <p className="text-sm text-slate-400 bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">Todos os gestores já têm acesso.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {availableManagers.map(m => (
+                        <div key={m.id} onClick={() => toggleUserSelection(m.id)} className={`p-3 rounded-xl border cursor-pointer flex items-center gap-3 transition-all ${selectedUserIds.includes(m.id) ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-200'}`}>
+                          <input type="checkbox" readOnly checked={selectedUserIds.includes(m.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer pointer-events-none" />
+                          <span className={`text-sm font-bold truncate ${selectedUserIds.includes(m.id) ? 'text-blue-700' : 'text-slate-700'}`}>{m.username}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
 
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Selecionar Utilizador</label>
-                <select value={assignUserId} onChange={(e) => { setAssignUserId(e.target.value); setAssignManagerId(""); }} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 bg-white">
-                  <option value="" disabled={assignManagerId !== ""}>Escolhe um utilizador...</option>
-                  {companyUsers.map(u => (
-                    <option key={u.id} value={u.id}>{u.username}</option>
-                  ))}
-                </select>
+                <div>
+                  <h4 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-3">Staff / Validadores Disponíveis</h4>
+                  {availableUsers.length === 0 ? (
+                    <p className="text-sm text-slate-400 bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">Todos os utilizadores já têm acesso.</p>
+                  ) : (
+                    <div className="grid grid-cols-2 gap-2">
+                      {availableUsers.map(u => (
+                        <div key={u.id} onClick={() => toggleUserSelection(u.id)} className={`p-3 rounded-xl border cursor-pointer flex items-center gap-3 transition-all ${selectedUserIds.includes(u.id) ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-white border-slate-200 hover:border-emerald-200'}`}>
+                          <input type="checkbox" readOnly checked={selectedUserIds.includes(u.id)} className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer pointer-events-none" />
+                          {/* 👇 Corrigido: u.username em vez de m.username 👇 */}
+                          <span className={`text-sm font-bold truncate ${selectedUserIds.includes(u.id) ? 'text-emerald-700' : 'text-slate-700'}`}>{u.username}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
+                </div>
               </div>
+            </div>
 
-              {assignError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{assignError}</div>}
-              <button type="submit" disabled={isAssigning} className="w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg shadow-emerald-600/20">
-                {isAssigning ? "A Atribuir..." : "Confirmar Atribuição"}
+            <div className="p-6 border-t border-slate-100 shrink-0 bg-white">
+              {assignError && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{assignError}</div>}
+              {/* 👇 Corrigido: Ícone Loader2 importado e disponível 👇 */}
+              <button 
+                onClick={handleAssignAccess} 
+                disabled={isAssigning || selectedUserIds.length === 0} 
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-all disabled:opacity-50 flex justify-center items-center shadow-lg shadow-purple-600/20"
+              >
+                {isAssigning ? <Loader2 className="w-5 h-5 animate-spin" /> : `Atribuir Acesso (${selectedUserIds.length} selecionados)`}
               </button>
-            </form>
+            </div>
           </div>
         </div>
       )}
@@ -659,18 +606,9 @@ export default function CompanyDetailsPage() {
               <button onClick={() => setShowEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateEvent} className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
-                <input type="text" required value={eventName} onChange={(e) => setEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
-                <input type="date" required value={eventStartDate} onChange={(e) => setEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label>
-                <input type="date" required value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label><input type="text" required value={eventName} onChange={(e) => setEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label><input type="date" required value={eventStartDate} onChange={(e) => setEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label><input type="date" required value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
               {eventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{eventError}</div>}
               <button type="submit" disabled={isCreatingEvent} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingEvent ? "A Criar..." : "Criar Evento"}</button>
             </form>
@@ -686,22 +624,11 @@ export default function CompanyDetailsPage() {
               <button onClick={() => setShowEditEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleUpdateEvent} className="p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
-                <input type="text" required value={editEventName} onChange={(e) => setEditEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
-                <input type="date" required value={editEventStartDate} onChange={(e) => setEditEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label>
-                <input type="date" required value={editEventEndDate} onChange={(e) => setEditEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label><input type="text" required value={editEventName} onChange={(e) => setEditEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label><input type="date" required value={editEventStartDate} onChange={(e) => setEditEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label><input type="date" required value={editEventEndDate} onChange={(e) => setEditEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
               {editEventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{editEventError}</div>}
-              <button type="submit" disabled={isEditingEvent} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">
-                {isEditingEvent ? "A Guardar..." : "Guardar Alterações"}
-              </button>
+              <button type="submit" disabled={isEditingEvent} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isEditingEvent ? "A Guardar..." : "Guardar Alterações"}</button>
             </form>
           </div>
         </div>
@@ -714,13 +641,10 @@ export default function CompanyDetailsPage() {
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><UploadCloud className="w-5 h-5 text-emerald-600" /> Importar CSV</h3>
               <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
-            
             <div className="p-6">
               {uploadSuccess ? (
                 <div className="bg-emerald-50 rounded-2xl flex flex-col items-center text-center p-6">
-                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4">
-                    <FileText className="w-6 h-6 text-emerald-600" />
-                  </div>
+                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4"><FileText className="w-6 h-6 text-emerald-600" /></div>
                   <h4 className="font-bold text-emerald-800 mb-1">Importação Concluída</h4>
                   <p className="text-sm text-emerald-600 font-medium">{uploadSuccess}</p>
                   <button type="button" onClick={() => setShowUploadModal(false)} className="mt-6 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-colors">Fechar</button>
@@ -734,7 +658,6 @@ export default function CompanyDetailsPage() {
                       <p className="text-sm text-red-600 font-medium">Foram encontrados {validationErrors.length} erros em {totalValidationRows} linhas. Corrige o ficheiro e tenta novamente.</p>
                     </div>
                   </div>
-
                   <div className="max-h-64 overflow-y-auto mb-6 pr-2">
                     {Object.entries(groupedErrors).map(([type, lines]) => (
                       <details key={type} className="mb-2 bg-white rounded-xl border border-red-100 overflow-hidden group">
@@ -742,15 +665,10 @@ export default function CompanyDetailsPage() {
                           <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500"></span> {type}</span>
                           <span className="bg-red-100 text-red-800 text-xs py-1 px-2.5 rounded-lg font-bold">{lines.length} ocorrências</span>
                         </summary>
-                        <div className="p-4 pt-2 text-sm text-slate-600 border-t border-red-50 bg-slate-50/50">
-                          <span className="font-semibold text-slate-700 mb-1 block">Linhas afetadas:</span>
-                          <br/>
-                          {lines.map(l => l === 0 ? "Geral" : l).join(", ")}
-                        </div>
+                        <div className="p-4 pt-2 text-sm text-slate-600 border-t border-red-50 bg-slate-50/50"><span className="font-semibold text-slate-700 mb-1 block">Linhas afetadas:</span><br/>{lines.map(l => l === 0 ? "Geral" : l).join(", ")}</div>
                       </details>
                     ))}
                   </div>
-
                   <div className="flex gap-3">
                     <button type="button" onClick={() => setValidationErrors(null)} className="flex-1 py-3.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors">Tentar Novamente</button>
                     <button type="button" onClick={handleExportErrors} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="w-4 h-4" /> Exportar Relatório</button>
@@ -766,17 +684,10 @@ export default function CompanyDetailsPage() {
                         <div className="flex text-sm text-slate-600 justify-center mt-2">
                           <label htmlFor="csv-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-emerald-600 hover:text-emerald-500 focus-within:outline-none">
                             <span>Procurar ficheiro .csv</span>
-                            <input id="csv-upload" name="csv-upload" type="file" accept=".csv" className="sr-only" onChange={(e) => {
-                              if (e.target.files && e.target.files.length > 0) setUploadFile(e.target.files[0]);
-                            }} />
+                            <input id="csv-upload" name="csv-upload" type="file" accept=".csv" className="sr-only" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setUploadFile(e.target.files[0]); }} />
                           </label>
                         </div>
-                        {uploadFile ? (
-                          <p className="text-xs text-emerald-600 font-bold mt-2 border border-emerald-100 bg-emerald-50 p-2 rounded-lg truncate px-4">{uploadFile.name}</p>
-                        ) : (
-                          // 👇 TEXTO ATUALIZADO SEM O ;ESTADO 👇
-                          <p className="text-xs text-slate-500 mt-2">Colunas: MESA;LUGAR;CATEGORIA;NOME</p>
-                        )}
+                        {uploadFile ? <p className="text-xs text-emerald-600 font-bold mt-2 border border-emerald-100 bg-emerald-50 p-2 rounded-lg truncate px-4">{uploadFile.name}</p> : <p className="text-xs text-slate-500 mt-2">Colunas: MESA;LUGAR;CATEGORIA;NOME</p>}
                       </div>
                     </div>
                   </div>
@@ -791,17 +702,12 @@ export default function CompanyDetailsPage() {
                       </button>
                     </div>
                   </div>
-                  
                   {uploadError && (
                     <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 shadow-sm">
                       <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                      <div>
-                        <h4 className="font-bold text-red-800 text-sm">Falha na Leitura</h4>
-                        <p className="text-sm text-red-600 font-medium mt-0.5">{uploadError}</p>
-                      </div>
+                      <div><h4 className="font-bold text-red-800 text-sm">Falha na Leitura</h4><p className="text-sm text-red-600 font-medium mt-0.5">{uploadError}</p></div>
                     </div>
                   )}
-
                   <button type="submit" disabled={isUploading || !uploadFile} className={`w-full text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg ${(isUploading || !uploadFile) ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}>
                     {isUploading ? <div className="flex items-center gap-2"><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div> A Processar...</div> : "Iniciar Importação"}
                   </button>
@@ -811,6 +717,36 @@ export default function CompanyDetailsPage() {
           </div>
         </div>
       )}
+
+      {/* MODAL GLOBAL DE CONFIRMAÇÃO (Liquid Glass) */}
+      {confirmDialog && confirmDialog.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-white/50 zoom-in-95 animate-in flex flex-col items-center">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
+            <h2 className="text-2xl font-black text-slate-900 text-center mb-2">{confirmDialog.title}</h2>
+            <p className="text-slate-500 text-center font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
+            <div className="flex gap-3 w-full">
+              <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
+              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">Confirmar</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* MODAL GLOBAL DE ALERTAS (Liquid Glass) */}
+      {alertDialog && alertDialog.isOpen && (
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-white/50 zoom-in-95 animate-in flex flex-col items-center text-center">
+            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
+            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
+            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
+            <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
+            <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
+            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">OK, Entendido</button>
+          </div>
+        </div>
+      )}
+
     </div>
   );
 }
