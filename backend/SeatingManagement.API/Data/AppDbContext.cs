@@ -5,9 +5,7 @@ namespace SeatingManagement.API.Data
 {
     public class AppDbContext : DbContext
     {
-        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options)
-        {
-        }
+        public AppDbContext(DbContextOptions<AppDbContext> options) : base(options) {}
         
         public DbSet<Company> Companies { get; set; }
         public DbSet<Seat> Seats { get; set; }
@@ -20,6 +18,11 @@ namespace SeatingManagement.API.Data
         protected override void OnModelCreating(ModelBuilder modelBuilder)
         {
             base.OnModelCreating(modelBuilder);
+
+            // 👇 NOVO: O Email tem de ser único no sistema 👇
+            modelBuilder.Entity<User>()
+                .HasIndex(u => u.Email)
+                .IsUnique();
 
             modelBuilder.Entity<UserEvent>()
                 .HasKey(ue => new { ue.UserId, ue.EventId });
@@ -35,16 +38,13 @@ namespace SeatingManagement.API.Data
                 .WithMany(e => e.UserEvents)
                 .HasForeignKey(ue => ue.EventId)
                 .OnDelete(DeleteBehavior.Cascade);
-
             
-            // 1. Um Utilizador pertence a uma Empresa
             modelBuilder.Entity<User>()
                 .HasOne(u => u.Company)
                 .WithMany(c => c.Users)
                 .HasForeignKey(u => u.CompanyId)
                 .OnDelete(DeleteBehavior.Restrict);
 
-            // 2. Um Evento pertence a uma Empresa
             modelBuilder.Entity<Event>()
                 .HasOne(e => e.Company)
                 .WithMany(c => c.Events)
@@ -52,23 +52,17 @@ namespace SeatingManagement.API.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Company>().HasData(
-                new Company 
-                { 
-                    Id = 1, 
-                    Name = "Seatly Admin", 
-                    LogoUrl = "https://img.logoipsum.com/288.svg" 
-                }
+                new Company { Id = 1, Name = "Seatly Admin", LogoUrl = "https://img.logoipsum.com/288.svg" }
             );
 
-
             modelBuilder.Entity<EventAccess>()
-                .HasKey(ea => new { ea.UserId, ea.EventId }); // Chave primária composta
+                .HasKey(ea => new { ea.UserId, ea.EventId });
 
             modelBuilder.Entity<EventAccess>()
                 .HasOne(ea => ea.User)
                 .WithMany()
                 .HasForeignKey(ea => ea.UserId)
-                .OnDelete(DeleteBehavior.Cascade); // Se o user for apagado, o acesso também é
+                .OnDelete(DeleteBehavior.Cascade); 
 
             modelBuilder.Entity<EventAccess>()
                 .HasOne(ea => ea.Event)

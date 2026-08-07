@@ -12,8 +12,8 @@ using SeatingManagement.API.Data;
 namespace SeatingManagement.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260802215342_InitialCleanSetup1")]
-    partial class InitialCleanSetup1
+    [Migration("20260807144430_InitialSeatlyAuth")]
+    partial class InitialSeatlyAuth
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
@@ -240,6 +240,10 @@ namespace SeatingManagement.API.Migrations
                         .HasColumnType("int");
 
                     SqlServerPropertyBuilderExtensions.UseIdentityColumn(b.Property<int>("Id"));
+
+                    b.Property<string>("AvatarUrl")
+                        .IsRequired()
+                        .HasColumnType("nvarchar(max)");
 
                     b.Property<int>("CompanyId")
                         .HasColumnType("int");
