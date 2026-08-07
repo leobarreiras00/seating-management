@@ -6,33 +6,28 @@ namespace SeatingManagement.API.Data
     {
         public static void Initialize(AppDbContext context)
         {
-            // 1. Criar a Empresa de Sistema caso a base de dados esteja vazia
             var systemCompany = context.Companies.FirstOrDefault(c => c.Name == "Seatly Admin");
             
             if (systemCompany == null)
             {
-                systemCompany = new Company
-                {
-                    Name = "Seatly Admin",
-                    LogoUrl = ""
-                };
+                systemCompany = new Company { Name = "Seatly Admin", LogoUrl = "" };
                 context.Companies.Add(systemCompany);
-                context.SaveChanges(); // Grava logo para a BD gerar o ID da empresa!
+                context.SaveChanges(); 
             }
 
-            // 2. Procura especificamente se a conta 'admin' já existe
-            var admin = context.Users.FirstOrDefault(u => u.Username == "admin");
+            var admin = context.Users.FirstOrDefault(u => u.Email == "leo.gbarreiras@gmail.com");
 
             if (admin == null)
             {
-                // Cria o Super Admin e associa-o à empresa acabada de criar
                 var defaultAdmin = new User
                 {
-                    Username = "admin",
+                    Email = "leo.gbarreiras@gmail.com",
+                    Username = "Leonardo Barreiras", // Display Name
                     PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
                     Role = "SuperAdmin",
                     UserGuid = Guid.NewGuid(),
-                    CompanyId = systemCompany.Id // 👇 Agora já tem uma empresa válida! 👇
+                    CompanyId = systemCompany.Id,
+                    MustChangePassword = false // O admin mestre não é obrigado a mudar no 1º login
                 };
 
                 context.Users.Add(defaultAdmin);
@@ -46,12 +41,6 @@ namespace SeatingManagement.API.Data
                     Timestamp = DateTime.UtcNow
                 });
                 
-                context.SaveChanges();
-            }
-            else 
-            {
-                // Repõe a password por segurança se a conta já existir
-                admin.PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123");
                 context.SaveChanges();
             }
         }

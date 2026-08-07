@@ -81,6 +81,7 @@ builder.Services.AddAuthentication(JwtBearerDefaults.AuthenticationScheme)
 
 builder.Services.AddSingleton<IMqttService, MqttService>();
 builder.Services.AddHostedService(provider => (MqttService)provider.GetRequiredService<IMqttService>());
+builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
 

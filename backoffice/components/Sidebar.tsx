@@ -24,11 +24,10 @@ export default function Sidebar() {
   return (
     <div className="w-full lg:w-[260px] bg-white/70 backdrop-blur-2xl text-slate-600 flex flex-col lg:h-full rounded-3xl lg:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)] border border-white/60 shrink-0 relative overflow-hidden">
       
-      {/* Brilho de fundo atualizado para ser mais subtil no tema claro */}
       <div className="absolute top-[-20%] left-[-10%] w-64 h-64 bg-purple-400/10 rounded-full blur-[80px] pointer-events-none"></div>
 
-      {/* Topo com o NOVO LOGO */}
-      <div className="flex items-center justify-between lg:justify-center h-24 lg:h-32 px-6 lg:px-8 shrink-0 z-10 pt-4">
+      {/* Topo com Logo Centrado e Altura Reduzida no Mobile */}
+      <div className="flex items-center justify-center h-20 lg:h-32 px-6 lg:px-8 shrink-0 z-10 pt-2 lg:pt-4">
         <div className="flex items-center justify-center w-full">
           <Image 
             src="/seatly_wrt.png" 
@@ -39,14 +38,11 @@ export default function Sidebar() {
             className="object-contain" 
           />
         </div>
-
-        <button onClick={handleLogout} className="lg:hidden p-2 text-slate-400 hover:text-purple-600 hover:bg-white/50 backdrop-blur-md rounded-xl transition-all z-10 relative">
-          <LogOut className="w-6 h-6" />
-        </button>
       </div>
 
-      {/* Navegação */}
-      <nav className="flex lg:flex-1 lg:flex-col px-3 lg:px-5 py-2 lg:py-4 gap-1 lg:gap-2 overflow-x-auto shrink-0 z-10 mt-2">
+      {/* Navegação Horizontal (Mobile) / Vertical (Desktop) */}
+      {/* Adicionado gap-2 para separar melhor os botões em formato pílula */}
+      <nav className="flex lg:flex-1 lg:flex-col px-4 lg:px-5 py-2 lg:py-4 gap-2 lg:gap-2 overflow-x-auto shrink-0 z-10 mt-1 lg:mt-2 scrollbar-hide">
         {menuItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -55,20 +51,29 @@ export default function Sidebar() {
             <Link
               key={item.name}
               href={item.href}
-              className={`flex items-center px-4 lg:px-4 py-3 lg:py-3.5 rounded-2xl transition-all duration-300 font-semibold whitespace-nowrap ${
+              className={`flex items-center px-4 lg:px-4 py-2.5 lg:py-3.5 rounded-2xl transition-all duration-300 font-semibold whitespace-nowrap ${
                 isActive 
                   ? "bg-[#8B5CF6] text-white shadow-lg shadow-purple-500/30 border border-purple-400/50" 
-                  : "hover:bg-white/60 text-slate-500 hover:text-purple-700 border border-transparent"
+                  // 👇 Botões inativos agora têm um Shade distinto 👇
+                  : "bg-slate-100/50 hover:bg-white text-slate-600 hover:text-purple-700 border border-slate-200/50 shadow-sm"
               }`}
             >
-              <Icon className={`w-5 h-5 lg:w-[22px] lg:h-[22px] mr-3 lg:mr-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-purple-600'}`} />
-              <span className="text-[15px] lg:text-base">{item.name}</span>
+              <Icon className={`w-5 h-5 lg:w-[22px] lg:h-[22px] mr-2.5 lg:mr-4 shrink-0 ${isActive ? 'text-white' : 'text-slate-400 group-hover:text-purple-600'}`} />
+              <span className="text-[14px] lg:text-base">{item.name}</span>
             </Link>
           );
         })}
+        
+        {/* Botão de Logout apenas para Mobile (Apenas ícone e com Shade) */}
+        <button 
+          onClick={handleLogout} 
+          className="lg:hidden flex items-center justify-center w-[46px] h-[46px] rounded-2xl transition-all duration-300 bg-slate-100/50 hover:bg-red-50 text-slate-500 hover:text-red-600 border border-slate-200/50 shadow-sm shrink-0"
+        >
+          <LogOut className="w-5 h-5" />
+        </button>
       </nav>
 
-      {/* Logout Desktop */}
+      {/* Logout Desktop (Fixo no fundo) */}
       <div className="hidden lg:block p-5 mb-2 z-10">
         <button onClick={handleLogout} className="flex items-center justify-center w-full px-5 py-3.5 text-slate-500 hover:text-red-600 hover:bg-red-50/80 hover:border-red-100 border border-transparent backdrop-blur-md rounded-2xl transition-all duration-300 font-semibold text-[15px] group">
           <LogOut className="w-5 h-5 mr-3 shrink-0 group-hover:scale-110 transition-transform" />
