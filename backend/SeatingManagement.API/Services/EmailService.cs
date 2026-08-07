@@ -49,7 +49,7 @@ namespace SeatingManagement.API.Services
 
         public async Task SendPasswordResetEmailAsync(string toEmail, string resetToken)
         {
-            var resetLink = $"https://seatly.com/reset-password?token={resetToken}"; // Vamos afinar este link quando fizermos o Frontend
+            var resetLink = $"https://seatly-backoffice-48w6jh6ny-leobarreiras00s-projects.vercel.app/reset-password?token={resetToken}";
 
             var subject = "Seatly - Recuperação de Palavra-passe";
             var body = $@"
