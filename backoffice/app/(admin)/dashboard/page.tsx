@@ -69,7 +69,6 @@ export default function DashboardPage() {
   }
 
   return (
-    // Área aumentada para max-w-7xl e w-full
     <div className="w-full max-w-7xl mx-auto pb-10 px-2 sm:px-4 lg:px-8">
       <header className="mb-8 lg:mb-10 pl-2">
         <h1 className="text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight">
@@ -79,7 +78,8 @@ export default function DashboardPage() {
       </header>
 
       {/* GRELHA DE ESTATÍSTICAS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
+      {/* Mantém as 4 colunas em ecrãs grandes (lg) */}
+      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-6 mb-8">
         <StatCard title="Empresas Ativas" value={data?.stats.companies || 0} icon={Building2} color="bg-blue-500" lightColor="bg-blue-500/10" textColor="text-blue-600" />
         <StatCard title="Total de Eventos" value={data?.stats.events || 0} icon={CalendarDays} color="bg-purple-500" lightColor="bg-purple-500/10" textColor="text-purple-600" />
         <StatCard title="Lugares Globais" value={data?.stats.seats || 0} icon={Users} color="bg-emerald-500" lightColor="bg-emerald-500/10" textColor="text-emerald-600" />
@@ -143,7 +143,6 @@ export default function DashboardPage() {
                   />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 600, color: '#64748b', paddingTop: '20px' }} />
                   <Bar dataKey="validated" name="Validados" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={24} />
-                  {/* Cor de fill alterada para #94a3b8 para os Restantes ficarem mais visíveis */}
                   <Bar dataKey="remaining" name="Restantes" stackId="a" fill="#94a3b8" radius={[0, 8, 8, 0]} barSize={24} />
                 </BarChart>
               </ResponsiveContainer>
@@ -161,16 +160,22 @@ export default function DashboardPage() {
   );
 }
 
+// 👇 O Componente de Estatística totalmente revisto 👇
 function StatCard({ title, value, icon: Icon, color, lightColor, textColor }: any) {
   return (
-    <div className="bg-white/70 backdrop-blur-2xl p-5 lg:p-6 rounded-[2rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)] hover:-translate-y-1 transition-transform group flex items-center overflow-hidden relative">
+    <div className="bg-white/70 backdrop-blur-2xl p-4 xl:p-6 rounded-[2rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)] hover:-translate-y-1 transition-transform group flex items-center overflow-hidden relative">
       <div className={`absolute -right-6 -top-6 w-24 h-24 ${lightColor} rounded-full blur-2xl group-hover:scale-150 transition-transform pointer-events-none`}></div>
-      <div className={`w-14 h-14 lg:w-16 lg:h-16 ${lightColor} ${textColor} rounded-[1.25rem] flex items-center justify-center mr-4 lg:mr-5 shrink-0 relative z-10`}>
-        <Icon className="w-7 h-7 lg:w-8 lg:h-8" />
+      <div className={`w-12 h-12 xl:w-16 xl:h-16 ${lightColor} ${textColor} rounded-[1.25rem] flex items-center justify-center mr-3 xl:mr-4 shrink-0 relative z-10`}>
+        <Icon className="w-6 h-6 xl:w-8 xl:h-8" />
       </div>
       <div className="min-w-0 flex-1 relative z-10">
-        <p className="text-slate-500 text-xs lg:text-sm font-bold mb-1 truncate uppercase tracking-wider">{title}</p>
-        <p className="text-slate-900 text-2xl lg:text-3xl font-black truncate">{value}</p>
+        {/* Retirado o truncate; adicionado break-words e leading-tight para permitir várias linhas se necessário */}
+        <p className="text-slate-500 text-[10px] xl:text-xs font-bold mb-0.5 uppercase tracking-wide leading-tight break-words">
+          {title}
+        </p>
+        <p className="text-slate-900 text-xl xl:text-2xl font-black break-words">
+          {value}
+        </p>
       </div>
     </div>
   );
