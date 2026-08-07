@@ -324,6 +324,7 @@ export default function CompanyDetailsPage() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
+  // 👇 FUNÇÃO RENDERACCOUNTLIST ATUALIZADA (SEM AS TAGS DE ROLE) 👇
   const renderAccountList = (list: AccountUser[], title: string, roleType: "Gestor" | "Utilizador", emptyMsg: string) => (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -342,7 +343,6 @@ export default function CompanyDetailsPage() {
                 <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase">{account.username.charAt(0)}</div>
                 <div>
                   <p className="font-bold text-slate-900">{account.username}</p>
-                  <p className="text-xs font-semibold text-purple-600 uppercase tracking-wider">{account.role}</p>
                 </div>
               </div>
               <div className="flex gap-2">
@@ -573,7 +573,6 @@ export default function CompanyDetailsPage() {
                       {availableUsers.map(u => (
                         <div key={u.id} onClick={() => toggleUserSelection(u.id)} className={`p-3 rounded-xl border cursor-pointer flex items-center gap-3 transition-all ${selectedUserIds.includes(u.id) ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-white border-slate-200 hover:border-emerald-200'}`}>
                           <input type="checkbox" readOnly checked={selectedUserIds.includes(u.id)} className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer pointer-events-none" />
-                          {/* 👇 Corrigido: u.username em vez de m.username 👇 */}
                           <span className={`text-sm font-bold truncate ${selectedUserIds.includes(u.id) ? 'text-emerald-700' : 'text-slate-700'}`}>{u.username}</span>
                         </div>
                       ))}
@@ -585,7 +584,6 @@ export default function CompanyDetailsPage() {
 
             <div className="p-6 border-t border-slate-100 shrink-0 bg-white">
               {assignError && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{assignError}</div>}
-              {/* 👇 Corrigido: Ícone Loader2 importado e disponível 👇 */}
               <button 
                 onClick={handleAssignAccess} 
                 disabled={isAssigning || selectedUserIds.length === 0} 
