@@ -450,7 +450,6 @@ export default function CompanyDetailsPage() {
         </div>
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900">{company.name}</h1>
-          <p className="text-slate-500 mt-1 font-medium">ID da Instância: #{company.id}</p>
         </div>
       </div>
 

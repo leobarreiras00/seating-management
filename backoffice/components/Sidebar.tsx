@@ -62,10 +62,9 @@ export default function Sidebar() {
           );
         })}
         
-        {/* Botão de Logout apenas para Mobile (inserido no scroll horizontal) */}
-        <button onClick={handleLogout} className="lg:hidden flex items-center px-4 py-3 rounded-2xl transition-all duration-300 font-semibold whitespace-nowrap text-slate-500 hover:bg-red-50 hover:text-red-600 border border-transparent">
-          <LogOut className="w-5 h-5 mr-2 shrink-0" />
-          <span className="text-[15px]">Terminar Sessão</span>
+        {/* Botão de Logout apenas para Mobile (Apenas ícone) */}
+        <button onClick={handleLogout} className="lg:hidden flex items-center justify-center w-12 h-12 rounded-2xl transition-all duration-300 text-slate-500 hover:bg-red-50 hover:text-red-600 border border-transparent shrink-0">
+          <LogOut className="w-5 h-5" />
         </button>
       </nav>
 

@@ -79,7 +79,7 @@ export default function DashboardPage() {
       </header>
 
       {/* GRELHA DE ESTATÍSTICAS */}
-      <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 lg:gap-6 mb-8">
+      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-4 lg:gap-6 mb-8">
         <StatCard title="Empresas Ativas" value={data?.stats.companies || 0} icon={Building2} color="bg-blue-500" lightColor="bg-blue-500/10" textColor="text-blue-600" />
         <StatCard title="Total de Eventos" value={data?.stats.events || 0} icon={CalendarDays} color="bg-purple-500" lightColor="bg-purple-500/10" textColor="text-purple-600" />
         <StatCard title="Lugares Globais" value={data?.stats.seats || 0} icon={Users} color="bg-emerald-500" lightColor="bg-emerald-500/10" textColor="text-emerald-600" />
