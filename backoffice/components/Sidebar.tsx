@@ -24,11 +24,10 @@ export default function Sidebar() {
   return (
     <div className="w-full lg:w-[260px] bg-white/70 backdrop-blur-2xl text-slate-600 flex flex-col lg:h-full rounded-3xl lg:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)] border border-white/60 shrink-0 relative overflow-hidden">
       
-      {/* Brilho de fundo atualizado para ser mais subtil no tema claro */}
       <div className="absolute top-[-20%] left-[-10%] w-64 h-64 bg-purple-400/10 rounded-full blur-[80px] pointer-events-none"></div>
 
-      {/* Topo com o NOVO LOGO */}
-      <div className="flex items-center justify-between lg:justify-center h-24 lg:h-32 px-6 lg:px-8 shrink-0 z-10 pt-4">
+      {/* Topo com Logo Centrado e Altura Reduzida no Mobile */}
+      <div className="flex items-center justify-center h-16 lg:h-32 px-6 lg:px-8 shrink-0 z-10 pt-2 lg:pt-4">
         <div className="flex items-center justify-center w-full">
           <Image 
             src="/seatly_wrt.png" 
@@ -39,14 +38,10 @@ export default function Sidebar() {
             className="object-contain" 
           />
         </div>
-
-        <button onClick={handleLogout} className="lg:hidden p-2 text-slate-400 hover:text-purple-600 hover:bg-white/50 backdrop-blur-md rounded-xl transition-all z-10 relative">
-          <LogOut className="w-6 h-6" />
-        </button>
       </div>
 
-      {/* Navegação */}
-      <nav className="flex lg:flex-1 lg:flex-col px-3 lg:px-5 py-2 lg:py-4 gap-1 lg:gap-2 overflow-x-auto shrink-0 z-10 mt-2">
+      {/* Navegação Horizontal (Mobile) / Vertical (Desktop) */}
+      <nav className="flex lg:flex-1 lg:flex-col px-3 lg:px-5 py-2 lg:py-4 gap-1 lg:gap-2 overflow-x-auto shrink-0 z-10 mt-1 lg:mt-2">
         {menuItems.map((item) => {
           const isActive = pathname.startsWith(item.href);
           const Icon = item.icon;
@@ -66,9 +61,15 @@ export default function Sidebar() {
             </Link>
           );
         })}
+        
+        {/* Botão de Logout apenas para Mobile (inserido no scroll horizontal) */}
+        <button onClick={handleLogout} className="lg:hidden flex items-center px-4 py-3 rounded-2xl transition-all duration-300 font-semibold whitespace-nowrap text-slate-500 hover:bg-red-50 hover:text-red-600 border border-transparent">
+          <LogOut className="w-5 h-5 mr-2 shrink-0" />
+          <span className="text-[15px]">Terminar Sessão</span>
+        </button>
       </nav>
 
-      {/* Logout Desktop */}
+      {/* Logout Desktop (Fixo no fundo) */}
       <div className="hidden lg:block p-5 mb-2 z-10">
         <button onClick={handleLogout} className="flex items-center justify-center w-full px-5 py-3.5 text-slate-500 hover:text-red-600 hover:bg-red-50/80 hover:border-red-100 border border-transparent backdrop-blur-md rounded-2xl transition-all duration-300 font-semibold text-[15px] group">
           <LogOut className="w-5 h-5 mr-3 shrink-0 group-hover:scale-110 transition-transform" />

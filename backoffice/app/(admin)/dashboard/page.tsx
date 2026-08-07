@@ -32,7 +32,6 @@ export default function DashboardPage() {
         },
         cache: 'no-store'
       });
-      
       if (res.ok) {
         setData(await res.json());
       }
@@ -70,7 +69,8 @@ export default function DashboardPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto pb-10">
+    // Área aumentada para max-w-7xl e w-full
+    <div className="w-full max-w-7xl mx-auto pb-10 px-2 sm:px-4 lg:px-8">
       <header className="mb-8 lg:mb-10 pl-2">
         <h1 className="text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight">
           Visão Geral
@@ -89,13 +89,12 @@ export default function DashboardPage() {
       {/* ÁREA DE GRÁFICOS */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
-        {/* Gráfico 1: Ritmo de Entradas (Timeline) */}
+        {/* Gráfico 1: Ritmo de Entradas */}
         <div className="lg:col-span-2 bg-white/70 backdrop-blur-2xl p-6 lg:p-8 rounded-[2.5rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)]">
           <div className="mb-6">
             <h2 className="text-xl font-extrabold text-slate-900">Ritmo de Validações</h2>
             <p className="text-slate-500 text-sm font-medium mt-1">Volume de entradas nas últimas 12 horas</p>
           </div>
-          
           <div className="h-[300px] w-full">
             {data?.timeline && data.timeline.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -125,13 +124,12 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Gráfico 2: Progresso dos Eventos (Barras) */}
+        {/* Gráfico 2: Progresso dos Eventos */}
         <div className="bg-white/70 backdrop-blur-2xl p-6 lg:p-8 rounded-[2.5rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)]">
           <div className="mb-6">
             <h2 className="text-xl font-extrabold text-slate-900">Progresso</h2>
             <p className="text-slate-500 text-sm font-medium mt-1">Top 4 eventos ativos</p>
           </div>
-          
           <div className="h-[300px] w-full">
             {data?.eventsProgress && data.eventsProgress.length > 0 ? (
               <ResponsiveContainer width="100%" height="100%">
@@ -145,7 +143,8 @@ export default function DashboardPage() {
                   />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 600, color: '#64748b', paddingTop: '20px' }} />
                   <Bar dataKey="validated" name="Validados" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={24} />
-                  <Bar dataKey="remaining" name="Restantes" stackId="a" fill="#e2e8f0" radius={[0, 8, 8, 0]} barSize={24} />
+                  {/* Cor de fill alterada para #94a3b8 para os Restantes ficarem mais visíveis */}
+                  <Bar dataKey="remaining" name="Restantes" stackId="a" fill="#94a3b8" radius={[0, 8, 8, 0]} barSize={24} />
                 </BarChart>
               </ResponsiveContainer>
             ) : (
@@ -166,11 +165,9 @@ function StatCard({ title, value, icon: Icon, color, lightColor, textColor }: an
   return (
     <div className="bg-white/70 backdrop-blur-2xl p-5 lg:p-6 rounded-[2rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)] hover:-translate-y-1 transition-transform group flex items-center overflow-hidden relative">
       <div className={`absolute -right-6 -top-6 w-24 h-24 ${lightColor} rounded-full blur-2xl group-hover:scale-150 transition-transform pointer-events-none`}></div>
-      
       <div className={`w-14 h-14 lg:w-16 lg:h-16 ${lightColor} ${textColor} rounded-[1.25rem] flex items-center justify-center mr-4 lg:mr-5 shrink-0 relative z-10`}>
         <Icon className="w-7 h-7 lg:w-8 lg:h-8" />
       </div>
-      
       <div className="min-w-0 flex-1 relative z-10">
         <p className="text-slate-500 text-xs lg:text-sm font-bold mb-1 truncate uppercase tracking-wider">{title}</p>
         <p className="text-slate-900 text-2xl lg:text-3xl font-black truncate">{value}</p>

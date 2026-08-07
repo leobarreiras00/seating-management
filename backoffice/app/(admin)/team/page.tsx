@@ -21,11 +21,9 @@ export default function TeamPage() {
 
   const [detailsModalOpen, setDetailsModalOpen] = useState<UserData | null>(null);
   const [deleteModalOpen, setDeleteModalOpen] = useState<UserData | null>(null);
-  
   const [resetModalOpen, setResetModalOpen] = useState<UserData | null>(null);
   const [newPassword, setNewPassword] = useState("");
   const [confirmPassword, setConfirmPassword] = useState("");
-  
   const [isProcessing, setIsProcessing] = useState(false);
   const [isUploadingAvatar, setIsUploadingAvatar] = useState(false);
   const [successMessage, setSuccessMessage] = useState("");
@@ -57,7 +55,6 @@ export default function TeamPage() {
   const handleDeleteUser = async () => {
     if (!deleteModalOpen) return;
     setIsProcessing(true);
-    
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${deleteModalOpen.id}`, {
@@ -68,9 +65,9 @@ export default function TeamPage() {
       if (res.ok) {
         setSuccessMessage("Conta apagada com sucesso.");
         setTimeout(() => {
-            setSuccessMessage("");
-            setDeleteModalOpen(null);
-            fetchUsers();
+          setSuccessMessage("");
+          setDeleteModalOpen(null);
+          fetchUsers();
         }, 1500);
       }
     } catch (error) {
@@ -83,14 +80,13 @@ export default function TeamPage() {
   const handleResetPassword = async () => {
     if (!resetModalOpen || !newPassword || newPassword !== confirmPassword) return;
     setIsProcessing(true);
-    
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${resetModalOpen.id}/reset-password`, {
         method: 'PUT',
-        headers: { 
-            Authorization: `Bearer ${token}`,
-            "Content-Type": "application/json" 
+        headers: {
+          Authorization: `Bearer ${token}`,
+          "Content-Type": "application/json"
         },
         body: JSON.stringify({ newPassword })
       });
@@ -98,10 +94,10 @@ export default function TeamPage() {
       if (res.ok) {
         setSuccessMessage("Palavra-passe reposta com sucesso!");
         setTimeout(() => {
-            setSuccessMessage("");
-            setResetModalOpen(null);
-            setNewPassword("");
-            setConfirmPassword("");
+          setSuccessMessage("");
+          setResetModalOpen(null);
+          setNewPassword("");
+          setConfirmPassword("");
         }, 1500);
       }
     } catch (error) {
@@ -124,7 +120,7 @@ export default function TeamPage() {
         const token = localStorage.getItem("token");
         const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${detailsModalOpen.id}/avatar`, {
           method: 'PUT',
-          headers: { 
+          headers: {
             Authorization: `Bearer ${token}`,
             "Content-Type": "application/json"
           },
@@ -145,18 +141,17 @@ export default function TeamPage() {
   };
 
   const groupedUsers = useMemo(() => {
-    const filtered = users.filter(u => 
-      u.username.toLowerCase().includes(searchQuery.toLowerCase()) || 
+    const filtered = users.filter(u =>
+      u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.companyName.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
-    const groups: Record<string, { 
-      companyLogo?: string, 
-      superAdmins: UserData[], 
+    const groups: Record<string, {
+      companyLogo?: string,
+      superAdmins: UserData[],
       events: Record<string, { gestores: UserData[], utilizadores: UserData[] }>,
       unassigned: { gestores: UserData[], utilizadores: UserData[] }
     }> = {};
-    
     filtered.forEach(u => {
       if (!groups[u.companyName]) {
         groups[u.companyName] = { companyLogo: u.companyLogo, superAdmins: [], events: {}, unassigned: { gestores: [], utilizadores: [] } };
@@ -191,7 +186,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="max-w-6xl mx-auto pb-10">
+    <div className="w-full max-w-7xl mx-auto pb-10 px-2 sm:px-4 lg:px-8">
       <div className="mb-10">
         <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
           <Users className="w-8 h-8 text-purple-600" /> Gestão de Equipa
@@ -201,9 +196,9 @@ export default function TeamPage() {
 
       <div className="bg-white/70 backdrop-blur-xl p-4 rounded-[2rem] border border-white/50 shadow-sm flex items-center gap-3 mb-8">
         <Search className="w-5 h-5 text-slate-400 ml-2" />
-        <input 
-          type="text" 
-          placeholder="Pesquisar por nome de utilizador ou empresa..." 
+        <input
+          type="text"
+          placeholder="Pesquisar por nome de utilizador ou empresa..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
           className="bg-transparent border-none focus:ring-0 text-slate-900 w-full placeholder:text-slate-400 font-medium"
@@ -218,20 +213,18 @@ export default function TeamPage() {
       ) : (
         Object.entries(groupedUsers).map(([companyName, data]) => (
           <div key={companyName} className="mb-14">
-            
             <div className="flex items-center gap-4 mb-8">
               <SafeCompanyLogo logoUrl={data.companyLogo} companyName={companyName} className="w-14 h-14" fallbackSize="w-7 h-7" />
               <h2 className="text-2xl font-black text-slate-900">{companyName}</h2>
             </div>
 
             <div className="space-y-10 pl-6 border-l-2 border-slate-100/80 ml-5">
-              
               {data.superAdmins.length > 0 && (
                 <div className="relative">
                   <div className="absolute -left-[27px] top-2 w-3 h-3 bg-red-400 rounded-full border-2 border-slate-100"></div>
                   <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Administração Central</h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {data.superAdmins.map(user => 
+                    {data.superAdmins.map(user =>
                       <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); setDeleteModalOpen(user); }} onReset={(e: any) => { e.stopPropagation(); setResetModalOpen(user); }} />
                     )}
                   </div>
@@ -244,7 +237,6 @@ export default function TeamPage() {
                   <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
                     <CalendarDays className="w-5 h-5 text-purple-500" /> Evento: {eventName}
                   </h3>
-                  
                   <div className="space-y-6">
                     {roles.gestores.length > 0 && (
                       <div>
@@ -288,15 +280,12 @@ export default function TeamPage() {
             <button onClick={() => setDetailsModalOpen(null)} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
               <X className="w-5 h-5" />
             </button>
-            
             <div className="flex flex-col items-center mb-8 mt-4">
-              
               <div className="relative group cursor-pointer w-24 h-24 rounded-[1.5rem] overflow-hidden mb-4 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-4 border-white transition-transform hover:scale-105">
                 <input type="file" accept="image/*" className="hidden" id="avatarUpload" onChange={handleImageUpload} disabled={isUploadingAvatar} />
                 <label htmlFor="avatarUpload" className="w-full h-full flex items-center justify-center cursor-pointer relative">
-                  
                   <div className={`w-full h-full flex items-center justify-center ${
-                    detailsModalOpen.role === "SuperAdmin" ? "bg-red-50 text-red-600" : 
+                    detailsModalOpen.role === "SuperAdmin" ? "bg-red-50 text-red-600" :
                     detailsModalOpen.role === "Gestor" ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
                   }`}>
                     <SafeAvatar user={detailsModalOpen} iconSize="w-10 h-10" />
@@ -311,7 +300,6 @@ export default function TeamPage() {
 
               <h2 className="text-2xl font-black text-slate-900 text-center mb-1">{detailsModalOpen.username}</h2>
               <p className="text-slate-500 font-bold uppercase tracking-wider text-xs mb-3">{detailsModalOpen.role}</p>
-              
               <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
                 <SafeCompanyLogo logoUrl={detailsModalOpen.companyLogo} companyName={detailsModalOpen.companyName} className="w-5 h-5 bg-transparent border-none shadow-none" fallbackSize="w-3.5 h-3.5" />
                 <span className="text-slate-600 text-xs font-bold">
@@ -324,7 +312,6 @@ export default function TeamPage() {
               <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
                 <CalendarDays className="w-4 h-4 text-purple-500" /> Eventos Atribuídos
               </h3>
-              
               {detailsModalOpen.events.length === 0 ? (
                 <p className="text-sm text-slate-500 font-medium">Este utilizador não tem nenhum evento atribuído.</p>
               ) : (
@@ -376,7 +363,6 @@ export default function TeamPage() {
       {resetModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/30 backdrop-blur-sm">
           <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95 relative">
-            
             <button onClick={() => { setResetModalOpen(null); setNewPassword(""); setConfirmPassword(""); }} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
               <X className="w-5 h-5" />
             </button>
@@ -393,39 +379,37 @@ export default function TeamPage() {
                 </div>
                 <h2 className="text-2xl font-black text-slate-900 text-center mb-2">Repor Palavra-passe</h2>
                 <p className="text-slate-500 font-medium mb-8 text-center">Define a nova palavra-passe de acesso para o utilizador <span className="font-bold text-slate-800">{resetModalOpen.username}</span>.</p>
-                
                 <div className="space-y-4 mb-8">
-                  <input 
-                    type="password" 
+                  <input
+                    type="password"
                     placeholder="Escreve a nova palavra-passe"
                     value={newPassword}
                     onChange={(e) => setNewPassword(e.target.value)}
                     className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-4 font-bold text-slate-900 focus:ring-2 focus:ring-purple-500 focus:border-transparent outline-none text-center transition-all"
                   />
-                  
-                  <input 
-                    type="password" 
+                  <input
+                    type="password"
                     placeholder="Confirma a nova palavra-passe"
                     value={confirmPassword}
                     onChange={(e) => setConfirmPassword(e.target.value)}
                     className={`w-full bg-slate-50 border rounded-xl px-4 py-4 font-bold text-slate-900 focus:ring-2 focus:border-transparent outline-none text-center transition-all ${
-                      confirmPassword && newPassword !== confirmPassword 
-                        ? 'border-red-400 focus:ring-red-500 text-red-600' 
-                        : 'border-slate-200 focus:ring-purple-500'
+                      confirmPassword && newPassword !== confirmPassword
+                      ? 'border-red-400 focus:ring-red-500 text-red-600'
+                      : 'border-slate-200 focus:ring-purple-500'
                     }`}
                   />
                 </div>
 
                 <div className="flex gap-3">
-                  <button 
-                    onClick={() => { setResetModalOpen(null); setNewPassword(""); setConfirmPassword(""); }} 
+                  <button
+                    onClick={() => { setResetModalOpen(null); setNewPassword(""); setConfirmPassword(""); }}
                     className="flex-1 px-4 py-3 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors"
                   >
                     Cancelar
                   </button>
-                  <button 
-                    onClick={handleResetPassword} 
-                    disabled={isProcessing || newPassword.length < 4 || newPassword !== confirmPassword} 
+                  <button
+                    onClick={handleResetPassword}
+                    disabled={isProcessing || newPassword.length < 4 || newPassword !== confirmPassword}
                     className="flex-[1.5] px-4 py-3 rounded-xl font-bold text-white bg-purple-600 hover:bg-purple-700 transition-colors disabled:opacity-50 disabled:cursor-not-allowed flex justify-center items-center"
                   >
                     {isProcessing ? <Loader2 className="w-5 h-5 animate-spin" /> : "Confirmar e Gravar"}
@@ -452,11 +436,11 @@ function SafeAvatar({ user, iconSize = "w-6 h-6" }: any) {
 
   if (user.avatarUrl && !error) {
     return (
-      <img 
-        src={user.avatarUrl} 
-        alt={user.username} 
-        className="w-full h-full object-cover" 
-        onError={() => setError(true)} 
+      <img
+        src={user.avatarUrl}
+        alt={user.username}
+        className="w-full h-full object-cover"
+        onError={() => setError(true)}
       />
     );
   }
@@ -465,14 +449,12 @@ function SafeAvatar({ user, iconSize = "w-6 h-6" }: any) {
     return <img src="/superadmin_default.png" alt="SuperAdmin" className="w-full h-full object-cover" />;
   }
 
-  const Icon = user.role === "SuperAdmin" ? Shield : User; 
+  const Icon = user.role === "SuperAdmin" ? Shield : User;
   return <Icon className={iconSize} />;
 }
 
-// 👇 COMPONENTE SEGURO PARA O LOGO DA EMPRESA (Atualizado com object-cover) 👇
 function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: any) {
   const [error, setError] = useState(false);
-  
   useEffect(() => {
     setError(false);
   }, [logoUrl]);
@@ -480,7 +462,6 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
   if (companyName?.toLowerCase().includes("seatly admin") || companyName?.toLowerCase().includes("seatly")) {
     return (
       <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm shrink-0 flex items-center justify-center ${className}`}>
-        {/* Usamos object-cover e removemos o p-2 para ele preencher o espaço todo perfeitamente */}
         <img src="/seatly_icon.png" alt="Seatly Admin" className="w-full h-full object-cover" />
       </div>
     );
@@ -498,12 +479,11 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
 
   return (
     <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm shrink-0 flex items-center justify-center ${className}`}>
-      {/* Aqui também aplicamos o object-cover para esticar perfeitamente os outros logos para as margens */}
-      <img 
-        src={src} 
-        alt={companyName} 
-        className="w-full h-full object-cover" 
-        onError={() => setError(true)} 
+      <img
+        src={src}
+        alt={companyName}
+        className="w-full h-full object-cover"
+        onError={() => setError(true)}
       />
     </div>
   );
@@ -526,15 +506,14 @@ function UserCard({ user, currentUserRole, onClick, onDelete, onReset }: any) {
         </div>
         <div>
           <h4 className="font-extrabold text-slate-900 line-clamp-1">{user.username}</h4>
-          <span className="text-[10px] uppercase font-black text-slate-400 tracking-wider">#{user.id}</span>
+          {/* Removido o ID badge daqui */}
         </div>
       </div>
-      
       <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
         {canResetPassword && (
-            <button onClick={onReset} title="Repor Password" className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-colors">
-              <Key className="w-4 h-4" />
-            </button>
+          <button onClick={onReset} title="Repor Password" className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-colors">
+            <Key className="w-4 h-4" />
+          </button>
         )}
         <button onClick={onDelete} title="Apagar Conta" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
           <Trash2 className="w-4 h-4" />

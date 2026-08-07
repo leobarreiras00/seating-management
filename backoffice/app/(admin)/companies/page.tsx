@@ -46,14 +46,12 @@ export default function CompaniesPage() {
       username: process.env.NEXT_PUBLIC_MQTT_USERNAME as string,
       password: process.env.NEXT_PUBLIC_MQTT_PASSWORD as string,
     });
-    
     client.on("connect", () => {
       client.subscribe("seating/backoffice/companies");
     });
 
     client.on("message", (topic, message) => {
-      console.log("Atualização global de empresas recebida via MQTT");
-      fetchCompanies(); // Atualiza a lista instantaneamente
+      fetchCompanies(); 
     });
 
     return () => {
@@ -63,19 +61,16 @@ export default function CompaniesPage() {
 
   const handleDeleteCompany = async (id: number, name: string) => {
     if (!window.confirm(`ATENÇÃO: Tens a certeza que queres apagar a empresa "${name}"? Esta ação é irreversível. Garante que apagaste primeiro os Gestores e Eventos associados.`)) return;
-    
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}`, {
         method: "DELETE",
         headers: { Authorization: `Bearer ${token}` }
       });
-      
       if (!res.ok) {
         const errorData = await res.json().catch(() => null);
         throw new Error(errorData?.Message || "Erro ao apagar a empresa. Verifica se ainda existem dependências.");
       }
-      
       setCompanies(companies.filter(c => c.id !== id));
     } catch (err: any) {
       alert(err.message);
@@ -92,30 +87,26 @@ export default function CompaniesPage() {
   const handleEditSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editCompanyId) return;
-    
     setIsEditing(true);
     setEditError("");
-    
     try {
       const token = localStorage.getItem("token");
       const currentCompany = companies.find(c => c.id === editCompanyId);
       
-      // 1. Atualiza o nome da Empresa
       const resName = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${editCompanyId}`, {
         method: "PUT",
-        headers: { 
+        headers: {
           "Content-Type": "application/json",
-          Authorization: `Bearer ${token}` 
+          Authorization: `Bearer ${token}`
         },
-        body: JSON.stringify({ 
-          name: editCompanyName, 
-          logoUrl: currentCompany?.logoUrl 
+        body: JSON.stringify({
+          name: editCompanyName,
+          logoUrl: currentCompany?.logoUrl
         }),
       });
 
       if (!resName.ok) throw new Error("Erro ao atualizar o nome da empresa.");
 
-      // 2. Se houver um novo logótipo selecionado, faz o upload
       if (editCompanyLogo) {
         const formData = new FormData();
         formData.append("file", editCompanyLogo);
@@ -128,9 +119,8 @@ export default function CompaniesPage() {
 
         if (!resLogo.ok) throw new Error("O nome foi atualizado, mas ocorreu um erro no upload do novo logótipo.");
       }
-      
       setShowEditModal(false);
-      fetchCompanies(); 
+      fetchCompanies();
     } catch (err: any) {
       setEditError(err.message);
     } finally {
@@ -139,7 +129,7 @@ export default function CompaniesPage() {
   };
 
   return (
-    <div className="max-w-6xl mx-auto relative">
+    <div className="w-full max-w-7xl mx-auto relative px-2 sm:px-4 lg:px-8">
       <header className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900">Empresas Clientes</h1>
@@ -172,22 +162,19 @@ export default function CompaniesPage() {
             <div key={company.id} className="relative group">
               <Link href={`/companies/${company.id}`} className="block bg-white border border-slate-100 hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/5 transition-all rounded-3xl p-6 h-full flex flex-col">
                 <div className="flex items-center gap-4 mb-6">
-                  
-                  {/* 👇 O Novo Componente Seguro Substitui a Imagem Antiga 👇 */}
-                  <SafeCompanyLogo 
-                    logoUrl={company.logoUrl} 
-                    companyName={company.name} 
-                    className="w-16 h-16" 
-                    fallbackSize="w-6 h-6" 
+                  <SafeCompanyLogo
+                    logoUrl={company.logoUrl}
+                    companyName={company.name}
+                    className="w-16 h-16"
+                    fallbackSize="w-6 h-6"
                   />
-                  
                   <div className="flex-1 min-w-0 pr-8">
+                    {/* ID removido daqui */}
                     <h3 className="text-lg font-bold text-slate-900 truncate">{company.name}</h3>
-                    <p className="text-sm text-slate-500">ID: {company.id}</p>
                   </div>
                 </div>
                 <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between text-sm font-semibold text-purple-600 group-hover:text-purple-700">
-                  Gerir Instância <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  Gerir Empresa <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                 </div>
               </Link>
               <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
@@ -212,16 +199,15 @@ export default function CompaniesPage() {
                 <X className="w-5 h-5" />
               </button>
             </div>
-            
             <form onSubmit={handleEditSubmit} className="p-6 space-y-5">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Nome da Empresa</label>
-                <input 
-                  type="text" 
-                  required 
-                  value={editCompanyName} 
-                  onChange={(e) => setEditCompanyName(e.target.value)} 
-                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" 
+                <input
+                  type="text"
+                  required
+                  value={editCompanyName}
+                  onChange={(e) => setEditCompanyName(e.target.value)}
+                  className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500"
                 />
               </div>
 
@@ -248,16 +234,14 @@ export default function CompaniesPage() {
                   </div>
                 </div>
               </div>
-              
               {editError && (
                 <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">
                   {editError}
                 </div>
               )}
-              
-              <button 
-                type="submit" 
-                disabled={isEditing} 
+              <button
+                type="submit"
+                disabled={isEditing}
                 className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2"
               >
                 {isEditing ? "A Guardar..." : "Guardar Alterações"}
@@ -272,7 +256,6 @@ export default function CompaniesPage() {
 
 function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: any) {
   const [error, setError] = useState(false);
-  
   useEffect(() => {
     setError(false);
   }, [logoUrl]);

@@ -25,7 +25,7 @@ export default function LoginScreen() {
       });
 
       if (!res.ok) {
-        throw new Error("Credenciais inválidas ou erro no servidor.");
+        throw new Error("Credenciais inválidas.");
       }
 
       const data = await res.json();
