@@ -3,11 +3,11 @@
 import { useEffect, useState, useCallback } from "react";
 import { useParams } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock, AlertTriangle, Download, CheckCircle2, Info, Loader2 } from "lucide-react";
+import { ChevronLeft, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock, AlertTriangle, Download, CheckCircle2, Info, Loader2, Mail } from "lucide-react";
 import mqtt from "mqtt";
 
 interface Company { id: number; name: string; logoUrl: string | null; }
-interface AccountUser { id: number; username: string; role: string; }
+interface AccountUser { id: number; email: string; username: string; role: string; }
 interface AssignedUser { id: number; username: string; }
 interface EventStats {
   id: number; name: string; startDate: string; endDate: string;
@@ -31,22 +31,13 @@ export default function CompanyDetailsPage() {
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' } | null>(null);
 
-  // Modais de Conta
+  // Modais de Conta (Atualizado para E-mail)
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
   const [newAccountRole, setNewAccountRole] = useState<"Gestor" | "Utilizador">("Gestor");
-  const [newUsername, setNewUsername] = useState("");
-  const [newPassword, setNewPassword] = useState("");
-  const [newPasswordConfirm, setNewPasswordConfirm] = useState("");
+  const [newName, setNewName] = useState("");
+  const [newEmail, setNewEmail] = useState("");
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [createAccountError, setCreateAccountError] = useState("");
-
-  const [showResetModal, setShowResetModal] = useState(false);
-  const [resetUserId, setResetUserId] = useState<number | null>(null);
-  const [resetUsername, setResetUsername] = useState("");
-  const [resetNewPassword, setResetNewPassword] = useState("");
-  const [resetNewPasswordConfirm, setResetNewPasswordConfirm] = useState("");
-  const [isResetting, setIsResetting] = useState(false);
-  const [resetError, setResetError] = useState("");
 
   // Modais de Evento
   const [showEventModal, setShowEventModal] = useState(false);
@@ -64,7 +55,7 @@ export default function CompanyDetailsPage() {
   const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [editEventError, setEditEventError] = useState("");
 
-  // Novos Modais de Acesso Multi-Select
+  // Modais de Acesso Multi-Select
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignEvent, setAssignEvent] = useState<EventStats | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
@@ -126,45 +117,58 @@ export default function CompanyDetailsPage() {
     return () => { client.end(); };
   }, [id, fetchCompanyData]);
 
-  // Contas
+  // --- NOVA LÓGICA DE CONTAS (COM E-MAIL) ---
   const openCreateAccountModal = (role: "Gestor" | "Utilizador") => {
-    setNewAccountRole(role); setNewUsername(""); setNewPassword(""); setNewPasswordConfirm(""); setCreateAccountError(""); setShowCreateAccountModal(true);
+    setNewAccountRole(role); 
+    setNewName(""); 
+    setNewEmail(""); 
+    setCreateAccountError(""); 
+    setShowCreateAccountModal(true);
   };
 
   const handleCreateAccount = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (newPassword !== newPasswordConfirm) { setCreateAccountError("As palavras-passe não coincidem."); return; }
-    setIsCreatingAccount(true); setCreateAccountError("");
+    setIsCreatingAccount(true); 
+    setCreateAccountError("");
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/register`, {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ username: newUsername, password: newPassword, role: newAccountRole, companyId: Number(id) }),
+        body: JSON.stringify({ email: newEmail, name: newName, role: newAccountRole, companyId: Number(id) }),
       });
-      if (!res.ok) throw new Error(`Erro ao criar o ${newAccountRole.toLowerCase()}.`);
-      setShowCreateAccountModal(false); fetchCompanyData();
-    } catch (err: any) { setCreateAccountError(err.message); } finally { setIsCreatingAccount(false); }
+      
+      const data = await res.json().catch(() => ({}));
+      
+      if (!res.ok) throw new Error(data.message || data.Message || `Erro ao criar o ${newAccountRole.toLowerCase()}.`);
+      
+      setShowCreateAccountModal(false); 
+      setAlertDialog({ isOpen: true, title: "Conta Criada", message: `O ${newAccountRole.toLowerCase()} foi criado com sucesso. Foi enviado um e-mail com a palavra-passe temporária.`, type: 'success' });
+      fetchCompanyData();
+    } catch (err: any) { 
+      setCreateAccountError(err.message); 
+    } finally { 
+      setIsCreatingAccount(false); 
+    }
   };
 
-  const openResetPasswordModal = (userId: number, username: string) => {
-    setResetUserId(userId); setResetUsername(username); setResetNewPassword(""); setResetNewPasswordConfirm(""); setResetError(""); setShowResetModal(true);
-  };
-
-  const handleResetPassword = async (e: React.FormEvent) => {
-    e.preventDefault();
-    if (!resetUserId) return;
-    if (resetNewPassword !== resetNewPasswordConfirm) { setResetError("As palavras-passe não coincidem."); return; }
-    setIsResetting(true); setResetError("");
-    try {
-      const token = localStorage.getItem("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${resetUserId}/reset-password`, {
-        method: "PUT", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        body: JSON.stringify({ newPassword: resetNewPassword }),
-      });
-      if (!res.ok) throw new Error("Erro ao alterar palavra-passe.");
-      setShowResetModal(false);
-      setAlertDialog({ isOpen: true, title: "Sucesso", message: "A palavra-passe foi alterada com sucesso!", type: 'success' });
-    } catch (err: any) { setResetError(err.message); } finally { setIsResetting(false); }
+  const promptSendResetEmail = (email: string, name: string) => {
+    setConfirmDialog({
+      isOpen: true, 
+      title: "Recuperar Acesso", 
+      message: `Queres enviar um e-mail de recuperação de palavra-passe para "${name}" (${email})?`,
+      onConfirm: async () => {
+        try {
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/forgot-password`, {
+            method: "POST", headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ email })
+          });
+          if (!res.ok) throw new Error();
+          setAlertDialog({ isOpen: true, title: "E-mail Enviado", message: "As instruções de recuperação foram enviadas para o utilizador.", type: 'success' });
+        } catch (error) { 
+          setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao enviar o e-mail.", type: 'error' }); 
+        }
+      }
+    });
   };
 
   const promptDeleteUser = (userId: number, username: string, role: string) => {
@@ -229,7 +233,6 @@ export default function CompanyDetailsPage() {
     });
   };
 
-  // Lógica Multi-Select de Acessos
   const openAssignModal = (event: EventStats) => {
     setAssignEvent(event);
     setSelectedUserIds([]);
@@ -238,9 +241,7 @@ export default function CompanyDetailsPage() {
   };
 
   const toggleUserSelection = (userId: number) => {
-    setSelectedUserIds(prev => 
-      prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]
-    );
+    setSelectedUserIds(prev => prev.includes(userId) ? prev.filter(id => id !== userId) : [...prev, userId]);
   };
 
   const handleAssignAccess = async () => {
@@ -249,15 +250,12 @@ export default function CompanyDetailsPage() {
     try {
       const token = localStorage.getItem("token");
       const headers = { "Content-Type": "application/json", Authorization: `Bearer ${token}` };
-      
       const promises = selectedUserIds.map(userId => 
         fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${assignEvent.id}/assign-user`, { 
           method: "POST", headers, body: JSON.stringify({ userId }) 
         }).then(res => { if (!res.ok) throw new Error("Erro na atribuição"); })
       );
-      
       await Promise.all(promises);
-      
       setShowAssignModal(false);
       setAlertDialog({ isOpen: true, title: "Sucesso", message: "Os acessos foram atribuídos com sucesso à equipa selecionada!", type: 'success' });
       fetchCompanyData();
@@ -324,7 +322,6 @@ export default function CompanyDetailsPage() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
-  // 👇 FUNÇÃO RENDERACCOUNTLIST ATUALIZADA (SEM AS TAGS DE ROLE) 👇
   const renderAccountList = (list: AccountUser[], title: string, roleType: "Gestor" | "Utilizador", emptyMsg: string) => (
     <div>
       <div className="flex justify-between items-center mb-6">
@@ -340,13 +337,16 @@ export default function CompanyDetailsPage() {
           {list.map(account => (
             <div key={account.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors">
               <div className="flex items-center gap-4">
-                <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase">{account.username.charAt(0)}</div>
+                <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase shrink-0">{account.username.charAt(0)}</div>
                 <div>
                   <p className="font-bold text-slate-900">{account.username}</p>
+                  {/* Mostramos agora o e-mail por baixo do nome */}
+                  <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-0.5"><Mail className="w-3 h-3"/> {account.email}</p>
                 </div>
               </div>
-              <div className="flex gap-2">
-                <button onClick={() => openResetPasswordModal(account.id, account.username)} className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Repor Palavra-passe">
+              <div className="flex gap-2 shrink-0">
+                {/* O Cadeado agora envia o link de recuperação, garantindo que não há conflitos por ser baseado no E-mail! */}
+                <button onClick={() => promptSendResetEmail(account.email, account.username)} className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Enviar Link de Recuperação">
                   <Lock className="w-5 h-5" />
                 </button>
                 <button onClick={() => promptDeleteUser(account.id, account.username, account.role)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title={`Apagar ${account.role}`}>
@@ -377,7 +377,6 @@ export default function CompanyDetailsPage() {
     return acc;
   }, {} as Record<string, number[]>) : {};
 
-  // Lógica de Filtro para os Modais de Acessos
   let availableManagers: AccountUser[] = [];
   let availableUsers: AccountUser[] = [];
   if (assignEvent) {
@@ -496,44 +495,41 @@ export default function CompanyDetailsPage() {
         )}
       </div>
 
-      {/* --- MODAIS DE CRIAÇÃO/EDIÇÃO --- */}
+      {/* --- O NOVO MODAL DE CRIAÇÃO (SÓ NOME E EMAIL) --- */}
       {showCreateAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
+          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
               <h3 className="text-xl font-bold text-slate-900">Novo {newAccountRole}</h3>
               <button onClick={() => setShowCreateAccountModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateAccount} className="p-6 space-y-5">
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Utilizador</label><input type="text" required value={newUsername} onChange={(e) => setNewUsername(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Palavra-passe</label><input type="password" required value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Confirmar Palavra-passe</label><input type="password" required value={newPasswordConfirm} onChange={(e) => setNewPasswordConfirm(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              {createAccountError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{createAccountError}</div>}
-              <button type="submit" disabled={isCreatingAccount} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingAccount ? "A Criar..." : `Criar ${newAccountRole}`}</button>
+              <p className="text-sm text-slate-500">A palavra-passe será gerada automaticamente e enviada para o e-mail inserido.</p>
+              
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Nome Completo</label>
+                <input type="text" required value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="Ex: João Silva" />
+              </div>
+
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Endereço de E-mail</label>
+                <div className="relative">
+                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-400" /></div>
+                  <input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="joao@empresa.com" />
+                </div>
+              </div>
+
+              {createAccountError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex gap-2"><AlertTriangle className="w-5 h-5 shrink-0" /> {createAccountError}</div>}
+              
+              <button type="submit" disabled={isCreatingAccount || !newName || !newEmail} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-all mt-2 flex justify-center items-center shadow-lg shadow-purple-600/20 disabled:opacity-70">
+                {isCreatingAccount ? <Loader2 className="w-5 h-5 animate-spin" /> : `Criar ${newAccountRole} e Enviar E-mail`}
+              </button>
             </form>
           </div>
         </div>
       )}
 
-      {showResetModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Lock className="w-5 h-5 text-amber-500" /> Repor Password</h3>
-              <button onClick={() => setShowResetModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={handleResetPassword} className="p-6 space-y-5">
-              <p className="text-sm text-slate-500">Vais definir uma nova palavra-passe para <strong>{resetUsername}</strong>.</p>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nova Palavra-passe</label><input type="password" required value={resetNewPassword} onChange={(e) => setResetNewPassword(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-amber-500" /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Confirmar Nova Palavra-passe</label><input type="password" required value={resetNewPasswordConfirm} onChange={(e) => setResetNewPasswordConfirm(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-amber-500" /></div>
-              {resetError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{resetError}</div>}
-              <button type="submit" disabled={isResetting} className="w-full bg-amber-500 hover:bg-amber-600 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isResetting ? "A Repor..." : "Confirmar Alteração"}</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {/* NOVO MODAL MULTI-SELECT DE ATRIBUIÇÃO DE ACESSOS */}
+      {/* MODAL MULTI-SELECT DE ATRIBUIÇÃO DE ACESSOS */}
       {showAssignModal && assignEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
@@ -555,9 +551,12 @@ export default function CompanyDetailsPage() {
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
                       {availableManagers.map(m => (
-                        <div key={m.id} onClick={() => toggleUserSelection(m.id)} className={`p-3 rounded-xl border cursor-pointer flex items-center gap-3 transition-all ${selectedUserIds.includes(m.id) ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-200'}`}>
-                          <input type="checkbox" readOnly checked={selectedUserIds.includes(m.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer pointer-events-none" />
-                          <span className={`text-sm font-bold truncate ${selectedUserIds.includes(m.id) ? 'text-blue-700' : 'text-slate-700'}`}>{m.username}</span>
+                        <div key={m.id} onClick={() => toggleUserSelection(m.id)} className={`p-3 rounded-xl border cursor-pointer flex flex-col transition-all ${selectedUserIds.includes(m.id) ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-200'}`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <input type="checkbox" readOnly checked={selectedUserIds.includes(m.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer pointer-events-none" />
+                            <span className={`text-sm font-bold truncate ${selectedUserIds.includes(m.id) ? 'text-blue-700' : 'text-slate-700'}`}>{m.username}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 truncate pl-6">{m.email}</span>
                         </div>
                       ))}
                     </div>
@@ -571,9 +570,12 @@ export default function CompanyDetailsPage() {
                   ) : (
                     <div className="grid grid-cols-2 gap-2">
                       {availableUsers.map(u => (
-                        <div key={u.id} onClick={() => toggleUserSelection(u.id)} className={`p-3 rounded-xl border cursor-pointer flex items-center gap-3 transition-all ${selectedUserIds.includes(u.id) ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-white border-slate-200 hover:border-emerald-200'}`}>
-                          <input type="checkbox" readOnly checked={selectedUserIds.includes(u.id)} className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer pointer-events-none" />
-                          <span className={`text-sm font-bold truncate ${selectedUserIds.includes(u.id) ? 'text-emerald-700' : 'text-slate-700'}`}>{u.username}</span>
+                        <div key={u.id} onClick={() => toggleUserSelection(u.id)} className={`p-3 rounded-xl border cursor-pointer flex flex-col transition-all ${selectedUserIds.includes(u.id) ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-white border-slate-200 hover:border-emerald-200'}`}>
+                          <div className="flex items-center gap-2 mb-1">
+                            <input type="checkbox" readOnly checked={selectedUserIds.includes(u.id)} className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer pointer-events-none" />
+                            <span className={`text-sm font-bold truncate ${selectedUserIds.includes(u.id) ? 'text-emerald-700' : 'text-slate-700'}`}>{u.username}</span>
+                          </div>
+                          <span className="text-[10px] text-slate-400 truncate pl-6">{u.email}</span>
                         </div>
                       ))}
                     </div>
@@ -596,6 +598,7 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
+      {/* --- MODAIS DE EVENTO --- */}
       {showEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
@@ -744,7 +747,6 @@ export default function CompanyDetailsPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
