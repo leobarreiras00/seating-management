@@ -16,8 +16,12 @@ import retrofit2.http.Part
 import retrofit2.http.Path
 import retrofit2.http.Query
 
-data class LoginRequest(val username: String, val password: String)
+data class LoginRequest(val email: String, val password: String)
 data class AuthResponse(val token: String, val userGuid: String?, val role: String?, val companyName: String?, val companyLogo: String?)
+
+data class ForgotPasswordRequest(val email: String)
+data class FirstLoginResetRequest(val email: String, val temporaryPassword: String, val newPassword: String)
+
 data class ValidateTicketRequest(val eventId: Int, val ticketHash: String)
 data class ValidateTicketResponse(val message: String, val seat: SeatEntity)
 data class BulkUpdateStatusRequest(val status: String)
@@ -32,6 +36,13 @@ interface SeatingApiService {
 
     @POST("api/Auth/login")
     suspend fun login(@Body request: LoginRequest): AuthResponse
+
+    // Novos Endpoints
+    @POST("api/Auth/forgot-password")
+    suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<GenericResponse>
+
+    @POST("api/Auth/first-login-reset")
+    suspend fun firstLoginReset(@Body request: FirstLoginResetRequest): AuthResponse
 
     @GET("api/Company/my-company")
     suspend fun getMyCompany(@Header("Authorization") token: String): Response<CompanyDto>

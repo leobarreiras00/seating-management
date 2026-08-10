@@ -39,6 +39,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -110,7 +111,7 @@ fun formatEventDate(dateString: String?): String {
     if (dateString.isNullOrEmpty() || dateString == "0001-01-01T00:00:00") return "Data a definir"
     return try {
         val inputFormat = SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault())
-        val outputFormat = SimpleDateFormat("dd MMM yyyy, HH:mm", Locale("pt", "PT"))
+        val outputFormat = SimpleDateFormat("dd MMM yyyy", Locale("pt", "PT"))
         val date = inputFormat.parse(dateString.substringBefore("Z").substringBefore("."))
         if (date != null) outputFormat.format(date) else "Data a definir"
     } catch (e: Exception) {
@@ -118,11 +119,21 @@ fun formatEventDate(dateString: String?): String {
     }
 }
 
+// 👇 MODERNS ALERT DIALOG AGORA SUPORTA "isConfirmLoading" PARA BOTÕES QUE GIRAM 👇
 @Composable
 fun ModernAlertDialog(
-    title: String, message: String, icon: ImageVector, iconTint: Color, iconBg: Color,
-    confirmText: String = "Confirmar", cancelText: String? = "Cancelar", confirmColor: Color = AccentPurple,
-    content: @Composable (() -> Unit)? = null, onConfirm: () -> Unit, onDismiss: () -> Unit
+    title: String,
+    message: String,
+    icon: ImageVector,
+    iconTint: Color,
+    iconBg: Color,
+    confirmText: String = "Confirmar",
+    cancelText: String? = "Cancelar",
+    confirmColor: Color = AccentPurple,
+    isConfirmLoading: Boolean = false,
+    onConfirm: () -> Unit,
+    onDismiss: () -> Unit,
+    content: @Composable (() -> Unit)? = null
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -138,7 +149,10 @@ fun ModernAlertDialog(
                 Spacer(modifier = Modifier.height(8.dp))
                 Text(message, fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
 
-                if (content != null) { Spacer(modifier = Modifier.height(16.dp)); content() }
+                if (content != null) {
+                    Spacer(modifier = Modifier.height(16.dp))
+                    content()
+                }
 
                 Spacer(modifier = Modifier.height(24.dp))
                 Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
@@ -150,9 +164,19 @@ fun ModernAlertDialog(
                         ) { Text(cancelText, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1) }
                     }
                     Button(
-                        onClick = onConfirm, modifier = Modifier.weight(1f).height(48.dp), shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = confirmColor), contentPadding = PaddingValues(horizontal = 4.dp)
-                    ) { Text(confirmText, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1) }
+                        onClick = onConfirm,
+                        enabled = !isConfirmLoading,
+                        modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(16.dp),
+                        colors = ButtonDefaults.buttonColors(containerColor = confirmColor),
+                        contentPadding = PaddingValues(horizontal = 4.dp)
+                    ) {
+                        if (isConfirmLoading) {
+                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        } else {
+                            Text(confirmText, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
+                        }
+                    }
                 }
             }
         }
@@ -173,7 +197,6 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
         ) {
             Column(modifier = Modifier.fillMaxWidth()) {
-                // Header
                 Row(modifier = Modifier.fillMaxWidth().background(LightBg).padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(modifier = Modifier.size(40.dp).background(AccentPurpleLight, CircleShape), contentAlignment = Alignment.Center) {
@@ -192,7 +215,6 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
 
                 HorizontalDivider(color = Color(0xFFE2E8F0))
 
-                // Content
                 Column(modifier = Modifier.padding(24.dp).fillMaxWidth()) {
                     Text("Alterar Palavra-passe", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = CorporateBlue, modifier = Modifier.padding(bottom = 12.dp))
 
@@ -270,15 +292,21 @@ fun AppFeedbackDialog(feedback: AppFeedback, onDismiss: () -> Unit) {
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
-    var username by remember { mutableStateOf("") }
+    var email by remember { mutableStateOf("") }
     var password by remember { mutableStateOf("") }
-    var isLoading by remember { mutableStateOf(false) }
+
+    var showForgotPasswordDialog by remember { mutableStateOf(false) }
+    var resetEmail by remember { mutableStateOf("") }
+
+    var newPassword by remember { mutableStateOf("") }
+    var confirmNewPassword by remember { mutableStateOf("") }
 
     Box(modifier = Modifier.fillMaxSize()) {
         Column(modifier = Modifier.fillMaxSize()) {
             Box(modifier = Modifier.weight(1f).fillMaxWidth().background(CorporateBlue))
             Box(modifier = Modifier.weight(1.5f).fillMaxWidth().background(LightBg))
         }
+
         Card(
             modifier = Modifier.align(Alignment.Center).padding(horizontal = 24.dp).fillMaxWidth(),
             shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(12.dp)
@@ -291,12 +319,14 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
                 Spacer(modifier = Modifier.height(32.dp))
 
                 OutlinedTextField(
-                    value = username, onValueChange = { username = it }, label = { Text("Utilizador") },
-                    leadingIcon = { Icon(Icons.Rounded.Person, contentDescription = null, tint = Color.Gray) },
+                    value = email, onValueChange = { email = it }, label = { Text("E-mail") },
+                    leadingIcon = { Icon(Icons.Rounded.Email, contentDescription = null, tint = Color.Gray) },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
                     modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
                 )
                 Spacer(modifier = Modifier.height(16.dp))
+
                 OutlinedTextField(
                     value = password, onValueChange = { password = it }, label = { Text("Palavra-passe") },
                     leadingIcon = { Icon(Icons.Rounded.Lock, contentDescription = null, tint = Color.Gray) },
@@ -304,22 +334,121 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
                     modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
                     colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
                 )
-                if (viewModel.loginError != null) {
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Text(text = viewModel.loginError!!, color = ErrorRed, fontSize = 12.sp)
+
+                Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.End) {
+                    TextButton(onClick = { showForgotPasswordDialog = true }, contentPadding = PaddingValues(0.dp)) {
+                        Text("Esqueci-me?", color = AccentPurple, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                    }
                 }
-                Spacer(modifier = Modifier.height(32.dp))
+
+                if (viewModel.loginError != null && !viewModel.requiresFirstLoginReset) {
+                    Spacer(modifier = Modifier.height(8.dp))
+                    Text(text = viewModel.loginError!!, color = ErrorRed, fontSize = 12.sp, textAlign = TextAlign.Center)
+                }
+
+                Spacer(modifier = Modifier.height(24.dp))
+
                 Button(
-                    onClick = { isLoading = true; viewModel.authenticate(username, password) { isLoading = false; onLoginSuccess() } },
+                    onClick = { viewModel.authenticate(email, password) { onLoginSuccess() } },
+                    enabled = !viewModel.isAuthLoading,
                     modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
                 ) {
-                    if (isLoading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
+                    if (viewModel.isAuthLoading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(24.dp), strokeWidth = 2.dp)
                     else Text("ENTRAR", fontWeight = FontWeight.Bold, fontSize = 16.sp, letterSpacing = 1.sp)
                 }
             }
         }
+
+        if (showForgotPasswordDialog) {
+            ModernAlertDialog(
+                title = "Recuperar Acesso",
+                message = "Insere o teu e-mail associado à conta. Iremos enviar-te um link seguro para redefinir a palavra-passe.",
+                icon = Icons.Rounded.MailOutline, iconTint = PrimaryBlue, iconBg = Color(0xFFEFF6FF),
+                confirmText = "Enviar E-mail", cancelText = "Cancelar", confirmColor = CorporateBlue,
+                onConfirm = {
+                    if (resetEmail.isNotEmpty()) {
+                        viewModel.requestPasswordReset(resetEmail)
+                        showForgotPasswordDialog = false
+                        resetEmail = ""
+                    }
+                },
+                onDismiss = { showForgotPasswordDialog = false; resetEmail = "" },
+                content = {
+                    OutlinedTextField(
+                        value = resetEmail, onValueChange = { resetEmail = it }, label = { Text("O teu e-mail") },
+                        keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Email),
+                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
+                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = PrimaryBlue)
+                    )
+                }
+            )
+        }
+
+        if (viewModel.requiresFirstLoginReset) {
+            var localError by remember { mutableStateOf("") }
+
+            // Reage a mensagens de erro que venham da API no ViewModel
+            LaunchedEffect(viewModel.firstLoginError) {
+                if (viewModel.firstLoginError != null) localError = viewModel.firstLoginError!!
+            }
+
+            ModernAlertDialog(
+                title = "Segurança em 1º Lugar",
+                message = "Bem-vindo! Estás a usar uma palavra-passe temporária. Define agora a tua palavra-passe definitiva.",
+                icon = Icons.Rounded.Security, iconTint = AccentPurple, iconBg = AccentPurpleLight,
+                confirmText = "Guardar e Entrar", cancelText = "Cancelar", confirmColor = CorporateBlue,
+                isConfirmLoading = viewModel.isResetLoading,
+                onConfirm = {
+                    // 👇 AS VALIDAÇÕES AGORA MOSTRAM ERRO DENTRO DO MODAL 👇
+                    if (newPassword.length < 6) {
+                        localError = "A palavra-passe tem de ter no mínimo 6 caracteres."
+                    } else if (newPassword != confirmNewPassword) {
+                        localError = "As palavras-passe não coincidem."
+                    } else if (newPassword == password) {
+                        localError = "A nova palavra-passe tem de ser diferente da temporária."
+                    } else {
+                        localError = ""
+                        viewModel.firstLoginReset(email, password, newPassword) {
+                            viewModel.requiresFirstLoginReset = false
+                            onLoginSuccess()
+                        }
+                    }
+                },
+                onDismiss = {
+                    viewModel.requiresFirstLoginReset = false
+                    viewModel.logout()
+                },
+                content = {
+                    Column(verticalArrangement = Arrangement.spacedBy(12.dp)) {
+                        OutlinedTextField(
+                            value = newPassword, onValueChange = { newPassword = it; localError = "" }, label = { Text("Nova Palavra-passe") },
+                            visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
+                        )
+                        OutlinedTextField(
+                            value = confirmNewPassword, onValueChange = { confirmNewPassword = it; localError = "" }, label = { Text("Confirmar Palavra-passe") },
+                            visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
+                            modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
+                            colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
+                        )
+
+                        // 👇 O AVISO VERMELHO APARECE AQUI SE A PASS FOR CURTA 👇
+                        if (localError.isNotEmpty()) {
+                            Text(localError, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
+                        }
+                    }
+                }
+            )
+        }
+
+        if (viewModel.appFeedback != null) {
+            AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
+        }
     }
 }
+
+// ... (RESTO DO CÓDIGO PERMANECE INTACTO) ...
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -654,7 +783,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     }
                 }
 
-                // 👇 NOVO PAINEL DE FILTROS: Ocupa todo o espaço (esconde a lista) 👇
                 AnimatedVisibility(
                     visible = showFilters,
                     modifier = if (showFilters) Modifier.weight(1f) else Modifier
@@ -684,7 +812,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                             }
                         }
 
-                        // --- Secção MESA ---
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable { isTableSectionOpen = !isTableSectionOpen }.padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -708,7 +835,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                             }
                         }
 
-                        // --- Secção CATEGORIA ---
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable { isCategorySectionOpen = !isCategorySectionOpen }.padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -732,7 +858,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                             }
                         }
 
-                        // --- Secção ESTADO ---
                         Row(
                             modifier = Modifier.fillMaxWidth().clickable { isStatusSectionOpen = !isStatusSectionOpen }.padding(vertical = 6.dp),
                             verticalAlignment = Alignment.CenterVertically,
@@ -754,7 +879,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     }
                 }
 
-                // 👇 LISTA DE CONVIDADOS: Aparece só quando os Filtros estão fechados 👇
                 AnimatedVisibility(
                     visible = !showFilters,
                     modifier = if (!showFilters) Modifier.weight(1f) else Modifier

@@ -18,6 +18,7 @@ import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
+import retrofit2.HttpException
 import java.io.BufferedWriter
 import java.io.OutputStreamWriter
 import java.text.SimpleDateFormat
@@ -49,6 +50,11 @@ data class UploadErrorResponse(
     val errors: List<CsvValidationError>?
 )
 
+data class AuthErrorResponse(
+    val message: String?,
+    val requiresPasswordReset: Boolean?
+)
+
 class SeatViewModel(application: Application) : AndroidViewModel(application) {
 
     private val repository: SeatRepository
@@ -62,17 +68,22 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     var jwtToken: String? = null
 
     var userRole by mutableStateOf("Utilizador")
-
     var companyName by mutableStateOf("Seatly")
     var companyLogo by mutableStateOf("")
-
     var managerName by mutableStateOf("")
     var userGuid by mutableStateOf("")
 
     var myEvents by mutableStateOf<List<EventDto>>(emptyList())
     var isLoadingEvents by mutableStateOf(false)
 
+    // 👇 NOVOS ESTADOS DE LOADING E ERRO 👇
+    var isAuthLoading by mutableStateOf(false)
+    var isResetLoading by mutableStateOf(false)
     var loginError by mutableStateOf<String?>(null)
+    var firstLoginError by mutableStateOf<String?>(null)
+
+    var requiresFirstLoginReset by mutableStateOf(false)
+
     var currentEventId by mutableStateOf<Int?>(null)
     var appFeedback by mutableStateOf<AppFeedback?>(null)
 
@@ -82,7 +93,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     var totalValidationRows by mutableStateOf(0)
     var showValidationScreen by mutableStateOf(false)
 
-    // Memória de patamares para evitar enviar repetidas vezes a mesma notificação
     private val announcedCapacityThresholds = mutableSetOf<Int>()
 
     init {
@@ -111,27 +121,18 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
 
         mqttManager.onManagerEventsUpdated = {
-            viewModelScope.launch {
-                fetchMyEvents()
-            }
+            viewModelScope.launch { fetchMyEvents() }
         }
 
         mqttManager.onProfileLogout = {
-            viewModelScope.launch {
-                forceLogoutEvent = true
-            }
+            viewModelScope.launch { forceLogoutEvent = true }
         }
 
         mqttManager.onProfileRefresh = {
             viewModelScope.launch {
                 fetchMyCompany()
                 fetchMyEvents()
-
-                appFeedback = AppFeedback(
-                    FeedbackType.INFO,
-                    "Dados Atualizados",
-                    "Os dados ou acessos da tua empresa foram modificados pelo Administrador."
-                )
+                appFeedback = AppFeedback(FeedbackType.INFO, "Dados Atualizados", "Os dados ou acessos da tua empresa foram modificados pelo Administrador.")
             }
         }
 
@@ -150,9 +151,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                         companyLogo = companyData.logoUrl ?: ""
                     }
                 }
-            } catch (e: Exception) {
-                Log.e("API", "Erro ao atualizar dados da empresa: ${e.message}")
-            }
+            } catch (e: Exception) { Log.e("API", "Erro ao atualizar dados da empresa: ${e.message}") }
         }
     }
 
@@ -165,6 +164,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         companyLogo = ""
         managerName = ""
         userGuid = ""
+        requiresFirstLoginReset = false
         announcedCapacityThresholds.clear()
         viewModelScope.launch {
             repository.deleteAllSeats()
@@ -179,24 +179,23 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         }
     }
 
-    fun authenticate(user: String, pass: String, onSuccess: () -> Unit) {
+    fun authenticate(email: String, pass: String, onSuccess: () -> Unit) {
         if (isOffline) {
             loginError = "Sem ligação à internet."
             return
         }
         viewModelScope.launch {
+            isAuthLoading = true
             try {
-                val response: AuthResponse = RetrofitClient.apiService.login(LoginRequest(user, pass))
+                loginError = null
+                val response: AuthResponse = RetrofitClient.apiService.login(LoginRequest(email, pass))
+
                 jwtToken = response.token
-
-                if (response.role != null) {
-                    userRole = response.role
-                }
-
+                if (response.role != null) userRole = response.role
                 if (response.companyName != null) companyName = response.companyName
                 if (response.companyLogo != null) companyLogo = response.companyLogo
 
-                managerName = user
+                managerName = email
                 userGuid = response.userGuid ?: ""
 
                 if (userGuid.isNotEmpty()) {
@@ -204,11 +203,85 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 }
 
                 fetchMyEvents()
-
-                loginError = null
                 onSuccess()
+            } catch (e: HttpException) {
+                if (e.code() == 403) {
+                    val errorJson = e.response()?.errorBody()?.string()
+                    try {
+                        val errorData = com.google.gson.Gson().fromJson(errorJson, AuthErrorResponse::class.java)
+                        if (errorData.requiresPasswordReset == true) {
+                            requiresFirstLoginReset = true
+                        } else {
+                            loginError = errorData.message ?: "Credenciais inválidas."
+                        }
+                    } catch (ex: Exception) {
+                        loginError = "Conta bloqueada."
+                    }
+                } else if (e.code() == 401 || e.code() == 400 || e.code() == 404) {
+                    loginError = "Palavra-passe ou E-mail incorretos."
+                } else {
+                    loginError = "Erro no servidor (${e.code()})."
+                }
             } catch (e: Exception) {
-                loginError = "Credenciais inválidas ou erro de rede."
+                loginError = "Sem acesso ao servidor."
+            } finally {
+                // 👇 O Segredo está aqui: Desliga sempre o loading quer dê erro ou não 👇
+                isAuthLoading = false
+            }
+        }
+    }
+
+    fun requestPasswordReset(email: String) {
+        if (isOffline) {
+            appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "Precisas de internet para recuperar a palavra-passe.")
+            return
+        }
+        viewModelScope.launch {
+            try {
+                val res = RetrofitClient.apiService.forgotPassword(ForgotPasswordRequest(email))
+                if (res.isSuccessful) {
+                    appFeedback = AppFeedback(FeedbackType.SUCCESS, "E-mail Enviado", "Se a conta existir, enviámos as instruções para ti.")
+                } else {
+                    appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Não foi possível processar o pedido.")
+                }
+            } catch (e: Exception) {
+                appFeedback = AppFeedback(FeedbackType.ERROR, "Erro de Rede", "Verifica a tua ligação.")
+            }
+        }
+    }
+
+    fun firstLoginReset(email: String, tempPass: String, newPass: String, onSuccess: () -> Unit) {
+        if (isOffline) {
+            firstLoginError = "Sem ligação à internet."
+            return
+        }
+        viewModelScope.launch {
+            isResetLoading = true
+            try {
+                firstLoginError = null
+                val response: AuthResponse = RetrofitClient.apiService.firstLoginReset(FirstLoginResetRequest(email, tempPass, newPass))
+
+                jwtToken = response.token
+                if (response.role != null) userRole = response.role
+                if (response.companyName != null) companyName = response.companyName
+                if (response.companyLogo != null) companyLogo = response.companyLogo
+
+                managerName = email
+                userGuid = response.userGuid ?: ""
+
+                if (userGuid.isNotEmpty()) {
+                    mqttManager.subscribeToManagerEvents(userGuid)
+                }
+
+                fetchMyEvents()
+                onSuccess()
+            } catch (e: HttpException) {
+                firstLoginError = "A palavra-passe temporária expirou ou ocorreu um erro de segurança."
+            } catch (e: Exception) {
+                firstLoginError = "Sem acesso ao servidor. Tenta novamente."
+            } finally {
+                // 👇 Desliga a roda de loading do modal 👇
+                isResetLoading = false
             }
         }
     }
@@ -315,24 +388,18 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 }
             }
 
-            // 👇 LÓGICA DE LOTAÇÃO (CLIQUE ÚNICO) 👇
             if (!isOffline && newStatus != 0) {
                 val allSeats = repository.allSeats.first()
                 val totalSeats = allSeats.size
 
                 if (totalSeats > 0) {
                     var validatedCount = 0
-
                     allSeats.forEach { s ->
-                        if (s.id == seat.id) {
-                            validatedCount++
-                        } else if (s.status != 0) {
-                            validatedCount++
-                        }
+                        if (s.id == seat.id) validatedCount++
+                        else if (s.status != 0) validatedCount++
                     }
 
                     val percentage = (validatedCount * 100) / totalSeats
-
                     val threshold = when {
                         percentage == 100 -> 100
                         percentage in 90..99 -> 90
@@ -343,9 +410,7 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                     }
 
                     if (threshold > 0 && !announcedCapacityThresholds.contains(threshold)) {
-                        // Marca o patamar atingido e todos os inferiores (para evitar alertas repetidos se saltou algum)
                         announcedCapacityThresholds.addAll(listOf(25, 50, 75, 90, 100).filter { it <= threshold })
-
                         val eventName = myEvents.find { it.id == safeEventId }?.name ?: "Evento #${safeEventId}"
                         mqttManager.publishCapacityAlert(eventName, threshold, validatedCount, totalSeats)
                     }
@@ -413,25 +478,19 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                     fetchSeatsFromApi()
                     appFeedback = AppFeedback(FeedbackType.SUCCESS, "Sucesso", "Registos atualizados com sucesso.")
 
-                    // 👇 NOVA LÓGICA DE LOTAÇÃO PARA O BOTÃO "VALIDAR TODOS" 👇
                     if (novoEstado != "0" && novoEstado.lowercase() != "pendente") {
                         val allSeats = repository.allSeats.first()
                         val totalSeats = allSeats.size
 
                         if (totalSeats > 0) {
-                            val threshold = 100 // Como é Bulk Update, atinge os 100%
-
+                            val threshold = 100
                             if (!announcedCapacityThresholds.contains(threshold)) {
-                                // Adiciona todos à lista para só notificar 1 vez e ignorar os inferiores
                                 announcedCapacityThresholds.addAll(listOf(25, 50, 75, 90, 100))
-
                                 val eventName = myEvents.find { it.id == safeEventId }?.name ?: "Evento #${safeEventId}"
                                 mqttManager.publishCapacityAlert(eventName, threshold, totalSeats, totalSeats)
                             }
                         }
                     } else {
-                        // Se a ação em massa for "Desvalidar Todos", limpamos a memória
-                        // para que as notificações voltem a ser disparadas caso se volte a validar!
                         announcedCapacityThresholds.clear()
                     }
 
