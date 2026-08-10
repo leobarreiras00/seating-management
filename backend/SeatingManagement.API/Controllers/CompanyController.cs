@@ -179,7 +179,7 @@ namespace SeatingManagement.API.Controllers
         {
             var managers = await _context.Users
                 .Where(u => u.CompanyId == id && u.Role == "Gestor")
-                .Select(u => new ManagerResponseDto { Id = u.Id, Username = u.Username, Role = u.Role })
+                .Select(u => new ManagerResponseDto { Id = u.Id, Email = u.Email, Username = u.Username, Role = u.Role })
                 .ToListAsync();
             return Ok(managers);
         }
@@ -190,7 +190,7 @@ namespace SeatingManagement.API.Controllers
         {
             var users = await _context.Users
                 .Where(u => u.CompanyId == id && u.Role == "Utilizador")
-                .Select(u => new ManagerResponseDto { Id = u.Id, Username = u.Username, Role = u.Role })
+                .Select(u => new ManagerResponseDto { Id = u.Id, Email = u.Email, Username = u.Username, Role = u.Role })
                 .ToListAsync();
             return Ok(users);
         }
