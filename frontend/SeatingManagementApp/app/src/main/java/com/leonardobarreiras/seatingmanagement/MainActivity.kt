@@ -6,6 +6,8 @@ import androidx.activity.compose.setContent
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.compose.animation.AnimatedVisibility
+import androidx.compose.animation.expandVertically
+import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.Image
 import androidx.compose.foundation.background
@@ -29,8 +31,12 @@ import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
+import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.vector.ImageVector
+import androidx.compose.ui.input.nestedscroll.NestedScrollConnection
+import androidx.compose.ui.input.nestedscroll.NestedScrollSource
+import androidx.compose.ui.input.nestedscroll.nestedScroll
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalLifecycleOwner
 import androidx.compose.ui.res.painterResource
@@ -39,7 +45,6 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
-import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -83,9 +88,7 @@ class MainActivity : ComponentActivity() {
                     LaunchedEffect(sharedViewModel.forceLogoutEvent) {
                         if (sharedViewModel.forceLogoutEvent) {
                             sharedViewModel.logout()
-                            navController.navigate("login") {
-                                popUpTo(0) { inclusive = true }
-                            }
+                            navController.navigate("login") { popUpTo(0) { inclusive = true } }
                             sharedViewModel.forceLogoutEvent = false
                         }
                     }
@@ -114,26 +117,14 @@ fun formatEventDate(dateString: String?): String {
         val outputFormat = SimpleDateFormat("dd MMM yyyy", Locale("pt", "PT"))
         val date = inputFormat.parse(dateString.substringBefore("Z").substringBefore("."))
         if (date != null) outputFormat.format(date) else "Data a definir"
-    } catch (e: Exception) {
-        "Data a definir"
-    }
+    } catch (e: Exception) { "Data a definir" }
 }
 
-// 👇 MODERNS ALERT DIALOG AGORA SUPORTA "isConfirmLoading" PARA BOTÕES QUE GIRAM 👇
 @Composable
 fun ModernAlertDialog(
-    title: String,
-    message: String,
-    icon: ImageVector,
-    iconTint: Color,
-    iconBg: Color,
-    confirmText: String = "Confirmar",
-    cancelText: String? = "Cancelar",
-    confirmColor: Color = AccentPurple,
-    isConfirmLoading: Boolean = false,
-    onConfirm: () -> Unit,
-    onDismiss: () -> Unit,
-    content: @Composable (() -> Unit)? = null
+    title: String, message: String, icon: ImageVector, iconTint: Color, iconBg: Color,
+    confirmText: String = "Confirmar", cancelText: String? = "Cancelar", confirmColor: Color = AccentPurple,
+    isConfirmLoading: Boolean = false, onConfirm: () -> Unit, onDismiss: () -> Unit, content: @Composable (() -> Unit)? = null
 ) {
     Dialog(onDismissRequest = onDismiss) {
         Card(
@@ -164,18 +155,12 @@ fun ModernAlertDialog(
                         ) { Text(cancelText, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1) }
                     }
                     Button(
-                        onClick = onConfirm,
-                        enabled = !isConfirmLoading,
-                        modifier = Modifier.weight(1f).height(48.dp),
-                        shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = confirmColor),
+                        onClick = onConfirm, enabled = !isConfirmLoading, modifier = Modifier.weight(1f).height(48.dp),
+                        shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = confirmColor),
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
-                        if (isConfirmLoading) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Text(confirmText, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
-                        }
+                        if (isConfirmLoading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else Text(confirmText, fontWeight = FontWeight.Bold, fontSize = 13.sp, maxLines = 1)
                     }
                 }
             }
@@ -199,9 +184,7 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
             Column(modifier = Modifier.fillMaxWidth()) {
                 Row(modifier = Modifier.fillMaxWidth().background(LightBg).padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
-                        Box(modifier = Modifier.size(40.dp).background(AccentPurpleLight, CircleShape), contentAlignment = Alignment.Center) {
-                            Icon(Icons.Rounded.Person, contentDescription = null, tint = AccentPurple)
-                        }
+                        Box(modifier = Modifier.size(40.dp).background(AccentPurpleLight, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Person, contentDescription = null, tint = AccentPurple) }
                         Spacer(modifier = Modifier.width(12.dp))
                         Column {
                             Text("O Meu Perfil", fontWeight = FontWeight.Bold, fontSize = 18.sp, color = CorporateBlue)
@@ -221,15 +204,13 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
                     OutlinedTextField(
                         value = oldPass, onValueChange = { oldPass = it; errorMsg = "" }, label = { Text("Palavra-passe atual", fontSize = 13.sp) },
                         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
+                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
                     )
                     Spacer(modifier = Modifier.height(12.dp))
                     OutlinedTextField(
                         value = newPass, onValueChange = { newPass = it; errorMsg = "" }, label = { Text("Nova palavra-passe", fontSize = 13.sp) },
                         visualTransformation = PasswordVisualTransformation(), keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Password),
-                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true,
-                        colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
+                        modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp), singleLine = true, colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
                     )
 
                     if (errorMsg.isNotEmpty()) {
@@ -243,20 +224,12 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
                         onClick = {
                             if (oldPass.isEmpty() || newPass.isEmpty()) { errorMsg = "Preenche todos os campos."; return@Button }
                             isChanging = true
-                            viewModel.changePassword(
-                                oldPass = oldPass, newPass = newPass,
-                                onSuccess = { onDismiss(); isChanging = false },
-                                onError = { errorMsg = it; isChanging = false }
-                            )
+                            viewModel.changePassword(oldPass = oldPass, newPass = newPass, onSuccess = { onDismiss(); isChanging = false }, onError = { errorMsg = it; isChanging = false })
                         },
-                        modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp),
-                        colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
+                        modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
                     ) {
-                        if (isChanging) {
-                            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
-                        } else {
-                            Text("Guardar Alteração", fontWeight = FontWeight.Bold, fontSize = 14.sp)
-                        }
+                        if (isChanging) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
+                        else Text("Guardar Alteração", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
                     Spacer(modifier = Modifier.height(16.dp))
@@ -264,10 +237,7 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
                     Spacer(modifier = Modifier.height(16.dp))
 
                     OutlinedButton(
-                        onClick = {
-                            onDismiss()
-                            viewModel.forceLogoutEvent = true
-                        },
+                        onClick = { onDismiss(); viewModel.forceLogoutEvent = true },
                         modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp),
                         border = BorderStroke(1.dp, ErrorRedLight), colors = ButtonDefaults.outlinedButtonColors(contentColor = ErrorRed)
                     ) {
@@ -387,7 +357,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
         if (viewModel.requiresFirstLoginReset) {
             var localError by remember { mutableStateOf("") }
 
-            // Reage a mensagens de erro que venham da API no ViewModel
             LaunchedEffect(viewModel.firstLoginError) {
                 if (viewModel.firstLoginError != null) localError = viewModel.firstLoginError!!
             }
@@ -399,7 +368,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
                 confirmText = "Guardar e Entrar", cancelText = "Cancelar", confirmColor = CorporateBlue,
                 isConfirmLoading = viewModel.isResetLoading,
                 onConfirm = {
-                    // 👇 AS VALIDAÇÕES AGORA MOSTRAM ERRO DENTRO DO MODAL 👇
                     if (newPassword.length < 6) {
                         localError = "A palavra-passe tem de ter no mínimo 6 caracteres."
                     } else if (newPassword != confirmNewPassword) {
@@ -433,7 +401,6 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
                             colors = OutlinedTextFieldDefaults.colors(focusedBorderColor = AccentPurple)
                         )
 
-                        // 👇 O AVISO VERMELHO APARECE AQUI SE A PASS FOR CURTA 👇
                         if (localError.isNotEmpty()) {
                             Text(localError, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth(), textAlign = TextAlign.Center, fontWeight = FontWeight.Bold)
                         }
@@ -441,14 +408,8 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
                 }
             )
         }
-
-        if (viewModel.appFeedback != null) {
-            AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
-        }
     }
 }
-
-// ... (RESTO DO CÓDIGO PERMANECE INTACTO) ...
 
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
@@ -565,14 +526,227 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
         if (showProfileDialog) {
             ProfileDialog(viewModel = viewModel, onDismiss = { showProfileDialog = false })
         }
+    }
+}
 
-        if (viewModel.appFeedback != null) {
-            AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
+// 👇 NOVO DROPDOWN PREMIUM (ESTILO CARTÃO COM CHECKBOXES ELEGANTES) 👇
+@Composable
+fun PremiumFilterDropdown(
+    label: String,
+    options: List<String>,
+    selectedOptions: Set<String>,
+    onSelectionChange: (String) -> Unit,
+    onClear: () -> Unit
+) {
+    var expanded by remember { mutableStateOf(false) }
+    val displayStr = if (selectedOptions.isEmpty()) "Todas as opções" else selectedOptions.joinToString(", ")
+
+    Column(modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)) {
+        Text(
+            text = label,
+            fontSize = 13.sp,
+            fontWeight = FontWeight.ExtraBold,
+            color = CorporateBlue,
+            modifier = Modifier.padding(start = 4.dp, bottom = 8.dp)
+        )
+
+        Box(modifier = Modifier.fillMaxWidth()) {
+            Card(
+                modifier = Modifier.fillMaxWidth().clickable { expanded = true },
+                shape = RoundedCornerShape(16.dp),
+                colors = CardDefaults.cardColors(containerColor = Color.White),
+                border = BorderStroke(1.dp, if (expanded) AccentPurple else Color(0xFFE2E8F0)),
+                elevation = CardDefaults.cardElevation(if (expanded) 4.dp else 0.dp)
+            ) {
+                Row(
+                    modifier = Modifier.fillMaxWidth().padding(horizontal = 16.dp, vertical = 18.dp),
+                    horizontalArrangement = Arrangement.SpaceBetween,
+                    verticalAlignment = Alignment.CenterVertically
+                ) {
+                    Text(
+                        text = displayStr,
+                        color = if (selectedOptions.isEmpty()) TextGray else CorporateBlue,
+                        fontWeight = if (selectedOptions.isEmpty()) FontWeight.Normal else FontWeight.Bold,
+                        fontSize = 14.sp,
+                        maxLines = 1,
+                        modifier = Modifier.weight(1f)
+                    )
+                    Icon(
+                        imageVector = if (expanded) Icons.Rounded.KeyboardArrowUp else Icons.Rounded.KeyboardArrowDown,
+                        contentDescription = null,
+                        tint = if (expanded) AccentPurple else TextGray,
+                        modifier = Modifier.size(20.dp)
+                    )
+                }
+            }
+
+            DropdownMenu(
+                expanded = expanded,
+                onDismissRequest = { expanded = false },
+                modifier = Modifier
+                    .fillMaxWidth(0.85f)
+                    .background(Color.White, RoundedCornerShape(16.dp))
+                    .padding(8.dp)
+            ) {
+                DropdownMenuItem(
+                    text = {
+                        Text("Limpar Seleção", fontWeight = FontWeight.Bold, color = ErrorRed, fontSize = 14.sp)
+                    },
+                    onClick = { onClear(); expanded = false },
+                    modifier = Modifier.clip(RoundedCornerShape(12.dp))
+                )
+
+                HorizontalDivider(color = Color(0xFFF1F5F9), thickness = 1.dp, modifier = Modifier.padding(vertical = 4.dp))
+
+                options.forEach { option ->
+                    val isSelected = selectedOptions.contains(option)
+                    DropdownMenuItem(
+                        text = {
+                            Row(
+                                verticalAlignment = Alignment.CenterVertically,
+                                modifier = Modifier.fillMaxWidth()
+                            ) {
+                                Box(
+                                    modifier = Modifier
+                                        .size(22.dp)
+                                        .background(if (isSelected) AccentPurple else Color(0xFFF8FAFC), RoundedCornerShape(6.dp))
+                                        .border(if (isSelected) 0.dp else 1.dp, if (isSelected) Color.Transparent else Color(0xFFCBD5E1), RoundedCornerShape(6.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isSelected) {
+                                        Icon(Icons.Rounded.Check, contentDescription = null, tint = Color.White, modifier = Modifier.size(16.dp))
+                                    }
+                                }
+                                Spacer(Modifier.width(12.dp))
+                                Text(
+                                    text = option,
+                                    color = if (isSelected) CorporateBlue else TextGray,
+                                    fontWeight = if (isSelected) FontWeight.Bold else FontWeight.Medium,
+                                    fontSize = 14.sp,
+                                    maxLines = 2
+                                )
+                            }
+                        },
+                        onClick = { onSelectionChange(option) },
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(12.dp))
+                            .background(if (isSelected) AccentPurpleLight.copy(alpha = 0.3f) else Color.Transparent)
+                    )
+                }
+            }
         }
     }
 }
 
-@OptIn(ExperimentalLayoutApi::class)
+// 👇 NOVO CARTÃO DE CONVIDADO (MUITO MAIS PREMIUM COM AVATAR) 👇
+@Composable
+fun GuestListItem(seat: SeatEntity, onAssignClick: () -> Unit) {
+    val isAssigned = seat.status != 0
+    val statusColor = if (isAssigned) SuccessGreen else ErrorRed
+    val statusBg = if (isAssigned) SuccessGreenLight else ErrorRedLight
+
+    val name = seat.assignedTo?.takeIf { it.isNotBlank() } ?: "Convite Sem Nome"
+    val initials = name.split(" ").take(2).mapNotNull { it.firstOrNull()?.uppercase() }.joinToString("")
+
+    val avatarColor = remember(name) {
+        val colors = listOf(Color(0xFF3B82F6), Color(0xFFF59E0B), Color(0xFFEC4899), Color(0xFF8B5CF6), Color(0xFF14B8A6))
+        colors[name.length % colors.size]
+    }
+
+    Card(
+        modifier = Modifier.fillMaxWidth().clickable { onAssignClick() },
+        colors = CardDefaults.cardColors(containerColor = Color.White),
+        elevation = CardDefaults.cardElevation(2.dp),
+        shape = RoundedCornerShape(24.dp)
+    ) {
+        Row(
+            modifier = Modifier.padding(16.dp).fillMaxWidth(),
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Box(
+                modifier = Modifier.size(48.dp).background(avatarColor.copy(alpha = 0.1f), CircleShape),
+                contentAlignment = Alignment.Center
+            ) {
+                Text(initials, color = avatarColor, fontWeight = FontWeight.Black, fontSize = 16.sp)
+            }
+
+            Spacer(modifier = Modifier.width(16.dp))
+
+            Column(modifier = Modifier.weight(1f)) {
+                Text(name, fontWeight = FontWeight.ExtraBold, fontSize = 15.sp, color = CorporateBlue, maxLines = 2)
+
+                Spacer(modifier = Modifier.height(6.dp))
+
+                Text(
+                    text = seat.eventName,
+                    color = AccentPurple,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.Bold,
+                    modifier = Modifier
+                        .background(AccentPurpleLight, RoundedCornerShape(8.dp))
+                        .padding(horizontal = 8.dp, vertical = 4.dp),
+                    maxLines = 1
+                )
+
+                Spacer(modifier = Modifier.height(8.dp))
+
+                Row(verticalAlignment = Alignment.CenterVertically) {
+                    Row(
+                        modifier = Modifier.background(Color(0xFFF1F5F9), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.GridView, contentDescription = null, tint = TextGray, modifier = Modifier.size(12.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Mesa: ", fontSize = 11.sp, color = TextGray, fontWeight = FontWeight.Medium)
+                        Text(getMesaFromSeat(seat.seatNumber), fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = CorporateBlue)
+                    }
+
+                    Spacer(modifier = Modifier.width(8.dp))
+
+                    Row(
+                        modifier = Modifier.background(Color(0xFFF1F5F9), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 4.dp),
+                        verticalAlignment = Alignment.CenterVertically
+                    ) {
+                        Icon(Icons.Rounded.Place, contentDescription = null, tint = TextGray, modifier = Modifier.size(12.dp))
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("Lugar: ", fontSize = 11.sp, color = TextGray, fontWeight = FontWeight.Medium)
+                        val lugarStr = seat.seatNumber.split("-").let { if (it.size > 1) it[1] else seat.seatNumber }
+                        Text(lugarStr, fontSize = 11.sp, fontWeight = FontWeight.ExtraBold, color = CorporateBlue)
+                    }
+                }
+            }
+
+            Spacer(modifier = Modifier.width(12.dp))
+
+            Column(horizontalAlignment = Alignment.CenterHorizontally) {
+                Box(
+                    modifier = Modifier
+                        .size(44.dp)
+                        .clip(CircleShape)
+                        .background(statusBg)
+                        .border(2.dp, statusColor.copy(alpha = 0.3f), CircleShape),
+                    contentAlignment = Alignment.Center
+                ) {
+                    Icon(
+                        imageVector = if (isAssigned) Icons.Rounded.Check else Icons.Rounded.Close,
+                        contentDescription = "Estado",
+                        tint = statusColor,
+                        modifier = Modifier.size(24.dp)
+                    )
+                }
+                Spacer(modifier = Modifier.height(4.dp))
+                Text(
+                    text = if (isAssigned) "Validado" else "Pendente",
+                    color = statusColor,
+                    fontSize = 10.sp,
+                    fontWeight = FontWeight.ExtraBold
+                )
+            }
+        }
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class, ExperimentalMaterial3Api::class)
 @Composable
 fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavController) {
     val seats by viewModel.seatsFlow.collectAsState(initial = emptyList())
@@ -588,15 +762,24 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
 
     var selectedTables by remember { mutableStateOf(setOf<String>()) }
     var selectedCategories by remember { mutableStateOf(setOf<String>()) }
-    var selectedStatus by remember { mutableStateOf("Todos") }
-
-    var isTableSectionOpen by remember { mutableStateOf(true) }
-    var isCategorySectionOpen by remember { mutableStateOf(true) }
-    var isStatusSectionOpen by remember { mutableStateOf(true) }
+    var selectedStatus by remember { mutableStateOf(setOf<String>()) }
 
     var pendingCsvUri by remember { mutableStateOf<android.net.Uri?>(null) }
     var showCsvModeDialog by remember { mutableStateOf(false) }
     var confirmActionType by remember { mutableStateOf<String?>(null) }
+
+    val activeFiltersCount = selectedTables.size + selectedCategories.size + selectedStatus.size
+
+    var isProgressVisible by remember { mutableStateOf(true) }
+    val nestedScrollConnection = remember {
+        object : NestedScrollConnection {
+            override fun onPreScroll(available: Offset, source: NestedScrollSource): Offset {
+                if (available.y < -15) isProgressVisible = false
+                if (available.y > 15) isProgressVisible = true
+                return Offset.Zero
+            }
+        }
+    }
 
     val totalSeats by remember(seats) { derivedStateOf { seats.size } }
     val treatedSeats by remember(seats) { derivedStateOf { seats.count { it.status != 0 } } }
@@ -702,27 +885,31 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
         ) { paddingValues ->
             Column(modifier = Modifier.fillMaxSize().padding(paddingValues).padding(horizontal = 16.dp)) {
 
-                Card(
-                    shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
-                    elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth()
+                AnimatedVisibility(
+                    visible = isProgressVisible,
+                    enter = expandVertically(expandFrom = Alignment.Top),
+                    exit = shrinkVertically(shrinkTowards = Alignment.Top)
                 ) {
-                    Column(modifier = Modifier.padding(16.dp)) {
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-                            Text("Progresso", fontWeight = FontWeight.Bold, color = TextGray, fontSize = 14.sp)
-                            Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = CorporateBlue, fontSize = 14.sp)
-                        }
-                        Spacer(modifier = Modifier.height(8.dp))
-                        LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), color = SuccessGreen, trackColor = Color(0xFFF1F5F9))
-                        Spacer(modifier = Modifier.height(20.dp))
-                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
-                            StatCard(modifier = Modifier.weight(1f), title = "Total", count = totalSeats, iconColor = AccentPurple, bgTint = AccentPurpleLight, icon = Icons.Rounded.Groups)
-                            StatCard(modifier = Modifier.weight(1f), title = "Tratados", count = treatedSeats, iconColor = SuccessGreen, bgTint = SuccessGreenLight, icon = Icons.Rounded.CheckCircleOutline)
-                            StatCard(modifier = Modifier.weight(1f), title = "Pendentes", count = pendingSeats, iconColor = ErrorRed, bgTint = ErrorRedLight, icon = Icons.Rounded.Schedule)
+                    Card(
+                        shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                    ) {
+                        Column(modifier = Modifier.padding(16.dp)) {
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                                Text("Progresso", fontWeight = FontWeight.Bold, color = TextGray, fontSize = 14.sp)
+                                Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = CorporateBlue, fontSize = 14.sp)
+                            }
+                            Spacer(modifier = Modifier.height(8.dp))
+                            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), color = SuccessGreen, trackColor = Color(0xFFF1F5F9))
+                            Spacer(modifier = Modifier.height(20.dp))
+                            Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
+                                StatCard(modifier = Modifier.weight(1f), title = "Total", count = totalSeats, iconColor = AccentPurple, bgTint = AccentPurpleLight, icon = Icons.Rounded.Groups)
+                                StatCard(modifier = Modifier.weight(1f), title = "Tratados", count = treatedSeats, iconColor = SuccessGreen, bgTint = SuccessGreenLight, icon = Icons.Rounded.CheckCircleOutline)
+                                StatCard(modifier = Modifier.weight(1f), title = "Pendentes", count = pendingSeats, iconColor = ErrorRed, bgTint = ErrorRedLight, icon = Icons.Rounded.Schedule)
+                            }
                         }
                     }
                 }
-
-                Spacer(modifier = Modifier.height(16.dp))
 
                 Row(modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
                     Row(
@@ -751,11 +938,33 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     }
 
                     Spacer(modifier = Modifier.width(8.dp))
-                    IconButton(
-                        onClick = { showFilters = !showFilters },
-                        modifier = Modifier.size(48.dp).background(if (showFilters) AccentPurple else Color.White, RoundedCornerShape(16.dp))
-                    ) {
-                        Icon(Icons.Rounded.Tune, contentDescription = "Filtros", tint = if (showFilters) Color.White else TextGray)
+
+                    // 👇 BADGE DE FILTROS ALINHADO E CENTRADO 👇
+                    Box(modifier = Modifier.size(48.dp)) {
+                        IconButton(
+                            onClick = { showFilters = !showFilters },
+                            modifier = Modifier.fillMaxSize().background(if (showFilters) AccentPurple else Color.White, RoundedCornerShape(16.dp))
+                        ) {
+                            Icon(Icons.Rounded.Tune, contentDescription = "Filtros", tint = if (showFilters) Color.White else TextGray)
+                        }
+                        if (activeFiltersCount > 0) {
+                            Box(
+                                modifier = Modifier
+                                    .align(Alignment.BottomEnd) // Canto inferior direito
+                                    .padding(bottom = 6.dp, end = 6.dp) // Margens controladas em vez de offset instável
+                                    .size(16.dp)
+                                    .background(ErrorRed, CircleShape),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = activeFiltersCount.toString(),
+                                    color = Color.White,
+                                    fontSize = 9.sp,
+                                    fontWeight = FontWeight.Black,
+                                    textAlign = TextAlign.Center
+                                )
+                            }
+                        }
                     }
                 }
 
@@ -773,11 +982,12 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                             val matchesSearch = seat.assignedTo?.contains(searchQuery, ignoreCase = true) == true || seat.seatNumber.contains(searchQuery, ignoreCase = true) || seat.eventName.contains(searchQuery, ignoreCase = true)
                             val matchesTable = if (selectedTables.isEmpty()) true else selectedTables.contains(getMesaFromSeat(seat.seatNumber))
                             val matchesCategory = if (selectedCategories.isEmpty()) true else selectedCategories.contains(seat.eventName)
-                            val matchesStatus = when (selectedStatus) {
-                                "Tratados" -> seat.status != 0
-                                "Pendentes" -> seat.status == 0
-                                else -> true
+
+                            val matchesStatus = if (selectedStatus.isEmpty()) true else {
+                                val seatStatusStr = if (seat.status != 0) "Tratados" else "Pendentes"
+                                selectedStatus.contains(seatStatusStr)
                             }
+
                             matchesSearch && matchesTable && matchesStatus && matchesCategory
                         }
                     }
@@ -790,92 +1000,57 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(vertical = 12.dp)
+                            .padding(top = 16.dp)
                             .verticalScroll(rememberScrollState())
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Filtros Ativos", fontSize = 14.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
+                            Text("Filtragem Avançada", fontSize = 18.sp, fontWeight = FontWeight.Black, color = CorporateBlue)
                             TextButton(
                                 onClick = {
                                     selectedTables = emptySet()
                                     selectedCategories = emptySet()
-                                    selectedStatus = "Todos"
+                                    selectedStatus = emptySet()
                                 },
                                 contentPadding = PaddingValues(0.dp),
                                 modifier = Modifier.height(24.dp)
                             ) {
-                                Text("Limpar", color = ErrorRed, fontSize = 13.sp, fontWeight = FontWeight.Bold)
+                                Text("Limpar Tudo", color = ErrorRed, fontSize = 14.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable { isTableSectionOpen = !isTableSectionOpen }.padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("MESA", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                            Icon(imageVector = if (isTableSectionOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null, tint = Color.Gray)
-                        }
-                        AnimatedVisibility(visible = isTableSectionOpen) {
-                            FlowRow(
-                                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                FilterChipCustom("Todas", selectedTables.isEmpty()) { selectedTables = emptySet() }
-                                mesasUnicas.forEach { mesa ->
-                                    FilterChipCustom(mesa, selectedTables.contains(mesa)) {
-                                        selectedTables = if (selectedTables.contains(mesa)) selectedTables - mesa else selectedTables + mesa
-                                    }
-                                }
-                            }
-                        }
+                        PremiumFilterDropdown(
+                            label = "Selecionar Mesa",
+                            options = mesasUnicas,
+                            selectedOptions = selectedTables,
+                            onSelectionChange = { mesa ->
+                                selectedTables = if (selectedTables.contains(mesa)) selectedTables - mesa else selectedTables + mesa
+                            },
+                            onClear = { selectedTables = emptySet() }
+                        )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable { isCategorySectionOpen = !isCategorySectionOpen }.padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("CATEGORIA", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                            Icon(imageVector = if (isCategorySectionOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null, tint = Color.Gray)
-                        }
-                        AnimatedVisibility(visible = isCategorySectionOpen) {
-                            FlowRow(
-                                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp),
-                                verticalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                FilterChipCustom("Todas", selectedCategories.isEmpty()) { selectedCategories = emptySet() }
-                                categoriasUnicas.forEach { categoria ->
-                                    FilterChipCustom(categoria, selectedCategories.contains(categoria)) {
-                                        selectedCategories = if (selectedCategories.contains(categoria)) selectedCategories - categoria else selectedCategories + categoria
-                                    }
-                                }
-                            }
-                        }
+                        PremiumFilterDropdown(
+                            label = "Categoria de Convite",
+                            options = categoriasUnicas,
+                            selectedOptions = selectedCategories,
+                            onSelectionChange = { cat ->
+                                selectedCategories = if (selectedCategories.contains(cat)) selectedCategories - cat else selectedCategories + cat
+                            },
+                            onClear = { selectedCategories = emptySet() }
+                        )
 
-                        Row(
-                            modifier = Modifier.fillMaxWidth().clickable { isStatusSectionOpen = !isStatusSectionOpen }.padding(vertical = 6.dp),
-                            verticalAlignment = Alignment.CenterVertically,
-                            horizontalArrangement = Arrangement.SpaceBetween
-                        ) {
-                            Text("ESTADO", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = Color.Gray)
-                            Icon(imageVector = if (isStatusSectionOpen) Icons.Rounded.ExpandLess else Icons.Rounded.ExpandMore, contentDescription = null, tint = Color.Gray)
-                        }
-                        AnimatedVisibility(visible = isStatusSectionOpen) {
-                            Row(
-                                modifier = Modifier.padding(top = 8.dp, bottom = 16.dp),
-                                horizontalArrangement = Arrangement.spacedBy(8.dp)
-                            ) {
-                                listOf("Todos", "Tratados", "Pendentes").forEach { status ->
-                                    FilterChipCustom(status, selectedStatus == status) { selectedStatus = status }
-                                }
-                            }
-                        }
+                        PremiumFilterDropdown(
+                            label = "Estado da Validação",
+                            options = listOf("Tratados", "Pendentes"),
+                            selectedOptions = selectedStatus,
+                            onSelectionChange = { stat ->
+                                selectedStatus = if (selectedStatus.contains(stat)) selectedStatus - stat else selectedStatus + stat
+                            },
+                            onClear = { selectedStatus = emptySet() }
+                        )
                     }
                 }
 
@@ -883,7 +1058,10 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     visible = !showFilters,
                     modifier = if (!showFilters) Modifier.weight(1f) else Modifier
                 ) {
-                    Column(modifier = Modifier.fillMaxSize()) {
+                    Column(
+                        modifier = Modifier.fillMaxSize()
+                            .nestedScroll(nestedScrollConnection)
+                    ) {
                         Spacer(modifier = Modifier.height(16.dp))
 
                         Row(modifier = Modifier.fillMaxWidth().padding(bottom = 8.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -993,10 +1171,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     confirmActionType = null
                 }, onDismiss = { confirmActionType = null }
             )
-        }
-
-        if (viewModel.appFeedback != null) {
-            AppFeedbackDialog(feedback = viewModel.appFeedback!!) { viewModel.clearFeedback() }
         }
 
         if (viewModel.showValidationScreen) {
@@ -1222,72 +1396,5 @@ fun BottomSheetItem(icon: ImageVector, title: String, subtitle: String, iconColo
             Text(subtitle, color = TextGray, fontSize = 12.sp)
         }
         Icon(Icons.Rounded.ChevronRight, contentDescription = null, tint = Color(0xFFCBD5E1), modifier = Modifier.size(20.dp))
-    }
-}
-
-@Composable
-fun FilterChipCustom(text: String, isSelected: Boolean, onClick: () -> Unit) {
-    val bgColor = if (isSelected) AccentPurple else Color.White
-    val textColor = if (isSelected) Color.White else TextGray
-    Box(modifier = Modifier.clip(RoundedCornerShape(12.dp)).background(bgColor).clickable { onClick() }.padding(horizontal = 16.dp, vertical = 8.dp)) {
-        Text(text, color = textColor, fontSize = 13.sp, fontWeight = FontWeight.Bold)
-    }
-}
-
-@Composable
-fun GuestListItem(seat: SeatEntity, onAssignClick: () -> Unit) {
-    val isAssigned = seat.status != 0
-    val statusColor = if (isAssigned) SuccessGreen else ErrorRed
-
-    Card(modifier = Modifier.fillMaxWidth().clickable { onAssignClick() }, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(1.dp), shape = RoundedCornerShape(20.dp)) {
-        Row(modifier = Modifier.height(IntrinsicSize.Min)) {
-            Box(modifier = Modifier.fillMaxHeight().width(6.dp).background(statusColor))
-
-            Row(modifier = Modifier.padding(horizontal = 16.dp, vertical = 12.dp).fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
-
-                Column(modifier = Modifier.weight(1f)) {
-                    val name = seat.assignedTo ?: "Convite / Sem Nome"
-                    Text(name, fontWeight = FontWeight.ExtraBold, fontSize = 14.sp, color = CorporateBlue)
-                    Spacer(modifier = Modifier.height(4.dp))
-                    Box(modifier = Modifier.background(AccentPurpleLight, RoundedCornerShape(6.dp)).padding(horizontal = 8.dp, vertical = 4.dp)) {
-                        Text(seat.eventName, color = AccentPurple, fontSize = 9.sp, fontWeight = FontWeight.Bold)
-                    }
-                    Spacer(modifier = Modifier.height(8.dp))
-                    Row(verticalAlignment = Alignment.CenterVertically) {
-                        Icon(Icons.Rounded.GridView, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Mesa", fontSize = 12.sp, color = Color.Gray)
-                        Text(" ${getMesaFromSeat(seat.seatNumber)}", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
-
-                        Spacer(modifier = Modifier.width(12.dp))
-                        Icon(Icons.Rounded.Place, contentDescription = null, tint = Color.Gray, modifier = Modifier.size(14.dp))
-                        Spacer(modifier = Modifier.width(4.dp))
-                        Text("Lugar", fontSize = 12.sp, color = Color.Gray)
-                        val lugarStr = seat.seatNumber.split("-").let { if (it.size > 1) it[1] else seat.seatNumber }
-                        Text(" $lugarStr", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
-                    }
-                }
-
-                Spacer(modifier = Modifier.width(12.dp))
-
-                Row(verticalAlignment = Alignment.CenterVertically) {
-                    if (isAssigned) {
-                        Text("Validado", color = SuccessGreen, fontSize = 11.sp, fontWeight = FontWeight.Bold, modifier = Modifier.padding(end = 8.dp))
-                    }
-                    Box(
-                        modifier = Modifier
-                            .size(28.dp)
-                            .clip(RoundedCornerShape(8.dp))
-                            .background(if (isAssigned) SuccessGreen else Color.Transparent)
-                            .border(if (isAssigned) 0.dp else 2.dp, if (isAssigned) Color.Transparent else Color(0xFFE2E8F0), RoundedCornerShape(8.dp)),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        if (isAssigned) {
-                            Icon(Icons.Rounded.Check, contentDescription = "Validado", tint = Color.White, modifier = Modifier.size(18.dp))
-                        }
-                    }
-                }
-            }
-        }
     }
 }
