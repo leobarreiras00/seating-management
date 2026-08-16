@@ -45,6 +45,7 @@ import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.text.input.KeyboardType
 import androidx.compose.ui.text.input.PasswordVisualTransformation
 import androidx.compose.ui.text.style.TextAlign
+import androidx.compose.ui.text.style.TextDecoration
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
@@ -61,6 +62,7 @@ import com.leonardobarreiras.seatingmanagement.data.SeatEntity
 import com.leonardobarreiras.seatingmanagement.viewmodel.AppFeedback
 import com.leonardobarreiras.seatingmanagement.viewmodel.FeedbackType
 import com.leonardobarreiras.seatingmanagement.viewmodel.SeatViewModel
+import kotlinx.coroutines.delay
 import java.text.SimpleDateFormat
 import java.util.Locale
 
@@ -85,6 +87,8 @@ class MainActivity : ComponentActivity() {
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
                     val sharedViewModel: SeatViewModel = viewModel()
 
+                    val startDestination = remember { sharedViewModel.getStartDestination() }
+
                     LaunchedEffect(sharedViewModel.forceLogoutEvent) {
                         if (sharedViewModel.forceLogoutEvent) {
                             sharedViewModel.logout()
@@ -93,8 +97,38 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    NavHost(navController = navController, startDestination = "login") {
-                        composable("login") { LoginScreen(onLoginSuccess = { navController.navigate("event_selection") { popUpTo("login") { inclusive = true } } }, viewModel = sharedViewModel) }
+                    NavHost(navController = navController, startDestination = startDestination) {
+                        composable("login") {
+                            LoginScreen(
+                                onLoginSuccess = {
+                                    if (sharedViewModel.secureStorage.hasPin()) {
+                                        navController.navigate("event_selection") { popUpTo("login") { inclusive = true } }
+                                    } else {
+                                        navController.navigate("pin_setup") { popUpTo("login") { inclusive = true } }
+                                    }
+                                },
+                                viewModel = sharedViewModel
+                            )
+                        }
+
+                        composable("pin_setup") {
+                            PinSetupScreen(
+                                viewModel = sharedViewModel,
+                                onComplete = { navController.navigate("event_selection") { popUpTo("pin_setup") { inclusive = true } } }
+                            )
+                        }
+
+                        composable("pin_auth") {
+                            PinAuthScreen(
+                                viewModel = sharedViewModel,
+                                onSuccess = { navController.navigate("event_selection") { popUpTo("pin_auth") { inclusive = true } } },
+                                onLogout = {
+                                    sharedViewModel.logout()
+                                    navController.navigate("login") { popUpTo(0) { inclusive = true } }
+                                }
+                            )
+                        }
+
                         composable("event_selection") { EventSelectionScreen(viewModel = sharedViewModel, onEventSelected = { navController.navigate("dashboard") { popUpTo("event_selection") { inclusive = true } } }) }
                         composable("dashboard") { SeatScreen(viewModel = sharedViewModel, navController = navController) }
                     }
@@ -168,6 +202,142 @@ fun ModernAlertDialog(
     }
 }
 
+@Composable
+fun PinSetupScreen(viewModel: SeatViewModel, onComplete: () -> Unit) {
+    var isSettingPin by remember { mutableStateOf(false) }
+    var pin by remember { mutableStateOf("") }
+
+    Box(modifier = Modifier.fillMaxSize().background(LightBg), contentAlignment = Alignment.Center) {
+        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+
+            Box(modifier = Modifier.size(80.dp).background(AccentPurpleLight, RoundedCornerShape(24.dp)), contentAlignment = Alignment.Center) {
+                Icon(Icons.Rounded.LockPerson, contentDescription = null, tint = AccentPurple, modifier = Modifier.size(40.dp))
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("Acesso Rápido e Seguro", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = CorporateBlue, textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.height(8.dp))
+
+            if (!isSettingPin) {
+                Text("Não voltes a colocar a palavra-passe. Configura um PIN de 4 dígitos para entrares na aplicação instantaneamente nas próximas vezes.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center, lineHeight = 20.sp)
+                Spacer(modifier = Modifier.height(40.dp))
+
+                Button(
+                    onClick = { isSettingPin = true },
+                    modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
+                ) { Text("Criar Código PIN", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+
+                Spacer(modifier = Modifier.height(16.dp))
+
+                TextButton(onClick = onComplete) { Text("Agora Não", color = TextGray, fontWeight = FontWeight.Bold) }
+            } else {
+                Text("Escreve um código de 4 dígitos para proteger a tua sessão.", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center)
+                Spacer(modifier = Modifier.height(40.dp))
+
+                BasicTextField(
+                    value = pin, onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) pin = it },
+                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                    decorationBox = {
+                        Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                            repeat(4) { index ->
+                                val isFilled = index < pin.length
+                                val isFocused = index == pin.length
+                                Box(
+                                    modifier = Modifier.weight(1f).aspectRatio(1f)
+                                        .background(Color.White, RoundedCornerShape(16.dp))
+                                        .border(2.dp, if (isFocused) AccentPurple else if (isFilled) Color(0xFFCBD5E1) else Color(0xFFE2E8F0), RoundedCornerShape(16.dp)),
+                                    contentAlignment = Alignment.Center
+                                ) {
+                                    if (isFilled) { Box(modifier = Modifier.size(16.dp).background(CorporateBlue, CircleShape)) }
+                                }
+                            }
+                        }
+                    }
+                )
+
+                Spacer(modifier = Modifier.height(40.dp))
+                Button(
+                    onClick = {
+                        viewModel.secureStorage.savePin(pin)
+                        onComplete()
+                    },
+                    enabled = pin.length == 4,
+                    modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp),
+                    colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
+                ) { Text("Guardar PIN e Entrar", fontWeight = FontWeight.Bold, fontSize = 16.sp) }
+            }
+        }
+    }
+}
+
+@Composable
+fun PinAuthScreen(viewModel: SeatViewModel, onSuccess: () -> Unit, onLogout: () -> Unit) {
+    var pin by remember { mutableStateOf("") }
+    var isError by remember { mutableStateOf(false) }
+
+    LaunchedEffect(pin) {
+        if (pin.length == 4) {
+            val savedPin = viewModel.secureStorage.getPin()
+            if (pin == savedPin) {
+                isError = false
+                delay(200)
+                onSuccess()
+            } else {
+                isError = true
+                pin = ""
+            }
+        } else {
+            isError = false
+        }
+    }
+
+    Box(modifier = Modifier.fillMaxSize().background(LightBg), contentAlignment = Alignment.Center) {
+        Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
+            Box(modifier = Modifier.size(80.dp).background(Color.White, RoundedCornerShape(24.dp)).border(1.dp, Color(0xFFE2E8F0), RoundedCornerShape(24.dp)), contentAlignment = Alignment.Center) {
+                // 👇 NOVO LOGÓTIPO AQUI 👇
+                Image(painter = painterResource(id = R.drawable.seatly_wrt), contentDescription = null, modifier = Modifier.size(50.dp).clip(RoundedCornerShape(12.dp)))
+            }
+            Spacer(modifier = Modifier.height(24.dp))
+            Text("Bem-vindo de volta", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = CorporateBlue, textAlign = TextAlign.Center)
+            Spacer(modifier = Modifier.height(8.dp))
+            Text("Insere o teu código PIN para entrar", fontSize = 14.sp, color = TextGray, textAlign = TextAlign.Center)
+
+            Spacer(modifier = Modifier.height(40.dp))
+
+            BasicTextField(
+                value = pin, onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) pin = it },
+                keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                decorationBox = {
+                    Row(horizontalArrangement = Arrangement.spacedBy(16.dp), modifier = Modifier.fillMaxWidth(0.8f), verticalAlignment = Alignment.CenterVertically) {
+                        repeat(4) { index ->
+                            val isFilled = index < pin.length
+                            Box(
+                                modifier = Modifier.weight(1f).aspectRatio(1f)
+                                    .background(Color.White, RoundedCornerShape(16.dp))
+                                    .border(2.dp, if (isError) ErrorRed else if (isFilled) AccentPurple else Color(0xFFE2E8F0), RoundedCornerShape(16.dp)),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                if (isFilled) { Box(modifier = Modifier.size(16.dp).background(if (isError) ErrorRed else CorporateBlue, CircleShape)) }
+                            }
+                        }
+                    }
+                }
+            )
+
+            if (isError) {
+                Spacer(modifier = Modifier.height(16.dp))
+                Text("Código PIN incorreto.", color = ErrorRed, fontWeight = FontWeight.Bold, fontSize = 13.sp)
+            }
+
+            Spacer(modifier = Modifier.height(60.dp))
+
+            TextButton(onClick = onLogout) {
+                Text("Esqueci-me do PIN (Terminar Sessão)", color = TextGray, fontWeight = FontWeight.Medium, textDecoration = TextDecoration.Underline)
+            }
+        }
+    }
+}
+
 @OptIn(ExperimentalMaterial3Api::class)
 @Composable
 fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
@@ -176,12 +346,16 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
     var isChanging by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf("") }
 
+    var isConfiguringPin by remember { mutableStateOf(false) }
+    var newPin by remember { mutableStateOf("") }
+    var hasPinConfigured by remember { mutableStateOf(viewModel.secureStorage.hasPin()) }
+
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
             elevation = CardDefaults.cardElevation(defaultElevation = 8.dp), modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp)
         ) {
-            Column(modifier = Modifier.fillMaxWidth()) {
+            Column(modifier = Modifier.fillMaxWidth().verticalScroll(rememberScrollState())) {
                 Row(modifier = Modifier.fillMaxWidth().background(LightBg).padding(horizontal = 20.dp, vertical = 16.dp), verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.SpaceBetween) {
                     Row(verticalAlignment = Alignment.CenterVertically) {
                         Box(modifier = Modifier.size(40.dp).background(AccentPurpleLight, CircleShape), contentAlignment = Alignment.Center) { Icon(Icons.Rounded.Person, contentDescription = null, tint = AccentPurple) }
@@ -199,6 +373,7 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
                 HorizontalDivider(color = Color(0xFFE2E8F0))
 
                 Column(modifier = Modifier.padding(24.dp).fillMaxWidth()) {
+
                     Text("Alterar Palavra-passe", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = CorporateBlue, modifier = Modifier.padding(bottom = 12.dp))
 
                     OutlinedTextField(
@@ -218,7 +393,7 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
                         Text(errorMsg, color = ErrorRed, fontSize = 12.sp, modifier = Modifier.fillMaxWidth())
                     }
 
-                    Spacer(modifier = Modifier.height(24.dp))
+                    Spacer(modifier = Modifier.height(16.dp))
 
                     Button(
                         onClick = {
@@ -232,9 +407,55 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
                         else Text("Guardar Alteração", fontWeight = FontWeight.Bold, fontSize = 14.sp)
                     }
 
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
                     HorizontalDivider(color = Color(0xFFE2E8F0))
-                    Spacer(modifier = Modifier.height(16.dp))
+                    Spacer(modifier = Modifier.height(24.dp))
+
+                    Row(modifier = Modifier.fillMaxWidth().padding(bottom = 12.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
+                        Text(if (hasPinConfigured) "Alterar Código PIN" else "Configurar PIN de Acesso", fontWeight = FontWeight.Bold, fontSize = 14.sp, color = CorporateBlue)
+                        if (hasPinConfigured) {
+                            Icon(Icons.Rounded.CheckCircle, contentDescription = null, tint = SuccessGreen, modifier = Modifier.size(18.dp))
+                        }
+                    }
+
+                    if (isConfiguringPin) {
+                        BasicTextField(
+                            value = newPin, onValueChange = { if (it.length <= 4 && it.all { char -> char.isDigit() }) newPin = it },
+                            keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.NumberPassword),
+                            decorationBox = {
+                                Row(horizontalArrangement = Arrangement.spacedBy(12.dp), modifier = Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+                                    repeat(4) { index ->
+                                        val isFilled = index < newPin.length
+                                        Box(
+                                            modifier = Modifier.weight(1f).aspectRatio(1f).background(Color(0xFFF1F5F9), RoundedCornerShape(12.dp)).border(2.dp, if (isFilled) AccentPurple else Color.Transparent, RoundedCornerShape(12.dp)),
+                                            contentAlignment = Alignment.Center
+                                        ) { if (isFilled) { Box(modifier = Modifier.size(12.dp).background(CorporateBlue, CircleShape)) } }
+                                    }
+                                }
+                            }
+                        )
+                        Spacer(modifier = Modifier.height(16.dp))
+                        Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+                            OutlinedButton(onClick = { isConfiguringPin = false; newPin = "" }, modifier = Modifier.weight(1f).height(40.dp), shape = RoundedCornerShape(12.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) { Text("Cancelar", color = TextGray) }
+                            Button(
+                                onClick = { viewModel.secureStorage.savePin(newPin); hasPinConfigured = true; isConfiguringPin = false; newPin = "" },
+                                enabled = newPin.length == 4, modifier = Modifier.weight(1f).height(40.dp), shape = RoundedCornerShape(12.dp), colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue)
+                            ) { Text("Gravar PIN") }
+                        }
+                    } else {
+                        Button(
+                            onClick = { isConfiguringPin = true },
+                            modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = Color(0xFFF1F5F9), contentColor = CorporateBlue)
+                        ) {
+                            Icon(Icons.Rounded.Dialpad, contentDescription = null, modifier = Modifier.size(18.dp))
+                            Spacer(modifier = Modifier.width(8.dp))
+                            Text(if (hasPinConfigured) "Redefinir PIN" else "Ativar Acesso por PIN", fontWeight = FontWeight.Bold, fontSize = 14.sp)
+                        }
+                    }
+
+                    Spacer(modifier = Modifier.height(24.dp))
+                    HorizontalDivider(color = Color(0xFFE2E8F0))
+                    Spacer(modifier = Modifier.height(24.dp))
 
                     OutlinedButton(
                         onClick = { onDismiss(); viewModel.forceLogoutEvent = true },
@@ -282,7 +503,8 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
             shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(12.dp)
         ) {
             Column(modifier = Modifier.padding(32.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Image(painter = painterResource(id = R.drawable.seatly_icon), contentDescription = "Seatly Logo", modifier = Modifier.height(72.dp).clip(RoundedCornerShape(16.dp)))
+                // 👇 NOVO LOGÓTIPO AQUI 👇
+                Image(painter = painterResource(id = R.drawable.seatly_wrt), contentDescription = "Seatly Logo", modifier = Modifier.height(72.dp).clip(RoundedCornerShape(16.dp)))
                 Spacer(modifier = Modifier.height(16.dp))
                 Text("Seatly", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue)
                 Text("Acesso Restrito", fontSize = 14.sp, color = TextGray)
@@ -466,8 +688,9 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
                         placeholder = painterResource(id = R.drawable.seatly_icon), error = painterResource(id = R.drawable.seatly_icon)
                     )
                 } else {
+                    // 👇 NOVO LOGÓTIPO AQUI 👇
                     Image(
-                        painter = painterResource(id = R.drawable.seatly_icon), contentDescription = "Seatly Logo",
+                        painter = painterResource(id = R.drawable.seatly_wrt), contentDescription = "Seatly Logo",
                         modifier = Modifier.size(80.dp).clip(RoundedCornerShape(20.dp))
                     )
                 }
@@ -529,7 +752,6 @@ fun EventSelectionScreen(viewModel: SeatViewModel, onEventSelected: () -> Unit) 
     }
 }
 
-// 👇 NOVO DROPDOWN PREMIUM (ESTILO CARTÃO COM CHECKBOXES ELEGANTES) 👇
 @Composable
 fun PremiumFilterDropdown(
     label: String,
@@ -638,7 +860,6 @@ fun PremiumFilterDropdown(
     }
 }
 
-// 👇 NOVO CARTÃO DE CONVIDADO (MUITO MAIS PREMIUM COM AVATAR) 👇
 @Composable
 fun GuestListItem(seat: SeatEntity, onAssignClick: () -> Unit) {
     val isAssigned = seat.status != 0
@@ -939,7 +1160,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
 
                     Spacer(modifier = Modifier.width(8.dp))
 
-                    // 👇 BADGE DE FILTROS ALINHADO E CENTRADO 👇
                     Box(modifier = Modifier.size(48.dp)) {
                         IconButton(
                             onClick = { showFilters = !showFilters },
@@ -950,8 +1170,8 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                         if (activeFiltersCount > 0) {
                             Box(
                                 modifier = Modifier
-                                    .align(Alignment.BottomEnd) // Canto inferior direito
-                                    .padding(bottom = 6.dp, end = 6.dp) // Margens controladas em vez de offset instável
+                                    .align(Alignment.BottomEnd)
+                                    .padding(bottom = 6.dp, end = 6.dp)
                                     .size(16.dp)
                                     .background(ErrorRed, CircleShape),
                                 contentAlignment = Alignment.Center
@@ -1000,15 +1220,16 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                     Column(
                         modifier = Modifier
                             .fillMaxSize()
-                            .padding(top = 16.dp)
-                            .verticalScroll(rememberScrollState())
+                            .padding(vertical = 12.dp)
+                            .verticalScroll(rememberScrollState()),
+                        verticalArrangement = Arrangement.spacedBy(16.dp)
                     ) {
                         Row(
-                            modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp),
+                            modifier = Modifier.fillMaxWidth().padding(bottom = 4.dp),
                             horizontalArrangement = Arrangement.SpaceBetween,
                             verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Text("Filtragem Avançada", fontSize = 18.sp, fontWeight = FontWeight.Black, color = CorporateBlue)
+                            Text("Filtragem Avançada", fontSize = 16.sp, fontWeight = FontWeight.Black, color = CorporateBlue)
                             TextButton(
                                 onClick = {
                                     selectedTables = emptySet()
@@ -1018,7 +1239,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: androidx.navigation.NavC
                                 contentPadding = PaddingValues(0.dp),
                                 modifier = Modifier.height(24.dp)
                             ) {
-                                Text("Limpar Tudo", color = ErrorRed, fontSize = 14.sp, fontWeight = FontWeight.Bold)
+                                Text("Limpar Tudo", color = ErrorRed, fontSize = 13.sp, fontWeight = FontWeight.Bold)
                             }
                         }
 
