@@ -13,6 +13,8 @@ import com.google.gson.annotations.SerializedName
 import com.leonardobarreiras.seatingmanagement.data.AppDatabase
 import com.leonardobarreiras.seatingmanagement.data.SeatEntity
 import com.leonardobarreiras.seatingmanagement.data.SeatRepository
+import com.leonardobarreiras.seatingmanagement.data.SecureStorage
+import com.leonardobarreiras.seatingmanagement.data.UserSession
 import com.leonardobarreiras.seatingmanagement.network.*
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
@@ -60,6 +62,8 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
     private val repository: SeatRepository
     private val mqttManager: MqttManager
     private val networkMonitor = NetworkMonitor(application)
+
+    val secureStorage = SecureStorage(application)
 
     val seatsFlow: Flow<List<SeatEntity>>
     var isAdminMode by mutableStateOf(false)
@@ -139,6 +143,28 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         mqttManager.connect()
     }
 
+    fun getStartDestination(): String {
+        val session = secureStorage.getSession()
+        return if (session != null) {
+            // Restaura a sessão para a memória
+            jwtToken = session.token
+            userRole = session.role
+            companyName = session.companyName
+            companyLogo = session.companyLogo
+            managerName = session.managerName
+            userGuid = session.userGuid
+
+            if (userGuid.isNotEmpty()) {
+                mqttManager.subscribeToManagerEvents(userGuid)
+            }
+            fetchMyEvents()
+
+            if (secureStorage.hasPin()) "pin_auth" else "event_selection"
+        } else {
+            "login"
+        }
+    }
+
     fun fetchMyCompany() {
         val token = jwtToken ?: return
         viewModelScope.launch {
@@ -166,6 +192,9 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
         userGuid = ""
         requiresFirstLoginReset = false
         announcedCapacityThresholds.clear()
+
+        secureStorage.clearSession()
+
         viewModelScope.launch {
             repository.deleteAllSeats()
         }
@@ -198,6 +227,17 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
                 managerName = email
                 userGuid = response.userGuid ?: ""
 
+                secureStorage.saveSession(
+                    UserSession(
+                        token = jwtToken!!,
+                        role = userRole,
+                        companyName = companyName,
+                        companyLogo = companyLogo,
+                        managerName = managerName,
+                        userGuid = userGuid
+                    )
+                )
+
                 if (userGuid.isNotEmpty()) {
                     mqttManager.subscribeToManagerEvents(userGuid)
                 }
@@ -225,7 +265,6 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
             } catch (e: Exception) {
                 loginError = "Sem acesso ao servidor."
             } finally {
-                // 👇 O Segredo está aqui: Desliga sempre o loading quer dê erro ou não 👇
                 isAuthLoading = false
             }
         }
@@ -268,6 +307,17 @@ class SeatViewModel(application: Application) : AndroidViewModel(application) {
 
                 managerName = email
                 userGuid = response.userGuid ?: ""
+
+                secureStorage.saveSession(
+                    UserSession(
+                        token = jwtToken!!,
+                        role = userRole,
+                        companyName = companyName,
+                        companyLogo = companyLogo,
+                        managerName = managerName,
+                        userGuid = userGuid
+                    )
+                )
 
                 if (userGuid.isNotEmpty()) {
                     mqttManager.subscribeToManagerEvents(userGuid)
