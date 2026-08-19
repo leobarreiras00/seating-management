@@ -5,6 +5,7 @@ import android.content.Context
 import android.net.Uri
 import android.util.Log
 import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableIntStateOf
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
@@ -19,6 +20,7 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import retrofit2.HttpException
 import java.io.BufferedWriter
@@ -89,7 +91,7 @@ class SeatViewModel @Inject constructor(
     var forceLogoutEvent by mutableStateOf(false)
 
     var validationErrorsList by mutableStateOf<List<CsvValidationError>>(emptyList())
-    var totalValidationRows by mutableStateOf(0)
+    var totalValidationRows by mutableIntStateOf(0)
     var showValidationScreen by mutableStateOf(false)
 
     private val announcedCapacityThresholds = mutableSetOf<Int>()
@@ -226,11 +228,13 @@ class SeatViewModel @Inject constructor(
     fun requestPasswordReset(email: String) {
         if (isOffline) { appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "Precisas de internet para recuperar a palavra-passe."); return }
         viewModelScope.launch {
-            try {
+            appFeedback = try {
                 val res = apiService.forgotPassword(ForgotPasswordRequest(email))
-                if (res.isSuccessful) appFeedback = AppFeedback(FeedbackType.SUCCESS, "E-mail Enviado", "Se a conta existir, enviámos as instruções para ti.")
-                else appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Não foi possível processar o pedido.")
-            } catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro de Rede", "Verifica a tua ligação.") }
+                if (res.isSuccessful) AppFeedback(FeedbackType.SUCCESS, "E-mail Enviado", "Se a conta existir, enviámos as instruções para ti.")
+                else AppFeedback(FeedbackType.ERROR, "Erro", "Não foi possível processar o pedido.")
+            } catch (e: Exception) {
+                AppFeedback(FeedbackType.ERROR, "Erro de Rede", "Verifica a tua ligação.")
+            }
         }
     }
 
@@ -339,12 +343,12 @@ class SeatViewModel @Inject constructor(
                     }
 
                     val percentage = (validatedCount * 100) / totalSeats
-                    val threshold = when {
-                        percentage == 100 -> 100
-                        percentage in 90..99 -> 90
-                        percentage in 75..89 -> 75
-                        percentage in 50..74 -> 50
-                        percentage in 25..49 -> 25
+                    val threshold = when (percentage) {
+                        100 -> 100
+                        in 90..99 -> 90
+                        in 75..89 -> 75
+                        in 50..74 -> 50
+                        in 25..49 -> 25
                         else -> 0
                     }
 
@@ -455,7 +459,7 @@ class SeatViewModel @Inject constructor(
                 val tempFile = java.io.File(context.cacheDir, "upload_temp.csv")
                 tempFile.outputStream().use { inputStream.copyTo(it) }
 
-                val requestFile = okhttp3.RequestBody.create("text/csv".toMediaTypeOrNull(), tempFile)
+                val requestFile = tempFile.asRequestBody("text/csv".toMediaTypeOrNull())
                 val body = okhttp3.MultipartBody.Part.createFormData("file", "upload.csv", requestFile)
 
                 val response = apiService.uploadCsv("Bearer $jwtToken", safeEventId, mode, body)
@@ -481,7 +485,7 @@ class SeatViewModel @Inject constructor(
                         val apiErrors = errorResponse?.errors
                         val apiTotalRows = errorResponse?.totalRows ?: 0
 
-                        if (apiErrors != null && apiErrors.isNotEmpty()) {
+                        if (!apiErrors.isNullOrEmpty()) {
                             validationErrorsList = apiErrors
                             totalValidationRows = apiTotalRows
                             showValidationScreen = true

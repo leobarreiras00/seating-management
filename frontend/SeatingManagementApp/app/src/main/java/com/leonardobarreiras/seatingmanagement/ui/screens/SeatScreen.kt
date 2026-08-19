@@ -7,7 +7,6 @@ import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
@@ -18,6 +17,9 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.BasicTextField
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.automirrored.rounded.HelpOutline
+import androidx.compose.material.icons.automirrored.rounded.ListAlt
+import androidx.compose.material.icons.automirrored.rounded.Logout
 import androidx.compose.material.icons.rounded.*
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -319,7 +321,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
             val acao = if (novoEstado == 1) "ATRIBUIR entrada a" else "REMOVER entrada de"
             val nomeConvidado = seatToConfirmClick!!.assignedTo ?: "Convite Sem Nome"
             ModernAlertDialog(
-                title = "Confirmação", message = "Queres $acao $nomeConvidado?", icon = Icons.Rounded.HelpOutline, iconTint = CorporateBlue, iconBg = Color(0xFFF1F5F9),
+                title = "Confirmação", message = "Queres $acao $nomeConvidado?", icon = Icons.AutoMirrored.Rounded.HelpOutline, iconTint = CorporateBlue, iconBg = Color(0xFFF1F5F9),
                 onConfirm = { viewModel.updateSeatStatus(seatToConfirmClick!!, novoEstado); seatToConfirmClick = null }, onDismiss = { seatToConfirmClick = null }
             )
         }
@@ -412,10 +414,9 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
             }
         }
 
-        @OptIn(ExperimentalMaterial3Api::class)
         if (showActionsSheet) {
-            ModalBottomSheet(onDismissRequest = { showActionsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
-                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
+            ModalBottomSheet(onDismissRequest = { showActionsSheet = false }, containerColor = Color.White) {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp)) {
                     Text("Menu de Ações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
 
                     BottomSheetItem(icon = Icons.Rounded.SwapHoriz, title = "Mudar de Evento", subtitle = "Voltar à lista de eventos atribuídos", iconColor = PrimaryBlue, iconBg = Color(0xFFEFF6FF)) {
@@ -423,7 +424,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                     }
 
                     if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") {
-                        BottomSheetItem(icon = Icons.Rounded.ListAlt, title = "Ações", subtitle = "Exportar, importar e gerir dados", iconColor = AccentPurple, iconBg = AccentPurpleLight) {
+                        BottomSheetItem(icon = Icons.AutoMirrored.Rounded.ListAlt, title = "Ações", subtitle = "Exportar, importar e gerir dados", iconColor = AccentPurple, iconBg = AccentPurpleLight) {
                             showActionsSheet = false; showDataActionsSheet = true
                         }
                     } else {
@@ -432,21 +433,19 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                         }
                     }
 
-                    BottomSheetItem(icon = Icons.Rounded.Logout, title = "Logout", subtitle = "Terminar sessão atual", iconColor = ErrorRed, iconBg = ErrorRedLight) {
+                    BottomSheetItem(icon = Icons.AutoMirrored.Rounded.Logout, title = "Logout", subtitle = "Terminar sessão atual", iconColor = ErrorRed, iconBg = ErrorRedLight) {
                         showActionsSheet = false; viewModel.logout(); navController.navigate("login") { popUpTo(0) { inclusive = true } }
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
                     OutlinedButton(onClick = { showActionsSheet = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) { Text("Cancelar", color = TextGray, fontWeight = FontWeight.Bold) }
-                    Spacer(modifier = Modifier.navigationBarsPadding())
                 }
             }
         }
 
-        @OptIn(ExperimentalMaterial3Api::class)
         if (showDataActionsSheet) {
-            ModalBottomSheet(onDismissRequest = { showDataActionsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
-                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
+            ModalBottomSheet(onDismissRequest = { showDataActionsSheet = false }, containerColor = Color.White) {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp)) {
                     Text("Ações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
 
                     BottomSheetItem(icon = Icons.Rounded.Download, title = "Exportar CSV", subtitle = "$totalSeats registos com estado atual", iconColor = PrimaryBlue, iconBg = Color(0xFFEFF6FF)) { showDataActionsSheet = false; exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
@@ -458,15 +457,13 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
 
                     Spacer(modifier = Modifier.height(24.dp))
                     OutlinedButton(onClick = { showDataActionsSheet = false; showActionsSheet = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) { Text("Voltar", color = TextGray, fontWeight = FontWeight.Bold) }
-                    Spacer(modifier = Modifier.navigationBarsPadding())
                 }
             }
         }
 
-        @OptIn(ExperimentalMaterial3Api::class)
         if (showSettingsSheet) {
-            ModalBottomSheet(onDismissRequest = { showSettingsSheet = false }, containerColor = Color.White, windowInsets = WindowInsets.navigationBars) {
-                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).padding(bottom = 56.dp)) {
+            ModalBottomSheet(onDismissRequest = { showSettingsSheet = false }, containerColor = Color.White) {
+                Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp)) {
                     Text("Configurações Marcação", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
                     Card(colors = CardDefaults.cardColors(containerColor = LightBg), border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                         Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -482,7 +479,6 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                         onClick = { showSettingsSheet = false; if (viewModel.userRole == "Gestor" || viewModel.userRole == "SuperAdmin") { showDataActionsSheet = true } },
                         modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
                     ) { Text("Guardar e Fechar", fontWeight = FontWeight.Bold) }
-                    Spacer(modifier = Modifier.navigationBarsPadding())
                 }
             }
         }
