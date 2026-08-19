@@ -3,6 +3,7 @@ package com.leonardobarreiras.seatingmanagement.data
 import android.content.Context
 import androidx.security.crypto.EncryptedSharedPreferences
 import androidx.security.crypto.MasterKey
+import androidx.core.content.edit
 
 data class UserSession(
     val token: String,
@@ -27,14 +28,14 @@ class SecureStorage(context: Context) {
     )
 
     fun saveSession(session: UserSession) {
-        prefs.edit()
-            .putString("token", session.token)
-            .putString("role", session.role)
-            .putString("companyName", session.companyName)
-            .putString("companyLogo", session.companyLogo)
-            .putString("managerName", session.managerName)
-            .putString("userGuid", session.userGuid)
-            .apply()
+        prefs.edit {
+            putString("token", session.token)
+                .putString("role", session.role)
+                .putString("companyName", session.companyName)
+                .putString("companyLogo", session.companyLogo)
+                .putString("managerName", session.managerName)
+                .putString("userGuid", session.userGuid)
+        }
     }
 
     fun getSession(): UserSession? {
@@ -49,10 +50,10 @@ class SecureStorage(context: Context) {
         )
     }
 
-    fun savePin(pin: String) = prefs.edit().putString("pin", pin).apply()
+    fun savePin(pin: String) = prefs.edit { putString("pin", pin) }
     fun getPin(): String? = prefs.getString("pin", null)
     fun hasPin(): Boolean = prefs.contains("pin")
-    fun clearPin() = prefs.edit().remove("pin").apply()
+    // fun clearPin() = prefs.edit { remove("pin") }
 
-    fun clearSession() = prefs.edit().clear().apply()
+    fun clearSession() = prefs.edit { clear() }
 }

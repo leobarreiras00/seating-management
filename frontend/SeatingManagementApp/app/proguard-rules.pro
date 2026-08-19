@@ -1,68 +1,59 @@
-# ==========================================
-# REGRAS DE PROTEÇÃO DO SEATLY (R8/PROGUARD)
-# ==========================================
+# =========================================================
+# REGRAS DE OFUSCAÇÃO DEFENSIVAS - SEATLY APP
+# =========================================================
 
-# 1. Proteger a Criptografia (O teu cadeado offline)
--keep class org.mindrot.jbcrypt.** { *; }
--dontwarn org.mindrot.jbcrypt.**
+# 1. Manter a Classe Base da App (Crucial para o Dagger Hilt)
+-keep class com.leonardobarreiras.seatingmanagement.SeatingApplication { *; }
 
-# 2. Proteger as Comunicações em Tempo Real (MQTT)
--keep class org.eclipse.paho.** { *; }
--dontwarn org.eclipse.paho.**
+# 2. Segurança e Encriptação (Obrigatório para o PIN e SecureStorage)
+-keep class androidx.security.crypto.** { *; }
+-keep class com.google.crypto.tink.** { *; }
+-dontwarn com.google.errorprone.annotations.**
+-dontwarn com.google.crypto.tink.**
+
+# 3. Modelos de Dados (Garantir que a Base de Dados e a API conseguem ler/escrever)
+-keepattributes Signature, InnerClasses, EnclosingMethod
+-keep class com.leonardobarreiras.seatingmanagement.data.** { *; }
+-keep class com.leonardobarreiras.seatingmanagement.network.** { *; }
+-keep class com.leonardobarreiras.seatingmanagement.viewmodel.UploadErrorResponse { *; }
+-keep class com.leonardobarreiras.seatingmanagement.viewmodel.CsvValidationError { *; }
+-keep class com.leonardobarreiras.seatingmanagement.viewmodel.AuthErrorResponse { *; }
+
+# 4. Room Database e Retrofit
+-keep class androidx.room.** { *; }
+-keep class retrofit2.** { *; }
+-keep class com.google.gson.** { *; }
+
+# =========================================================
+# 5. O SEGREDO DO MQTT: HiveMQ, RxJava, Netty e JCTools
+# =========================================================
+# Manter o cliente MQTT intacto
 -keep class com.hivemq.client.** { *; }
 -dontwarn com.hivemq.client.**
 
-# 3. Proteger a Leitura de QR Codes (ZXing)
--keep class com.journeyapps.barcodescanner.** { *; }
--keep class com.google.zxing.** { *; }
--dontwarn com.google.zxing.**
--dontwarn com.journeyapps.**
+# Manter o RxJava (O motor reativo do HiveMQ)
+-keep class io.reactivex.** { *; }
+-dontwarn io.reactivex.**
 
-# 4. Proteger a Comunicação com a API C# (Retrofit, Gson e OkHttp)
--keep class retrofit2.** { *; }
--dontwarn retrofit2.**
--keep class com.google.gson.** { *; }
--dontwarn com.google.gson.**
--dontwarn sun.misc.Unsafe
--keepclassmembers class * {
-    @com.google.gson.annotations.SerializedName <fields>;
-}
--dontwarn okhttp3.**
--dontwarn okio.**
--dontwarn org.conscrypt.**
--dontwarn org.bouncycastle.**
--dontwarn org.openjsse.**
--dontwarn java.lang.invoke.**
-
-# 5. Proteger as tuas Classes de Dados (Para o Retrofit não se perder)
--keep class com.leonardobarreiras.seatingmanagement.network.** { *; }
--keep class com.leonardobarreiras.seatingmanagement.data.SeatEntity { *; }
-
-# 6. Ignorar avisos inofensivos de Coroutines e Kotlin base
--dontwarn kotlin.**
--dontwarn kotlinx.coroutines.**
--dontwarn org.jetbrains.annotations.**
-
-# 7. Regras Desktop / Java legado
--dontwarn java.awt.**
--dontwarn java.beans.**
--dontwarn javax.swing.**
--dontwarn javax.management.**
--dontwarn javax.naming.**
--dontwarn javax.xml.parsers.**
--dontwarn org.w3c.dom.**
--dontwarn org.xml.sax.**
--dontwarn javax.annotation.**
-
-# 👇 BLOCO 8: A BOMBA NUCLEAR NO NETTY E HIVEMQ 👇
+# Manter o Netty INTACTO
+-keep class io.netty.** { *; }
+-keepnames class io.netty.** { *; }
+-keepclassmembers class io.netty.** { *; }
 -dontwarn io.netty.**
--dontwarn org.slf4j.**
--dontwarn org.apache.commons.logging.**
--dontwarn org.apache.log4j.**
--dontwarn com.jcraft.jzlib.**
--dontwarn com.ning.compress.**
--dontwarn lzma.sdk.**
--dontwarn net.jpountz.**
--dontwarn org.eclipse.jetty.**
+
+# Manter o JCTools Intacto
+-keep class org.jctools.** { *; }
+-dontwarn org.jctools.**
+
+# Regra universal para proteger os campos do "consumerIndex" de serem apagados
+-keepclassmembers class * {
+    long consumerIndex;
+    long producerIndex;
+    long pIndex;
+    long cIndex;
+}
+
+# Ignorar dependências de servidor irrelevantes no Android
 -dontwarn reactor.blockhound.**
--dontwarn java.lang.ClassValue
+-dontwarn java.nio.**
+-dontwarn sun.misc.**
