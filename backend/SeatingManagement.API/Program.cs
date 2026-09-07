@@ -60,7 +60,7 @@ builder.Services.AddSwaggerGen(options =>
 
 // Configuração da Base de Dados
 builder.Services.AddDbContext<AppDbContext>(options =>
-    options.UseSqlServer(builder.Configuration.GetConnectionString("DefaultConnection")));
+    options.UseNpgsql(builder.Configuration.GetConnectionString("DefaultConnection")));
 
 // 3. Configurar a Autenticação JWT
 var jwtKey = builder.Configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is missing");
@@ -103,7 +103,7 @@ using (var scope = app.Services.CreateScope())
     {
         var context = services.GetRequiredService<AppDbContext>();
         // Garante que a base de dados e as tabelas são criadas automaticamente no Deploy
-        context.Database.EnsureCreated(); 
+        context.Database.Migrate();
         // Injeta o Super Admin se estiver vazio
         DbInitializer.Initialize(context);
     }

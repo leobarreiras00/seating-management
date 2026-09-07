@@ -1,12 +1,13 @@
 ﻿using System;
 using Microsoft.EntityFrameworkCore.Migrations;
+using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 
 #nullable disable
 
 namespace SeatingManagement.API.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialSeatlyAuth : Migration
+    public partial class InitialPostgres : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -15,14 +16,14 @@ namespace SeatingManagement.API.Migrations
                 name: "AuditLogs",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    EventId = table.Column<int>(type: "int", nullable: true),
-                    ActionType = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Description = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    PerformedBy = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    PerformedRole = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Timestamp = table.Column<DateTime>(type: "datetime2", nullable: false)
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    EventId = table.Column<int>(type: "integer", nullable: true),
+                    ActionType = table.Column<string>(type: "text", nullable: false),
+                    Description = table.Column<string>(type: "text", nullable: false),
+                    PerformedBy = table.Column<string>(type: "text", nullable: false),
+                    PerformedRole = table.Column<string>(type: "text", nullable: false),
+                    Timestamp = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -33,10 +34,10 @@ namespace SeatingManagement.API.Migrations
                 name: "Companies",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    LogoUrl = table.Column<string>(type: "nvarchar(max)", nullable: false)
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    LogoUrl = table.Column<string>(type: "text", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -47,21 +48,21 @@ namespace SeatingManagement.API.Migrations
                 name: "IdentityUser",
                 columns: table => new
                 {
-                    Id = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    UserName = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    NormalizedUserName = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    Email = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    NormalizedEmail = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    EmailConfirmed = table.Column<bool>(type: "bit", nullable: false),
-                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    SecurityStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    ConcurrencyStamp = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    PhoneNumber = table.Column<string>(type: "nvarchar(max)", nullable: true),
-                    PhoneNumberConfirmed = table.Column<bool>(type: "bit", nullable: false),
-                    TwoFactorEnabled = table.Column<bool>(type: "bit", nullable: false),
-                    LockoutEnd = table.Column<DateTimeOffset>(type: "datetimeoffset", nullable: true),
-                    LockoutEnabled = table.Column<bool>(type: "bit", nullable: false),
-                    AccessFailedCount = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<string>(type: "text", nullable: false),
+                    UserName = table.Column<string>(type: "text", nullable: true),
+                    NormalizedUserName = table.Column<string>(type: "text", nullable: true),
+                    Email = table.Column<string>(type: "text", nullable: true),
+                    NormalizedEmail = table.Column<string>(type: "text", nullable: true),
+                    EmailConfirmed = table.Column<bool>(type: "boolean", nullable: false),
+                    PasswordHash = table.Column<string>(type: "text", nullable: true),
+                    SecurityStamp = table.Column<string>(type: "text", nullable: true),
+                    ConcurrencyStamp = table.Column<string>(type: "text", nullable: true),
+                    PhoneNumber = table.Column<string>(type: "text", nullable: true),
+                    PhoneNumberConfirmed = table.Column<bool>(type: "boolean", nullable: false),
+                    TwoFactorEnabled = table.Column<bool>(type: "boolean", nullable: false),
+                    LockoutEnd = table.Column<DateTimeOffset>(type: "timestamp with time zone", nullable: true),
+                    LockoutEnabled = table.Column<bool>(type: "boolean", nullable: false),
+                    AccessFailedCount = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -72,14 +73,14 @@ namespace SeatingManagement.API.Migrations
                 name: "Events",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    Name = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    CreatedAt = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    StartDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    EndDate = table.Column<DateTime>(type: "datetime2", nullable: false),
-                    TreatedSeats = table.Column<int>(type: "int", nullable: false),
-                    CompanyId = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    Name = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    CreatedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    StartDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    EndDate = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    TreatedSeats = table.Column<int>(type: "integer", nullable: false),
+                    CompanyId = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -96,14 +97,18 @@ namespace SeatingManagement.API.Migrations
                 name: "Users",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    UserGuid = table.Column<Guid>(type: "uniqueidentifier", nullable: false),
-                    Username = table.Column<string>(type: "nvarchar(50)", maxLength: 50, nullable: false),
-                    PasswordHash = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    Role = table.Column<string>(type: "nvarchar(20)", maxLength: 20, nullable: false),
-                    AvatarUrl = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    CompanyId = table.Column<int>(type: "int", nullable: false)
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    UserGuid = table.Column<Guid>(type: "uuid", nullable: false),
+                    Email = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Username = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    PasswordHash = table.Column<string>(type: "text", nullable: false),
+                    Role = table.Column<string>(type: "character varying(20)", maxLength: 20, nullable: false),
+                    AvatarUrl = table.Column<string>(type: "text", nullable: false),
+                    MustChangePassword = table.Column<bool>(type: "boolean", nullable: false),
+                    PasswordResetToken = table.Column<string>(type: "text", nullable: true),
+                    ResetTokenExpiry = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
+                    CompanyId = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -120,8 +125,8 @@ namespace SeatingManagement.API.Migrations
                 name: "EventAccesses",
                 columns: table => new
                 {
-                    UserId = table.Column<string>(type: "nvarchar(450)", nullable: false),
-                    EventId = table.Column<int>(type: "int", nullable: false)
+                    UserId = table.Column<string>(type: "text", nullable: false),
+                    EventId = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -144,14 +149,14 @@ namespace SeatingManagement.API.Migrations
                 name: "Seats",
                 columns: table => new
                 {
-                    Id = table.Column<int>(type: "int", nullable: false)
-                        .Annotation("SqlServer:Identity", "1, 1"),
-                    EventId = table.Column<int>(type: "int", maxLength: 50, nullable: false),
-                    SeatNumber = table.Column<string>(type: "nvarchar(max)", nullable: false),
-                    EventName = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: false),
-                    Status = table.Column<int>(type: "int", nullable: false),
-                    AssignedTo = table.Column<string>(type: "nvarchar(100)", maxLength: 100, nullable: true),
-                    MarkedAt = table.Column<DateTime>(type: "datetime2", nullable: true),
+                    Id = table.Column<int>(type: "integer", nullable: false)
+                        .Annotation("Npgsql:ValueGenerationStrategy", NpgsqlValueGenerationStrategy.IdentityByDefaultColumn),
+                    EventId = table.Column<int>(type: "integer", maxLength: 50, nullable: false),
+                    SeatNumber = table.Column<string>(type: "text", nullable: false),
+                    EventName = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: false),
+                    Status = table.Column<int>(type: "integer", nullable: false),
+                    AssignedTo = table.Column<string>(type: "character varying(100)", maxLength: 100, nullable: true),
+                    MarkedAt = table.Column<DateTime>(type: "timestamp with time zone", nullable: true),
                     Version = table.Column<long>(type: "bigint", nullable: false)
                 },
                 constraints: table =>
@@ -169,8 +174,8 @@ namespace SeatingManagement.API.Migrations
                 name: "UserEvents",
                 columns: table => new
                 {
-                    UserId = table.Column<int>(type: "int", nullable: false),
-                    EventId = table.Column<int>(type: "int", nullable: false)
+                    UserId = table.Column<int>(type: "integer", nullable: false),
+                    EventId = table.Column<int>(type: "integer", nullable: false)
                 },
                 constraints: table =>
                 {
@@ -218,6 +223,12 @@ namespace SeatingManagement.API.Migrations
                 name: "IX_Users_CompanyId",
                 table: "Users",
                 column: "CompanyId");
+
+            migrationBuilder.CreateIndex(
+                name: "IX_Users_Email",
+                table: "Users",
+                column: "Email",
+                unique: true);
         }
 
         /// <inheritdoc />
