@@ -7,7 +7,7 @@ namespace SeatingManagement.API.Services
     {
         Task PublishSeatUpdateAsync(int eventId, int seatId, int status);
         Task PublishCommandAsync(int eventId, string command);
-        Task PublishMessageAsync(string topic, string payload); // Adicionado para notificações genéricas
+        Task PublishMessageAsync(string topic, string payload);
     }
 
     public class MqttService : IMqttService, IHostedService
@@ -16,17 +16,21 @@ namespace SeatingManagement.API.Services
         private readonly MqttClientOptions _options;
         private readonly ILogger<MqttService> _logger;
 
-        public MqttService(ILogger<MqttService> logger)
+        public MqttService(ILogger<MqttService> logger, IConfiguration config)
         {
             _logger = logger;
             var factory = new MqttClientFactory();
             _mqttClient = factory.CreateMqttClient();
             
-            // --- CONFIGURAÇÃO PARA O HIVEMQ CLOUD ---
+            var host = config["MqttSettings:Host"];
+            var port = int.Parse(config["MqttSettings:Port"] ?? "8883");
+            var username = config["MqttSettings:Username"];
+            var password = config["MqttSettings:Password"];
+
             _options = new MqttClientOptionsBuilder()
                 .WithClientId("SeatingManagementAPI_" + Guid.NewGuid().ToString())
-                .WithTcpServer("cec974b49a5f43c8a19ef81e6f877b64.s1.eu.hivemq.cloud", 8883)
-                .WithCredentials("lbseatly-mqtt", "Dvs.8713")
+                .WithTcpServer(host, port)
+                .WithCredentials(username, password)
                 .WithTlsOptions(o => o.UseTls())
                 .Build();
         }

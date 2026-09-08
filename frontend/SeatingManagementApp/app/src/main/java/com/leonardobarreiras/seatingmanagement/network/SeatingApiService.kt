@@ -93,7 +93,7 @@ interface SeatingApiService {
 }
 
 object RetrofitClient {
-    private const val BASE_URL = "https://api-seatly-f4e8bqh0e2bvd5hb.francecentral-01.azurewebsites.net/"
+    private const val BASE_URL = "https://api-seatly.onrender.com/"
 
     val apiService: SeatingApiService by lazy {
         Retrofit.Builder().baseUrl(BASE_URL).addConverterFactory(GsonConverterFactory.create()).build().create(SeatingApiService::class.java)
