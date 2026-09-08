@@ -28,8 +28,8 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
     fun connect() {
         client.connectWith()
             .simpleAuth()
-            .username("lbseatly-mqtt") // <-- Substitui pelo username da tua conta HiveMQ
-            .password("Dvs.8713".toByteArray()) // <-- Substitui pela password da tua conta HiveMQ
+            .username("lbseatly-mqtt")
+            .password("Dvs.8713".toByteArray())
             .applySimpleAuth()
             .send()
             .whenComplete { _, throwable ->
