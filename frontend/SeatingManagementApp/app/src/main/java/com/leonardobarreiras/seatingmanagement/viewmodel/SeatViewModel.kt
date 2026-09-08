@@ -52,7 +52,6 @@ data class AuthErrorResponse(
     val requiresPasswordReset: Boolean?
 )
 
-// 👇 A MAGIA DO HILT: Tudo entra pelo construtor automaticamente! 👇
 @HiltViewModel
 class SeatViewModel @Inject constructor(
     application: Application,
