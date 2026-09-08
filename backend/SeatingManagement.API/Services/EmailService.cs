@@ -74,28 +74,39 @@ namespace SeatingManagement.API.Services
 
         private async Task SendEmailAsync(string to, string subject, string htmlBody)
         {
-            var smtpServer = _config["EmailSettings:SmtpServer"];
-            var smtpPort = int.Parse(_config["EmailSettings:SmtpPort"]!);
-            var senderEmail = _config["EmailSettings:SenderEmail"];
-            var senderPassword = _config["EmailSettings:SenderPassword"];
-            var senderName = _config["EmailSettings:SenderName"];
-
-            using var client = new SmtpClient(smtpServer, smtpPort)
+            try
             {
-                Credentials = new NetworkCredential(senderEmail, senderPassword),
-                EnableSsl = true
-            };
+                var smtpServer = _config["EmailSettings:SmtpServer"];
+                var smtpPort = int.Parse(_config["EmailSettings:SmtpPort"]!);
+                var senderEmail = _config["EmailSettings:SenderEmail"];
+                var senderPassword = _config["EmailSettings:SenderPassword"];
+                var senderName = _config["EmailSettings:SenderName"];
 
-            var mailMessage = new MailMessage
+                using var client = new SmtpClient(smtpServer, smtpPort)
+                {
+                    Credentials = new NetworkCredential(senderEmail, senderPassword),
+                    EnableSsl = true
+                };
+
+                var mailMessage = new MailMessage
+                {
+                    From = new MailAddress(senderEmail!, senderName),
+                    Subject = subject,
+                    Body = htmlBody,
+                    IsBodyHtml = true
+                };
+                mailMessage.To.Add(to);
+
+                Console.WriteLine($"[EMAIL] A tentar ligar ao SMTP da Google para enviar e-mail a: {to}...");
+                await client.SendMailAsync(mailMessage);
+                Console.WriteLine($"[EMAIL] SUCESSO! E-mail enviado para {to}.");
+            }
+            catch (Exception ex)
             {
-                From = new MailAddress(senderEmail!, senderName),
-                Subject = subject,
-                Body = htmlBody,
-                IsBodyHtml = true
-            };
-            mailMessage.To.Add(to);
-
-            await client.SendMailAsync(mailMessage);
+                Console.WriteLine($"[EMAIL ERRO CRÍTICO] Falha ao enviar o e-mail: {ex.Message}");
+                Console.WriteLine($"[EMAIL ERRO DETALHES] {ex.StackTrace}");
+                throw; // Re-lança o erro para garantir que a aplicação saiba que falhou
+            }
         }
     }
 }
