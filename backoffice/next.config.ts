@@ -4,7 +4,7 @@ const nextConfig = {
   remotePatterns: [
     {
       protocol: 'https',
-      hostname: 'api-seatly-f4e8bqh0e2bvd5hb.francecentral-01.azurewebsites.net',
+      hostname: 'api-seatly.onrender.com',
     },
   ],
 },
