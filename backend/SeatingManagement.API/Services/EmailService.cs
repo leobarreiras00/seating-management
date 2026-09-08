@@ -1,5 +1,6 @@
-using System.Net;
-using System.Net.Mail;
+using System.Net.Http.Headers;
+using System.Text;
+using System.Text.Json;
 
 namespace SeatingManagement.API.Services
 {
@@ -38,10 +39,7 @@ namespace SeatingManagement.API.Services
                         <p style='margin: 0; color: #64748b; font-size: 14px;'>PALAVRA-PASSE TEMPORÁRIA</p>
                         <p style='margin: 5px 0 0 0; color: #7c3aed; font-size: 24px; font-weight: 900; letter-spacing: 2px;'>{tempPassword}</p>
                     </div>
-
-                    <p style='color: #ef4444; font-size: 14px; font-weight: bold;'>⚠️ Nota de Segurança: No teu primeiro login, ser-te-á pedido que alteres esta palavra-passe temporária para uma definitiva.</p>
                 </div>
-                <p style='text-align: center; color: #94a3b8; font-size: 12px; margin-top: 30px;'>&copy; {DateTime.Now.Year} Seatly Management Systems. Todos os direitos reservados.</p>
             </div>";
 
             await SendEmailAsync(toEmail, subject, body);
@@ -64,8 +62,6 @@ namespace SeatingManagement.API.Services
                     <div style='text-align: center; margin: 35px 0;'>
                         <a href='{resetLink}' style='background-color: #7c3aed; color: white; padding: 15px 30px; text-decoration: none; border-radius: 12px; font-weight: bold; font-size: 16px; display: inline-block; box-shadow: 0 4px 15px rgba(124, 58, 237, 0.3);'>Redefinir Palavra-passe</a>
                     </div>
-
-                    <p style='color: #64748b; font-size: 14px; text-align: center;'>Este link expira em 1 hora. Se não fizeste este pedido, podes ignorar este e-mail em segurança.</p>
                 </div>
             </div>";
 
@@ -76,36 +72,42 @@ namespace SeatingManagement.API.Services
         {
             try
             {
-                var smtpServer = _config["EmailSettings:SmtpServer"];
-                var smtpPort = int.Parse(_config["EmailSettings:SmtpPort"]!);
+                var apiKey = _config["EmailSettings:BrevoApiKey"];
                 var senderEmail = _config["EmailSettings:SenderEmail"];
-                var senderPassword = _config["EmailSettings:SenderPassword"];
-                var senderName = _config["EmailSettings:SenderName"];
+                var senderName = _config["EmailSettings:SenderName"] ?? "Seatly Admin";
 
-                using var client = new SmtpClient(smtpServer, smtpPort)
+                using var client = new HttpClient();
+                client.DefaultRequestHeaders.Add("api-key", apiKey);
+                client.DefaultRequestHeaders.Accept.Add(new MediaTypeWithQualityHeaderValue("application/json"));
+
+                var payload = new
                 {
-                    Credentials = new NetworkCredential(senderEmail, senderPassword),
-                    EnableSsl = true
+                    sender = new { name = senderName, email = senderEmail },
+                    to = new[] { new { email = to } },
+                    subject = subject,
+                    htmlContent = htmlBody
                 };
 
-                var mailMessage = new MailMessage
-                {
-                    From = new MailAddress(senderEmail!, senderName),
-                    Subject = subject,
-                    Body = htmlBody,
-                    IsBodyHtml = true
-                };
-                mailMessage.To.Add(to);
+                var json = JsonSerializer.Serialize(payload);
+                var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                Console.WriteLine($"[EMAIL] A tentar ligar ao SMTP da Google para enviar e-mail a: {to}...");
-                await client.SendMailAsync(mailMessage);
-                Console.WriteLine($"[EMAIL] SUCESSO! E-mail enviado para {to}.");
+                Console.WriteLine($"[EMAIL] A enviar via API do Brevo para: {to}...");
+                var response = await client.PostAsync("https://api.brevo.com/v3/smtp/email", content);
+
+                if (response.IsSuccessStatusCode)
+                {
+                    Console.WriteLine($"[EMAIL] SUCESSO! E-mail enviado para {to}.");
+                }
+                else
+                {
+                    var error = await response.Content.ReadAsStringAsync();
+                    Console.WriteLine($"[EMAIL ERRO BREVO] {response.StatusCode}: {error}");
+                }
             }
             catch (Exception ex)
             {
                 Console.WriteLine($"[EMAIL ERRO CRÍTICO] Falha ao enviar o e-mail: {ex.Message}");
-                Console.WriteLine($"[EMAIL ERRO DETALHES] {ex.StackTrace}");
-                throw; // Re-lança o erro para garantir que a aplicação saiba que falhou
+                throw; // Lança o erro para que não seja engolido!
             }
         }
     }
