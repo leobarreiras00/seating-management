@@ -206,7 +206,7 @@ namespace SeatingManagement.API.Controllers
             user.ResetTokenExpiry = DateTime.UtcNow.AddHours(1);
             await _context.SaveChangesAsync();
 
-            _ = _emailService.SendPasswordResetEmailAsync(user.Email, user.PasswordResetToken);
+            await _emailService.SendPasswordResetEmailAsync(user.Email, user.PasswordResetToken);
 
             return Ok(new { Message = "Se o e-mail existir, enviámos as instruções de recuperação." });
         }
