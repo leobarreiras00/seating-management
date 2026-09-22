@@ -125,8 +125,19 @@ class SeatViewModel @Inject constructor(
                 appFeedback = AppFeedback(FeedbackType.INFO, "Dados Atualizados", "Os dados ou acessos da tua empresa foram modificados pelo Administrador.")
             }
         }
+        // REMOVIDO: mqttManager.connect() daqui, passa a ser chamado nas funções de auth e startup.
+    }
 
-        mqttManager.connect()
+    // --- FUNÇÃO DE SUPORTE PARA GERIR LIGAÇÃO ---
+    private fun connectMqttAndSubscribe() {
+        mqttManager.connect {
+            if (userGuid.isNotEmpty()) {
+                mqttManager.subscribeToManagerEvents(userGuid)
+            }
+            if (currentEventId != null) {
+                mqttManager.subscribeToEventRoom(currentEventId!!)
+            }
+        }
     }
 
     fun getStartDestination(): String {
@@ -139,7 +150,8 @@ class SeatViewModel @Inject constructor(
             managerName = session.managerName
             userGuid = session.userGuid
 
-            if (userGuid.isNotEmpty()) { mqttManager.subscribeToManagerEvents(userGuid) }
+            // Ligar ao MQTT apenas quando recuperamos a sessão
+            connectMqttAndSubscribe()
             fetchMyEvents()
 
             if (secureStorage.hasPin()) "pin_auth" else "event_selection"
@@ -176,6 +188,7 @@ class SeatViewModel @Inject constructor(
         requiresFirstLoginReset = false
         announcedCapacityThresholds.clear()
 
+        mqttManager.disconnect() // Desliga o MQTT no logout
         secureStorage.clearSession()
         viewModelScope.launch { repository.deleteAllSeats() }
     }
@@ -204,7 +217,8 @@ class SeatViewModel @Inject constructor(
 
                 secureStorage.saveSession(UserSession(jwtToken!!, userRole, companyName, companyLogo, managerName, userGuid))
 
-                if (userGuid.isNotEmpty()) { mqttManager.subscribeToManagerEvents(userGuid) }
+                // Ligar ao MQTT após sucesso do Login
+                connectMqttAndSubscribe()
 
                 fetchMyEvents()
                 onSuccess()
@@ -255,7 +269,8 @@ class SeatViewModel @Inject constructor(
 
                 secureStorage.saveSession(UserSession(jwtToken!!, userRole, companyName, companyLogo, managerName, userGuid))
 
-                if (userGuid.isNotEmpty()) { mqttManager.subscribeToManagerEvents(userGuid) }
+                // Ligar ao MQTT após sucesso do Reset
+                connectMqttAndSubscribe()
 
                 fetchMyEvents()
                 onSuccess()
@@ -308,6 +323,8 @@ class SeatViewModel @Inject constructor(
                     announcedCapacityThresholds.clear()
                     repository.deleteAllSeats()
                     repository.insertAll(seatsFromApi)
+
+                    // Só subscrevemos se não ocorreram erros até aqui
                     mqttManager.subscribeToEventRoom(id)
                 } catch (e: Exception) { appFeedback = AppFeedback(FeedbackType.ERROR, "Erro", "Verifica a tua ligação.") }
             }

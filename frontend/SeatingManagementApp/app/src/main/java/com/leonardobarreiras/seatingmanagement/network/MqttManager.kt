@@ -21,11 +21,12 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
         .serverHost("cec974b49a5f43c8a19ef81e6f877b64.s1.eu.hivemq.cloud") // Host do HiveMQ Cloud
         .serverPort(8883) // Porta segura SSL/TLS
         .sslWithDefaultConfig() // Ativa a encriptação SSL exigida pelo HiveMQ Cloud
+        .automaticReconnectWithDefaultConfig() // <-- ADICIONADO: Mantém o cliente vivo e reconecta após quebras de rede
         .buildAsync()
 
     private var currentTopic: String? = null
 
-    fun connect() {
+    fun connect(onConnected: (() -> Unit)? = null) {
         client.connectWith()
             .simpleAuth()
             .username("lbseatly-mqtt")
@@ -37,6 +38,7 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
                     Log.e("MQTT", "Erro ao ligar ao HiveMQ Cloud", throwable)
                 } else {
                     Log.d("MQTT", "Ligado ao HiveMQ Cloud com sucesso!")
+                    onConnected?.invoke()
                 }
             }
     }
