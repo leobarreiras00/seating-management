@@ -33,7 +33,7 @@ export default function ManageGuestsPage() {
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [editingGuestId, setEditingGuestId] = useState<number | null>(null);
   
-  // Form State (Categoria agora começa vazia)
+  // Form State (Categoria começa vazia sem exemplo)
   const [formData, setFormData] = useState({ guestName: "", category: "", tableName: "", seatNumber: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -43,25 +43,33 @@ export default function ManageGuestsPage() {
     try {
       const token = localStorage.getItem("token");
       
-      // NOTA: Se o teu endpoint não for este, altera a linha abaixo (Ex: /api/Seat/event/${eventId})
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${eventId}/seats`, {
+      // Rota corrigida com base no SeatController.cs
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Seat/${eventId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
       
       if (!res.ok) throw new Error("Falha ao carregar a lista de convidados.");
       
       const data = await res.json();
-      console.log("Resposta da API (Convidados):", data); // Ajuda no debug
+      console.log("Resposta da API (Convidados):", data);
 
-      // Mapeamento seguro para lidar com PascalCase do .NET (GuestName vs guestName)
-      const mappedGuests = Array.isArray(data) ? data.map((g: any) => ({
-        id: g.id || g.Id,
-        guestName: g.guestName || g.GuestName || g.name || g.Name || "Sem Nome",
-        category: g.category || g.Category || "",
-        tableName: g.tableName || g.TableName || "",
-        seatNumber: g.seatNumber || g.SeatNumber || "",
-        status: g.status !== undefined ? g.status : (g.Status !== undefined ? g.Status : 0)
-      })) : [];
+      // Mapeamento alinhado com o backend C# (SeatDto.cs)
+      const mappedGuests = Array.isArray(data) ? data.map((g: any) => {
+        // No backend, a "MESA-LUGAR" vem na propriedade SeatNumber (ex: "B1-A")
+        const seatNumFull = g.seatNumber || g.SeatNumber || "";
+        const [table, seat] = seatNumFull.includes('-') ? seatNumFull.split('-') : [seatNumFull, ""];
+
+        return {
+          id: g.id || g.Id,
+          // O nome do convidado está no AssignedTo
+          guestName: g.assignedTo || g.AssignedTo || "Sem Nome",
+          // A Categoria foi guardada no EventName na importação CSV
+          category: g.eventName || g.EventName || "",
+          tableName: table,
+          seatNumber: seat,
+          status: g.status !== undefined ? g.status : (g.Status !== undefined ? g.Status : 0)
+        };
+      }) : [];
 
       setGuests(mappedGuests);
       setFilteredGuests(mappedGuests);
@@ -112,16 +120,19 @@ export default function ManageGuestsPage() {
     e.preventDefault(); setIsSubmitting(true); setFormError("");
     try {
       const token = localStorage.getItem("token");
+      // Nota: Estes endpoints precisarão de ser criados no backend C# a seguir.
       const url = modalMode === "add" 
-        ? `${process.env.NEXT_PUBLIC_API_URL}/api/Event/${eventId}/seats` 
-        : `${process.env.NEXT_PUBLIC_API_URL}/api/Seat/${editingGuestId}`;
+        ? `${process.env.NEXT_PUBLIC_API_URL}/api/Seat/event/${eventId}/walkin` 
+        : `${process.env.NEXT_PUBLIC_API_URL}/api/Seat/${editingGuestId}/edit`;
       const method = modalMode === "add" ? "POST" : "PUT";
 
       const res = await fetch(url, {
         method, headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify(formData)
       });
-      if (!res.ok) throw new Error(`Erro ao ${modalMode === "add" ? "adicionar" : "atualizar"} convidado.`);
+      
+      const responseData = await res.json().catch(() => null);
+      if (!res.ok) throw new Error(responseData?.Message || responseData?.message || `Erro ao ${modalMode === "add" ? "adicionar" : "atualizar"} convidado.`);
       
       setShowModal(false);
       setAlertDialog({ isOpen: true, title: "Sucesso", message: `Convidado ${modalMode === "add" ? "adicionado" : "atualizado"} com sucesso!`, type: 'success' });
@@ -139,11 +150,17 @@ export default function ManageGuestsPage() {
       onConfirm: async () => {
         try {
           const token = localStorage.getItem("token");
-          await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Seat/${guestId}`, {
+          // Atualizado para coincidir com o padrão mais provável de backend
+          const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Seat/${guestId}`, {
             method: "DELETE", headers: { Authorization: `Bearer ${token}` }
           });
+          
+          if (!res.ok) throw new Error("Erro ao apagar");
+          
           fetchGuests();
-        } catch (error) { setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao apagar o convidado.", type: 'error' }); }
+        } catch (error) { 
+          setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao apagar o convidado.", type: 'error' }); 
+        }
       }
     });
   };
@@ -223,10 +240,7 @@ export default function ManageGuestsPage() {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div><label className="block text-sm font-bold text-slate-700 mb-1">Nome Completo</label><input type="text" required value={formData.guestName} onChange={e => setFormData({...formData, guestName: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              
-              {/* Rótulo corrigido: Apenas "Categoria" */}
               <div><label className="block text-sm font-bold text-slate-700 mb-1">Categoria</label><input type="text" required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-bold text-slate-700 mb-1">Mesa / Fila</label><input type="text" required value={formData.tableName} onChange={e => setFormData({...formData, tableName: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
                 <div><label className="block text-sm font-bold text-slate-700 mb-1">Lugar</label><input type="text" required value={formData.seatNumber} onChange={e => setFormData({...formData, seatNumber: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
