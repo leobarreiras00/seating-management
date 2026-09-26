@@ -306,8 +306,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <input type="password" placeholder="Palavra-passe Atual" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none text-sm" />
                   <input type="password" placeholder="Nova Palavra-passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none text-sm" />
                   <input type="password" placeholder="Confirme a Nova Palavra-passe" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={`w-full bg-slate-50 border rounded-xl px-4 py-3 font-bold text-slate-900 outline-none text-sm transition-all ${confirmPassword && newPassword !== confirmPassword ? 'border-red-400 focus:ring-red-500 text-red-600' : 'border-slate-200 focus:ring-purple-500'}`} />
-                  <button onClick={handleChangePassword} disabled={isProcessing || !oldPassword || newPassword.length < 4 || newPassword !== confirmPassword} className="w-full py-3 mt-2 rounded-xl font-bold text-white bg-slate-900 hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2">
-                    {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Atualizar Segurança'}
+                  <button 
+                    onClick={handleChangePassword} 
+                    disabled={isProcessing || !oldPassword || newPassword.length < 6 || newPassword !== confirmPassword} 
+                    className="w-full py-3 mt-2 rounded-xl font-bold text-white bg-slate-900 hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"> {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Atualizar Segurança'}
                   </button>
                 </div>
               )}
