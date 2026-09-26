@@ -33,8 +33,8 @@ export default function ManageGuestsPage() {
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [editingGuestId, setEditingGuestId] = useState<number | null>(null);
   
-  // Form State
-  const [formData, setFormData] = useState({ guestName: "", category: "Normal", tableName: "", seatNumber: "" });
+  // Form State (Categoria agora começa vazia)
+  const [formData, setFormData] = useState({ guestName: "", category: "", tableName: "", seatNumber: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
 
@@ -42,15 +42,31 @@ export default function ManageGuestsPage() {
     if (!eventId) return;
     try {
       const token = localStorage.getItem("token");
+      
+      // NOTA: Se o teu endpoint não for este, altera a linha abaixo (Ex: /api/Seat/event/${eventId})
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${eventId}/seats`, {
         headers: { Authorization: `Bearer ${token}` }
       });
+      
       if (!res.ok) throw new Error("Falha ao carregar a lista de convidados.");
+      
       const data = await res.json();
-      setGuests(data);
-      setFilteredGuests(data);
+      console.log("Resposta da API (Convidados):", data); // Ajuda no debug
+
+      // Mapeamento seguro para lidar com PascalCase do .NET (GuestName vs guestName)
+      const mappedGuests = Array.isArray(data) ? data.map((g: any) => ({
+        id: g.id || g.Id,
+        guestName: g.guestName || g.GuestName || g.name || g.Name || "Sem Nome",
+        category: g.category || g.Category || "",
+        tableName: g.tableName || g.TableName || "",
+        seatNumber: g.seatNumber || g.SeatNumber || "",
+        status: g.status !== undefined ? g.status : (g.Status !== undefined ? g.Status : 0)
+      })) : [];
+
+      setGuests(mappedGuests);
+      setFilteredGuests(mappedGuests);
     } catch (error: any) {
-      console.error(error);
+      console.error("Erro no fetchGuests:", error);
     } finally {
       setIsLoading(false);
     }
@@ -82,7 +98,7 @@ export default function ManageGuestsPage() {
 
   const openAddModal = () => {
     setModalMode("add");
-    setFormData({ guestName: "", category: "Walk-in", tableName: "", seatNumber: "" });
+    setFormData({ guestName: "", category: "", tableName: "", seatNumber: "" });
     setFormError(""); setShowModal(true);
   };
 
@@ -175,7 +191,7 @@ export default function ManageGuestsPage() {
               ) : (
                 filteredGuests.map(guest => (
                   <tr key={guest.id} className="hover:bg-slate-50 transition-colors">
-                    <td className="py-4 px-6 font-bold text-slate-900">{guest.guestName || "Sem Nome"}</td>
+                    <td className="py-4 px-6 font-bold text-slate-900">{guest.guestName}</td>
                     <td className="py-4 px-6"><span className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider">{guest.category}</span></td>
                     <td className="py-4 px-6 text-slate-600 font-medium">{guest.tableName} <span className="text-slate-400">/</span> {guest.seatNumber}</td>
                     <td className="py-4 px-6">
@@ -207,7 +223,10 @@ export default function ManageGuestsPage() {
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
               <div><label className="block text-sm font-bold text-slate-700 mb-1">Nome Completo</label><input type="text" required value={formData.guestName} onChange={e => setFormData({...formData, guestName: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-1">Categoria (Ex: VIP, Walk-in, Staff)</label><input type="text" required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
+              
+              {/* Rótulo corrigido: Apenas "Categoria" */}
+              <div><label className="block text-sm font-bold text-slate-700 mb-1">Categoria</label><input type="text" required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
+              
               <div className="grid grid-cols-2 gap-4">
                 <div><label className="block text-sm font-bold text-slate-700 mb-1">Mesa / Fila</label><input type="text" required value={formData.tableName} onChange={e => setFormData({...formData, tableName: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
                 <div><label className="block text-sm font-bold text-slate-700 mb-1">Lugar</label><input type="text" required value={formData.seatNumber} onChange={e => setFormData({...formData, seatNumber: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
