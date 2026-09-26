@@ -99,9 +99,24 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
 
                     Button(
                         onClick = {
-                            if (oldPass.isEmpty() || newPass.isEmpty()) { errorMsg = "Preenche todos os campos."; return@Button }
+                            if (oldPass.isEmpty() || newPass.isEmpty()) {
+                                errorMsg = "Preenche todos os campos."
+                                return@Button
+                            }
+
+                            // 👇 Adicionada a restrição de segurança de 6 caracteres 👇
+                            if (newPass.length < 6) {
+                                errorMsg = "A palavra-passe deve ter pelo menos 6 caracteres."
+                                return@Button
+                            }
+
                             isChanging = true
-                            viewModel.changePassword(oldPass = oldPass, newPass = newPass, onSuccess = { onDismiss(); isChanging = false }, onError = { errorMsg = it; isChanging = false })
+                            viewModel.changePassword(
+                                oldPass = oldPass,
+                                newPass = newPass,
+                                onSuccess = { onDismiss(); isChanging = false },
+                                onError = { errorMsg = it; isChanging = false }
+                            )
                         },
                         modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
                     ) {
