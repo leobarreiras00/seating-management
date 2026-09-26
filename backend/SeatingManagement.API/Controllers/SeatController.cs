@@ -14,6 +14,14 @@ namespace SeatingManagement.API.Controllers
         public int Status { get; set; }
     }
 
+    public class ManageGuestDto
+    {
+        public string GuestName { get; set; } = string.Empty;
+        public string Category { get; set; } = string.Empty;
+        public string TableName { get; set; } = string.Empty;
+        public string SeatNumber { get; set; } = string.Empty;
+    }
+
     [Authorize]
     [ApiController]
     [Route("api/[controller]")]
@@ -191,6 +199,114 @@ namespace SeatingManagement.API.Controllers
             _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
 
             return Ok(new { Message = $"{seats.Count} lugares atualizados com sucesso." });
+        }
+
+        // ==========================================
+        // GESTÃO MANUAL DE CONVIDADOS (CRUD)
+        // ==========================================
+
+        [HttpPost("event/{eventId}/walkin")]
+        public async Task<IActionResult> AddWalkIn(int eventId, [FromBody] ManageGuestDto request)
+        {
+            var ev = await _context.Events.FindAsync(eventId);
+            if (ev == null) return NotFound(new { Message = "Evento não encontrado." });
+
+            var seatNumber = $"{request.TableName.Trim()}-{request.SeatNumber.Trim()}";
+
+            var seat = new Seat
+            {
+                EventId = eventId,
+                AssignedTo = request.GuestName,
+                EventName = request.Category, // Usamos o EventName para guardar a Categoria (igual ao CsvController)
+                SeatNumber = seatNumber,
+                Status = SeatStatus.Vazio, // Começa como Pendente
+                Version = 1
+            };
+
+            _context.Seats.Add(seat);
+            
+            // Registo na Auditoria
+            var userName = User.Identity?.Name ?? "Sistema";
+            var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+            _context.AuditLogs.Add(new AuditLog
+            {
+                EventId = eventId,
+                ActionType = "CREATE_GUEST",
+                Description = $"Adicionou o walk-in: {request.GuestName} ({seatNumber}).",
+                PerformedBy = userName,
+                PerformedRole = userRole,
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+            
+            _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
+            return Ok(new { Message = "Convidado adicionado com sucesso." });
+        }
+
+        [HttpPut("{id}/edit")]
+        public async Task<IActionResult> EditGuest(int id, [FromBody] ManageGuestDto request)
+        {
+            var seat = await _context.Seats.FindAsync(id);
+            if (seat == null) return NotFound(new { Message = "Convidado não encontrado." });
+
+            var seatNumber = $"{request.TableName.Trim()}-{request.SeatNumber.Trim()}";
+            var oldName = seat.AssignedTo ?? "Sem Nome";
+            var oldSeat = seat.SeatNumber;
+
+            seat.AssignedTo = request.GuestName;
+            seat.EventName = request.Category;
+            seat.SeatNumber = seatNumber;
+            seat.Version++;
+
+            // Registo na Auditoria (FR56)
+            var userName = User.Identity?.Name ?? "Sistema";
+            var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+            _context.AuditLogs.Add(new AuditLog
+            {
+                EventId = seat.EventId,
+                ActionType = "UPDATE_GUEST",
+                Description = $"Editou convidado: {oldName} ({oldSeat}) -> {request.GuestName} ({seatNumber}).",
+                PerformedBy = userName,
+                PerformedRole = userRole,
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+
+            _ = _mqttService.PublishCommandAsync(seat.EventId, "REFRESH");
+            return Ok(new { Message = "Convidado atualizado com sucesso." });
+        }
+
+        [HttpDelete("{id}")]
+        public async Task<IActionResult> DeleteGuest(int id)
+        {
+            var seat = await _context.Seats.FindAsync(id);
+            if (seat == null) return NotFound(new { Message = "Convidado não encontrado." });
+
+            int eventId = seat.EventId;
+            string guestName = seat.AssignedTo ?? "Sem Nome";
+            string seatNumber = seat.SeatNumber;
+
+            _context.Seats.Remove(seat);
+
+            // Registo na Auditoria (FR56)
+            var userName = User.Identity?.Name ?? "Sistema";
+            var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+            _context.AuditLogs.Add(new AuditLog
+            {
+                EventId = eventId,
+                ActionType = "DELETE_GUEST",
+                Description = $"Removeu o convidado: {guestName} ({seatNumber}).",
+                PerformedBy = userName,
+                PerformedRole = userRole,
+                Timestamp = DateTime.UtcNow
+            });
+
+            await _context.SaveChangesAsync();
+
+            _ = _mqttService.PublishCommandAsync(eventId, "REFRESH");
+            return Ok(new { Message = "Convidado removido com sucesso." });
         }
     }
 }
