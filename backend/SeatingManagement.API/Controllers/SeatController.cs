@@ -253,15 +253,28 @@ namespace SeatingManagement.API.Controllers
             var seatNumber = $"{request.TableName.Trim()}-{request.SeatNumber.Trim()}";
             var oldName = seat.AssignedTo ?? "Sem Nome";
             var oldSeat = seat.SeatNumber;
+            var oldCategory = seat.EventName ?? "";
 
+            // 1. Criar os objetos de estado para a Auditoria
+            var beforeState = new { Nome = oldName, Lugar = oldSeat, Categoria = oldCategory };
+            var afterState = new { Nome = request.GuestName, Lugar = seatNumber, Categoria = request.Category };
+            
+            // 2. Serializar para JSON
+            var diffPayload = System.Text.Json.JsonSerializer.Serialize(new { 
+                Before = beforeState, 
+                After = afterState 
+            });
+
+            // 3. Atualizar a base de dados
             seat.AssignedTo = request.GuestName;
             seat.EventName = request.Category;
             seat.SeatNumber = seatNumber;
             seat.Version++;
 
-            // Registo na Auditoria (FR56)
+            // 4. Registar na Auditoria com o PayloadJson (FR56)
             var userName = User.Identity?.Name ?? "Sistema";
             var userRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
+            
             _context.AuditLogs.Add(new AuditLog
             {
                 EventId = seat.EventId,
@@ -269,7 +282,8 @@ namespace SeatingManagement.API.Controllers
                 Description = $"Editou convidado: {oldName} ({oldSeat}) -> {request.GuestName} ({seatNumber}).",
                 PerformedBy = userName,
                 PerformedRole = userRole,
-                Timestamp = DateTime.UtcNow
+                Timestamp = DateTime.UtcNow,
+                PayloadJson = diffPayload // Guarda a estrutura do diff
             });
 
             await _context.SaveChangesAsync();

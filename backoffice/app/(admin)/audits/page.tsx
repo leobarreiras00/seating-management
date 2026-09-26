@@ -24,7 +24,6 @@ interface AuditLog {
   performedBy: string;
   performedRole: string;
   timestamp: string;
-  // Nova propriedade para FR56 (Estado detalhado)
   payloadJson?: string | null; 
 }
 
@@ -42,11 +41,9 @@ export default function AuditsPage() {
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const selectedEventIdRef = useRef<number | null>(null);
 
-  // FR57: Estado dos Filtros
   const [filterAction, setFilterAction] = useState<string>("ALL");
   const [filterRole, setFilterRole] = useState<string>("ALL");
 
-  // FR56: Estado do Modal JSON (Diff Viewer)
   const [selectedLogDetails, setSelectedLogDetails] = useState<AuditLog | null>(null);
 
   useEffect(() => {
@@ -285,7 +282,6 @@ export default function AuditsPage() {
     }
   };
 
-  // Aplicação dos Filtros FR57
   const filteredEvents = events.filter(e =>
     e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     e.companyName.toLowerCase().includes(searchQuery.toLowerCase())
@@ -297,11 +293,9 @@ export default function AuditsPage() {
     return matchAction && matchRole;
   });
 
-  // Função auxiliar para renderizar o JSON (FR56)
   const renderJsonDiff = (jsonStr: string) => {
     try {
       const data = JSON.parse(jsonStr);
-      // Se for uma estrutura Before/After
       if (data.Before || data.After) {
         return (
           <div className="grid grid-cols-2 gap-4 mt-2">
@@ -316,7 +310,6 @@ export default function AuditsPage() {
           </div>
         );
       }
-      // Fallback genérico
       return <pre className="text-[11px] text-slate-700 bg-slate-100 p-4 rounded-xl font-mono whitespace-pre-wrap mt-2">{JSON.stringify(data, null, 2)}</pre>;
     } catch (e) {
       return <p className="text-sm text-slate-500 italic mt-2">Nenhum dado estruturado disponível.</p>;
@@ -417,7 +410,6 @@ export default function AuditsPage() {
               </div>
             </div>
 
-            {/* FR57: Filter Strip */}
             <div className="bg-slate-50 border-b border-slate-200/50 p-4 flex flex-wrap gap-4 shrink-0">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-slate-400" />
@@ -464,8 +456,8 @@ export default function AuditsPage() {
                   {displayedLogs.map((log) => {
                     const style = getActionStyles(log.actionType);
                     const logDate = new Date(log.timestamp);
-                    // FR56: Se for UPDATE e tiver payload, permitimos o clique para ver detalhes
-                    const isUpdatable = log.actionType.includes("UPDATE") && log.payloadJson;
+                    // Correção: Agora qualquer UPDATE permite o clique, independentemente do payload JSON existir já
+                    const isUpdatable = log.actionType.includes("UPDATE");
 
                     return (
                       <div key={log.id} className="relative pl-6 group">
@@ -503,7 +495,6 @@ export default function AuditsPage() {
                               </span>
                             </div>
                             
-                            {/* FR56: Indicador Visual de Detalhes JSON */}
                             {isUpdatable && (
                               <span className="flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">
                                 <FileJson className="w-3.5 h-3.5" /> Ver Detalhes
@@ -533,7 +524,6 @@ export default function AuditsPage() {
         </div>
       )}
 
-      {/* FR56: JSON Diff Viewer Modal */}
       {selectedLogDetails && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
           <div className="bg-white rounded-[2rem] w-full max-w-2xl max-h-[80vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200 zoom-in-95 animate-in">
@@ -552,7 +542,6 @@ export default function AuditsPage() {
             <div className="p-6 overflow-y-auto bg-white flex-1">
               <p className="text-sm font-medium text-slate-600 mb-4">{selectedLogDetails.description}</p>
               
-              {/* Renderização do JSON Forense */}
               {selectedLogDetails.payloadJson ? (
                 renderJsonDiff(selectedLogDetails.payloadJson)
               ) : (
