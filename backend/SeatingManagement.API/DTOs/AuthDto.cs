@@ -9,7 +9,7 @@ namespace SeatingManagement.API.DTOs
         public string Email { get; set; } = string.Empty;
         
         [Required]
-        public string Name { get; set; } = string.Empty; // Display Name
+        public string Name { get; set; } = string.Empty; 
         
         public string Role { get; set; } = string.Empty;
         public int CompanyId { get; set; }
@@ -25,7 +25,6 @@ namespace SeatingManagement.API.DTOs
         public string Password { get; set; } = string.Empty;
     }
 
-    // Usado na Opção B
     public class FirstLoginResetDto
     {
         [Required]
@@ -35,7 +34,8 @@ namespace SeatingManagement.API.DTOs
         [Required]
         public string TemporaryPassword { get; set; } = string.Empty;
         
-        [Required]
+        [Required(ErrorMessage = "A nova palavra-passe é obrigatória.")]
+        [MinLength(6, ErrorMessage = "A palavra-passe deve ter no mínimo 6 caracteres.")]
         public string NewPassword { get; set; } = string.Empty;
     }
 
@@ -51,7 +51,8 @@ namespace SeatingManagement.API.DTOs
         [Required]
         public string Token { get; set; } = string.Empty;
         
-        [Required]
+        [Required(ErrorMessage = "A nova palavra-passe é obrigatória.")]
+        [MinLength(6, ErrorMessage = "A palavra-passe deve ter no mínimo 6 caracteres.")]
         public string NewPassword { get; set; } = string.Empty;
     }
 
@@ -59,5 +60,27 @@ namespace SeatingManagement.API.DTOs
     {
         public string Token { get; set; } = string.Empty;
         public Guid UserGuid { get; set; }
+    }
+
+    public class ResetPasswordDto 
+    { 
+        [Required]
+        [MinLength(6, ErrorMessage = "A palavra-passe deve ter no mínimo 6 caracteres.")]
+        public string NewPassword { get; set; } = string.Empty; 
+    }
+    
+    public class ChangePasswordDto 
+    { 
+        [Required]
+        public string OldPassword { get; set; } = string.Empty; 
+        
+        [Required]
+        [MinLength(6, ErrorMessage = "A palavra-passe deve ter no mínimo 6 caracteres.")]
+        public string NewPassword { get; set; } = string.Empty; 
+    }
+        
+    public class UpdateAvatarDto 
+    { 
+        public string AvatarBase64 { get; set; } = string.Empty; 
     }
 }
