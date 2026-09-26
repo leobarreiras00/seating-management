@@ -478,12 +478,15 @@ export default function CompanyDetailsPage() {
                         )}
                       </div>
                       
-                      <div className="mt-5 grid grid-cols-2 gap-3">
-                        <button onClick={() => openUploadModal(event.id)} className="w-full flex items-center justify-center gap-2 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-bold py-2.5 rounded-xl transition-colors text-sm">
-                          <UploadCloud className="w-4 h-4" /> Importar CSV
+                      <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2">
+                        <Link href={`/events/${event.id}/guests`} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-700 font-bold py-2.5 rounded-xl transition-colors text-[13px]">
+                          <Users className="w-4 h-4" /> Convidados
+                        </Link>
+                        <button onClick={() => openUploadModal(event.id)} className="w-full flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-bold py-2.5 rounded-xl transition-colors text-[13px]">
+                          <UploadCloud className="w-4 h-4" /> Importar
                         </button>
-                        <button onClick={() => openAssignModal(event)} className="w-full flex items-center justify-center gap-2 bg-purple-50 hover:bg-purple-100 border border-purple-100 text-purple-700 font-bold py-2.5 rounded-xl transition-colors text-sm">
-                          <KeyRound className="w-4 h-4" /> Atribuir Acesso
+                        <button onClick={() => openAssignModal(event)} className="w-full flex items-center justify-center gap-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-100 text-purple-700 font-bold py-2.5 rounded-xl transition-colors text-[13px]">
+                          <KeyRound className="w-4 h-4" /> Acessos
                         </button>
                       </div>
                     </div>
