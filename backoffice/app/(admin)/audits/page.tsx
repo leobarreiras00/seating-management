@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Search, History, CalendarDays, ChevronRight, X, User, Activity, Database, CheckCircle, XCircle, Trash2, UploadCloud, Download, Loader2, ArrowDown } from "lucide-react";
+import { Search, History, CalendarDays, ChevronRight, X, User, Activity, Database, CheckCircle, XCircle, Trash2, UploadCloud, Download, Loader2, ArrowDown, Filter, FileJson } from "lucide-react";
 import mqtt from "mqtt";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
@@ -24,6 +24,8 @@ interface AuditLog {
   performedBy: string;
   performedRole: string;
   timestamp: string;
+  // Nova propriedade para FR56 (Estado detalhado)
+  payloadJson?: string | null; 
 }
 
 export default function AuditsPage() {
@@ -39,6 +41,13 @@ export default function AuditsPage() {
   const [hasMore, setHasMore] = useState(false);
   const [isLoadingMore, setIsLoadingMore] = useState(false);
   const selectedEventIdRef = useRef<number | null>(null);
+
+  // FR57: Estado dos Filtros
+  const [filterAction, setFilterAction] = useState<string>("ALL");
+  const [filterRole, setFilterRole] = useState<string>("ALL");
+
+  // FR56: Estado do Modal JSON (Diff Viewer)
+  const [selectedLogDetails, setSelectedLogDetails] = useState<AuditLog | null>(null);
 
   useEffect(() => {
     selectedEventIdRef.current = selectedEvent?.id || null;
@@ -114,6 +123,8 @@ export default function AuditsPage() {
 
   const openEventLogs = async (event: EventOverview) => {
     setSelectedEvent(event);
+    setFilterAction("ALL");
+    setFilterRole("ALL");
     setIsLoadingLogs(true);
     setEventLogs([]);
     await fetchEventLogs(event.id, 1);
@@ -247,23 +258,7 @@ export default function AuditsPage() {
           3: { cellWidth: 28 },
           4: { cellWidth: 22 },
         },
-        alternateRowStyles: { fillColor: [255, 255, 255] },
-        willDrawCell: (data) => {
-          if (data.section === 'body') {
-            if (data.column.index === 1) {
-              const action = data.cell.raw as string;
-              if (action.includes("UNVALIDATE")) { doc.setTextColor(239, 68, 68); doc.setFont("helvetica", "bold"); }
-              else if (action.includes("VALIDATE") || action.includes("QR")) { doc.setTextColor(16, 185, 129); doc.setFont("helvetica", "bold"); }
-              else { doc.setTextColor(168, 85, 247); doc.setFont("helvetica", "bold"); }
-            }
-            if (data.column.index === 4) {
-              const role = data.cell.raw as string;
-              if (role === "SuperAdmin") { doc.setTextColor(239, 68, 68); doc.setFont("helvetica", "bold"); }
-              else if (role === "Gestor") { doc.setTextColor(59, 130, 246); doc.setFont("helvetica", "bold"); }
-              else { doc.setTextColor(16, 185, 129); doc.setFont("helvetica", "bold"); }
-            }
-          }
-        }
+        alternateRowStyles: { fillColor: [255, 255, 255] }
       });
 
       const fileName = `Auditoria_${selectedEvent.name.replace(/\s+/g, '_')}_${new Date().toISOString().split('T')[0]}.pdf`;
@@ -282,15 +277,51 @@ export default function AuditsPage() {
       case "QR_VALIDATE": return { color: "text-emerald-600", bg: "bg-emerald-500/10", border: "border-emerald-200", icon: <CheckCircle className="w-4 h-4" /> };
       case "UNVALIDATE_SEAT": return { color: "text-red-500", bg: "bg-red-500/10", border: "border-red-200", icon: <XCircle className="w-4 h-4" /> };
       case "BULK_UPDATE": return { color: "text-purple-600", bg: "bg-purple-500/10", border: "border-purple-200", icon: <Database className="w-4 h-4" /> };
-      case "CLEAR_DB": return { color: "text-red-600", bg: "bg-red-500/10", border: "border-red-200", icon: <Trash2 className="w-4 h-4" /> };
+      case "CLEAR_DB":
+      case "DELETE_GUEST": return { color: "text-red-600", bg: "bg-red-500/10", border: "border-red-200", icon: <Trash2 className="w-4 h-4" /> };
+      case "CREATE_GUEST": return { color: "text-emerald-600", bg: "bg-emerald-500/10", border: "border-emerald-200", icon: <User className="w-4 h-4" /> };
+      case "UPDATE_GUEST": return { color: "text-amber-600", bg: "bg-amber-500/10", border: "border-amber-200", icon: <Activity className="w-4 h-4" /> };
       default: return { color: "text-slate-600", bg: "bg-slate-500/10", border: "border-slate-200", icon: <Activity className="w-4 h-4" /> };
     }
   };
 
+  // Aplicação dos Filtros FR57
   const filteredEvents = events.filter(e =>
     e.name.toLowerCase().includes(searchQuery.toLowerCase()) ||
     e.companyName.toLowerCase().includes(searchQuery.toLowerCase())
   );
+
+  const displayedLogs = eventLogs.filter(log => {
+    const matchAction = filterAction === "ALL" || log.actionType.includes(filterAction);
+    const matchRole = filterRole === "ALL" || log.performedRole === filterRole;
+    return matchAction && matchRole;
+  });
+
+  // Função auxiliar para renderizar o JSON (FR56)
+  const renderJsonDiff = (jsonStr: string) => {
+    try {
+      const data = JSON.parse(jsonStr);
+      // Se for uma estrutura Before/After
+      if (data.Before || data.After) {
+        return (
+          <div className="grid grid-cols-2 gap-4 mt-2">
+            <div className="bg-red-50/50 border border-red-100 rounded-xl p-4">
+              <h4 className="text-xs font-black text-red-600 uppercase mb-2 border-b border-red-100 pb-2">Estado Anterior</h4>
+              <pre className="text-[11px] text-red-800 font-mono whitespace-pre-wrap">{JSON.stringify(data.Before, null, 2)}</pre>
+            </div>
+            <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
+              <h4 className="text-xs font-black text-emerald-600 uppercase mb-2 border-b border-emerald-100 pb-2">Novo Estado</h4>
+              <pre className="text-[11px] text-emerald-800 font-mono whitespace-pre-wrap">{JSON.stringify(data.After, null, 2)}</pre>
+            </div>
+          </div>
+        );
+      }
+      // Fallback genérico
+      return <pre className="text-[11px] text-slate-700 bg-slate-100 p-4 rounded-xl font-mono whitespace-pre-wrap mt-2">{JSON.stringify(data, null, 2)}</pre>;
+    } catch (e) {
+      return <p className="text-sm text-slate-500 italic mt-2">Nenhum dado estruturado disponível.</p>;
+    }
+  };
 
   if (isLoading) {
     return (
@@ -335,7 +366,6 @@ export default function AuditsPage() {
               className="bg-white/80 backdrop-blur-lg rounded-[2rem] border border-white/60 shadow-sm hover:border-purple-300 hover:shadow-md hover:-translate-y-1 transition-all cursor-pointer group flex flex-col justify-between"
             >
               <div className="p-6">
-                {/* Removido o ID badge, restando apenas a seta alinhada à direita */}
                 <div className="flex justify-end items-start mb-2">
                   <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-purple-500 transition-colors" />
                 </div>
@@ -363,8 +393,8 @@ export default function AuditsPage() {
 
       {selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/20 backdrop-blur-md">
-          <div className="bg-white/80 backdrop-blur-2xl rounded-[2.5rem] w-full max-w-3xl h-[85vh] shadow-2xl flex flex-col overflow-hidden border border-white/50 animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-200/50 bg-white/50 flex justify-between items-center shrink-0">
+          <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] w-full max-w-4xl h-[85vh] shadow-2xl flex flex-col overflow-hidden border border-white/50 animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-200/50 bg-white flex justify-between items-center shrink-0">
               <div>
                 <h2 className="text-xl font-extrabold text-slate-900">Registos: {selectedEvent.name}</h2>
                 <p className="text-sm font-medium text-slate-500 mt-1">{selectedEvent.companyName}</p>
@@ -380,62 +410,111 @@ export default function AuditsPage() {
                 </button>
                 <button
                   onClick={() => setSelectedEvent(null)}
-                  className="bg-white/50 p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-white transition-colors shadow-sm"
+                  className="bg-white/50 p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
                 >
                   <X className="w-5 h-5" />
                 </button>
               </div>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/30">
+            {/* FR57: Filter Strip */}
+            <div className="bg-slate-50 border-b border-slate-200/50 p-4 flex flex-wrap gap-4 shrink-0">
+              <div className="flex items-center gap-2">
+                <Filter className="w-4 h-4 text-slate-400" />
+                <span className="text-sm font-bold text-slate-600">Filtros:</span>
+              </div>
+              <select 
+                value={filterAction} 
+                onChange={(e) => setFilterAction(e.target.value)}
+                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="ALL">Todas as Ações</option>
+                <option value="VALIDATE">Validações</option>
+                <option value="IMPORT">Importações</option>
+                <option value="UPDATE">Atualizações</option>
+                <option value="CREATE">Criações</option>
+                <option value="DELETE">Remoções</option>
+              </select>
+
+              <select 
+                value={filterRole} 
+                onChange={(e) => setFilterRole(e.target.value)}
+                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+              >
+                <option value="ALL">Todos os Cargos</option>
+                <option value="SuperAdmin">SuperAdmins</option>
+                <option value="Gestor">Gestores</option>
+                <option value="Utilizador">Staff / Validadores</option>
+                <option value="Sistema">Ações de Sistema</option>
+              </select>
+            </div>
+
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
               {isLoadingLogs ? (
                 <div className="flex justify-center items-center h-full">
                   <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
                 </div>
-              ) : eventLogs.length === 0 ? (
+              ) : displayedLogs.length === 0 ? (
                 <div className="flex flex-col items-center justify-center h-full text-slate-400">
                   <History className="w-12 h-12 mb-3 opacity-20" />
-                  <p className="font-medium text-slate-500">Nenhum registo encontrado para este evento.</p>
+                  <p className="font-medium text-slate-500">Nenhum registo corresponde aos filtros aplicados.</p>
                 </div>
               ) : (
-                <div className="relative border-l-2 border-slate-200/60 ml-4 space-y-8 pb-4">
-                  {eventLogs.map((log) => {
+                <div className="relative border-l-2 border-slate-200/60 ml-4 space-y-6 pb-4">
+                  {displayedLogs.map((log) => {
                     const style = getActionStyles(log.actionType);
                     const logDate = new Date(log.timestamp);
+                    // FR56: Se for UPDATE e tiver payload, permitimos o clique para ver detalhes
+                    const isUpdatable = log.actionType.includes("UPDATE") && log.payloadJson;
+
                     return (
-                      <div key={log.id} className="relative pl-6">
-                        <div className={`absolute -left-[17px] top-1 w-8 h-8 rounded-full border-4 border-white ${style.bg} ${style.color} flex items-center justify-center shadow-sm`}>
+                      <div key={log.id} className="relative pl-6 group">
+                        <div className={`absolute -left-[17px] top-1 w-8 h-8 rounded-full border-4 border-slate-50 ${style.bg} ${style.color} flex items-center justify-center shadow-sm`}>
                           {style.icon}
                         </div>
-                        <div className="bg-white/80 backdrop-blur-xl p-5 rounded-[1.5rem] border border-white shadow-sm hover:shadow-md transition-shadow">
+                        <div 
+                          onClick={() => isUpdatable ? setSelectedLogDetails(log) : null}
+                          className={`bg-white p-5 rounded-[1.5rem] border border-slate-100 shadow-sm transition-all ${isUpdatable ? 'cursor-pointer hover:border-purple-300 hover:shadow-md ring-1 ring-transparent hover:ring-purple-100' : ''}`}
+                        >
                           <div className="flex justify-between items-start mb-3">
                             <span className={`text-[11px] uppercase tracking-wider font-extrabold px-3 py-1.5 rounded-xl border ${style.bg} ${style.color} ${style.border}`}>
                               {log.actionType.replace("_", " ")}
                             </span>
-                            <span className="text-xs font-bold text-slate-400 bg-slate-100/80 backdrop-blur-sm px-2.5 py-1 rounded-xl">
+                            <span className="text-xs font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-xl">
                               {logDate.toLocaleDateString('pt-PT')} às {logDate.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                             </span>
                           </div>
+                          
                           <p className="text-slate-700 text-sm font-medium leading-relaxed my-3">
                             {log.description}
                           </p>
-                          <div className="flex items-center text-xs font-bold text-slate-500 pt-3 border-t border-slate-100/80">
-                            <User className="w-4 h-4 mr-1.5" />
-                            Por: <span className="text-slate-900 ml-1 bg-slate-100/80 px-2 py-0.5 rounded-lg">{log.performedBy}</span>
-                            <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider font-black border ${
-                              log.performedRole === 'SuperAdmin' ? 'bg-red-500/10 text-red-600 border-red-200' :
-                              log.performedRole === 'Gestor' ? 'bg-blue-500/10 text-blue-600 border-blue-200' :
-                              log.performedRole === 'Utilizador' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' :
-                              'bg-slate-500/10 text-slate-600 border-slate-200'
-                            }`}>
-                              {log.performedRole || 'Sistema'}
-                            </span>
+
+                          <div className="flex items-center justify-between text-xs font-bold text-slate-500 pt-3 border-t border-slate-50">
+                            <div className="flex items-center">
+                              <User className="w-4 h-4 mr-1.5" />
+                              Por: <span className="text-slate-900 ml-1 bg-slate-100 px-2 py-0.5 rounded-lg">{log.performedBy}</span>
+                              <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider font-black border ${
+                                log.performedRole === 'SuperAdmin' ? 'bg-red-500/10 text-red-600 border-red-200' :
+                                log.performedRole === 'Gestor' ? 'bg-blue-500/10 text-blue-600 border-blue-200' :
+                                log.performedRole === 'Utilizador' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' :
+                                'bg-slate-500/10 text-slate-600 border-slate-200'
+                              }`}>
+                                {log.performedRole || 'Sistema'}
+                              </span>
+                            </div>
+                            
+                            {/* FR56: Indicador Visual de Detalhes JSON */}
+                            {isUpdatable && (
+                              <span className="flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">
+                                <FileJson className="w-3.5 h-3.5" /> Ver Detalhes
+                              </span>
+                            )}
                           </div>
                         </div>
                       </div>
                     );
                   })}
-                  {hasMore && (
+                  {hasMore && displayedLogs.length > 0 && (
                     <div className="pt-6 pb-2 flex justify-center pl-6">
                       <button
                         onClick={loadMoreLogs}
@@ -448,6 +527,38 @@ export default function AuditsPage() {
                     </div>
                   )}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* FR56: JSON Diff Viewer Modal */}
+      {selectedLogDetails && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+          <div className="bg-white rounded-[2rem] w-full max-w-2xl max-h-[80vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200 zoom-in-95 animate-in">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+                <FileJson className="w-5 h-5 text-purple-600" /> Detalhes da Alteração (Diff)
+              </h3>
+              <button
+                onClick={() => setSelectedLogDetails(null)}
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-white shadow-sm transition-colors border border-transparent hover:border-slate-200"
+              >
+                <X className="w-5 h-5" />
+              </button>
+            </div>
+            
+            <div className="p-6 overflow-y-auto bg-white flex-1">
+              <p className="text-sm font-medium text-slate-600 mb-4">{selectedLogDetails.description}</p>
+              
+              {/* Renderização do JSON Forense */}
+              {selectedLogDetails.payloadJson ? (
+                renderJsonDiff(selectedLogDetails.payloadJson)
+              ) : (
+                <p className="text-sm text-slate-500 italic bg-slate-50 p-4 rounded-xl text-center border border-slate-100">
+                  Nenhum dado estruturado guardado para este registo.
+                </p>
               )}
             </div>
           </div>
