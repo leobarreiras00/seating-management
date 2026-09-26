@@ -51,7 +51,6 @@ export default function ManageGuestsPage() {
       if (!res.ok) throw new Error("Falha ao carregar a lista de convidados.");
       
       const data = await res.json();
-      console.log("Resposta da API (Convidados):", data);
 
       // Mapeamento alinhado com o backend C# (SeatDto.cs)
       const mappedGuests = Array.isArray(data) ? data.map((g: any) => {
