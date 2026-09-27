@@ -50,7 +50,7 @@ namespace SeatingManagement.API.Controllers
             {
                 u.Id,
                 u.Email,
-                u.Username, // Nome de exibição
+                u.Username,
                 u.Role,
                 CompanyName = u.Company != null ? u.Company.Name : "Administração Central",
                 CompanyLogo = u.Company != null ? u.Company.LogoUrl : "",
@@ -85,7 +85,6 @@ namespace SeatingManagement.API.Controllers
             return Ok(new { Message = "Avatar atualizado com sucesso!", AvatarUrl = user.AvatarUrl });
         }
 
-        // 👇 A NOVA CRIAÇÃO COM EMAIL E PASS TEMPORÁRIA 👇
         [HttpPost("register")]
         [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> Register(RegisterDto request)
@@ -100,18 +99,17 @@ namespace SeatingManagement.API.Controllers
             var company = await _context.Companies.FindAsync(request.CompanyId);
             if (company == null) return BadRequest(new { Message = "A empresa especificada não existe." });
 
-            // Gera Password Segura: ex "Seatly-x9A2!j"
             string tempPassword = $"Seatly-{GenerateRandomToken(6)}!";
 
             var user = new User
             {
                 Email = request.Email,
-                Username = request.Name, // O Display Name
+                Username = request.Name,
                 PasswordHash = BCrypt.Net.BCrypt.HashPassword(tempPassword),
                 UserGuid = Guid.NewGuid(),
                 Role = !string.IsNullOrWhiteSpace(request.Role) ? request.Role : "Utilizador",
                 CompanyId = request.CompanyId,
-                MustChangePassword = true // Obriga à Opção B
+                MustChangePassword = true
             };
 
             _context.Users.Add(user);
@@ -128,13 +126,11 @@ namespace SeatingManagement.API.Controllers
 
             await _context.SaveChangesAsync();
 
-            // Dispara o e-mail de forma assíncrona (não bloqueia a resposta da API)
             _ = _emailService.SendWelcomeEmailAsync(user.Email, user.Username, tempPassword, user.Role);
 
             return Ok(new { Message = "Utilizador criado. O e-mail com as credenciais foi enviado com sucesso!" });
         }
 
-        // 👇 O NOVO LOGIN COM EMAIL E OPÇÃO B 👇
         [HttpPost("login")]
         [AllowAnonymous]
         public async Task<IActionResult> Login(LoginDto request)
@@ -144,7 +140,6 @@ namespace SeatingManagement.API.Controllers
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
                 return Unauthorized(new { Message = "Credenciais inválidas." });
 
-            // OPÇÃO B: Verifica se é o 1º login
             if (user.MustChangePassword)
             {
                 return StatusCode(403, new { 
@@ -160,7 +155,6 @@ namespace SeatingManagement.API.Controllers
             });
         }
 
-        // 👇 ENDPOINT EXCLUSIVO PARA O 1º LOGIN (OPÇÃO B) 👇
         [HttpPost("first-login-reset")]
         [AllowAnonymous]
         public async Task<IActionResult> FirstLoginReset(FirstLoginResetDto request)
@@ -185,7 +179,6 @@ namespace SeatingManagement.API.Controllers
 
             await _context.SaveChangesAsync();
 
-            // Gera já o token definitivo para ele entrar direto sem ter de voltar ao ecrã de login
             var token = GenerateJwtToken(user);
             return Ok(new { 
                 Token = token, UserGuid = user.UserGuid, Role = user.Role,
@@ -193,14 +186,13 @@ namespace SeatingManagement.API.Controllers
             });
         }
 
-        // 👇 ESQUECEU-SE DA PASSWORD (GERA TOKEN E ENVIA EMAIL) 👇
         [HttpPost("forgot-password")]
         [AllowAnonymous]
         public async Task<IActionResult> ForgotPassword(ForgotPasswordDto request)
         {
             var user = await _context.Users.FirstOrDefaultAsync(u => u.Email == request.Email);
             if (user == null) 
-                return Ok(new { Message = "Se o e-mail existir, enviámos as instruções de recuperação." }); // Segurança para não enumerar emails
+                return Ok(new { Message = "Se o e-mail existir, enviámos as instruções de recuperação." });
 
             user.PasswordResetToken = GenerateRandomToken(32);
             user.ResetTokenExpiry = DateTime.UtcNow.AddHours(1);
@@ -211,7 +203,6 @@ namespace SeatingManagement.API.Controllers
             return Ok(new { Message = "Se o e-mail existir, enviámos as instruções de recuperação." });
         }
 
-        // 👇 CONFIRMA RECUPERAÇÃO COM TOKEN 👇
         [HttpPost("reset-password")]
         [AllowAnonymous]
         public async Task<IActionResult> ResetPasswordWithToken(ResetPasswordWithTokenDto request)
@@ -222,7 +213,7 @@ namespace SeatingManagement.API.Controllers
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
             user.PasswordResetToken = null;
             user.ResetTokenExpiry = null;
-            user.MustChangePassword = false; // Se ele recuperou, não precisa do reset de 1º login
+            user.MustChangePassword = false;
 
             _context.AuditLogs.Add(new AuditLog
             {
@@ -235,7 +226,6 @@ namespace SeatingManagement.API.Controllers
             return Ok(new { Message = "A tua palavra-passe foi redefinida com sucesso." });
         }
 
-        // [HttpDelete, ChangePassword e GenerateJwtToken mantêm-se iguais]
         [HttpDelete("user/{id}")]
         [Authorize] 
         public async Task<IActionResult> DeleteUser(int id)
@@ -287,7 +277,6 @@ namespace SeatingManagement.API.Controllers
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
-        // Função utilitária para gerar senhas/tokens seguros
         private string GenerateRandomToken(int length)
         {
             using var rng = RandomNumberGenerator.Create();
@@ -296,13 +285,4 @@ namespace SeatingManagement.API.Controllers
             return Convert.ToBase64String(byteToken).Replace("+", "").Replace("/", "").Substring(0, length);
         }
     }
-
-    public class ResetPasswordDto { 
-        public string NewPassword { get; set; } = string.Empty; }
-    public class ChangePasswordDto { 
-        public string OldPassword { get; set; } = string.Empty; 
-        public string NewPassword { get; set; } = string.Empty; }
-        
-    public class UpdateAvatarDto { 
-        public string AvatarBase64 { get; set; } = string.Empty; }
 }
