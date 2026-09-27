@@ -29,7 +29,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [showNotifMenu, setShowNotifMenu] = useState(false);
   const [showMyAccountModal, setShowMyAccountModal] = useState(false);
 
-  // Alerta customizado (Liquid Glass)
   const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' } | null>(null);
 
   const [oldPassword, setOldPassword] = useState("");
@@ -109,7 +108,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       });
       if (res.ok) {
         const users = await res.json();
-        // Cruza pelo Username (Display Name) para ir buscar a entidade rica (com E-mail e Avatar)
         const me = users.find((u: any) => u.username === username);
         if (me) setCurrentUser(me);
       }
@@ -128,7 +126,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   const handleChangePassword = async () => {
-    if (!oldPassword || !newPassword || newPassword !== confirmPassword) return;
+    if (!oldPassword || newPassword.length < 6 || newPassword !== confirmPassword) return;
     setIsProcessing(true);
     
     try {
@@ -255,7 +253,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 <div className="absolute right-0 mt-3 w-56 bg-white rounded-[1.5rem] shadow-[0_10px_40px_rgb(0,0,0,0.1)] border border-slate-100 p-2 z-50 animate-in slide-in-from-top-2">
                   <div className="px-4 py-3 border-b border-slate-100 mb-2">
                     <p className="text-sm font-bold text-slate-900 truncate">{userInfo?.username}</p>
-                    {/* 👇 O E-MAIL APARECE AQUI NO DROPDOWN 👇 */}
                     {currentUser?.email && <p className="text-[10px] text-slate-500 font-medium truncate mb-1">{currentUser.email}</p>}
                     <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 sm:hidden">{userInfo?.role}</p>
                   </div>
@@ -279,10 +276,11 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* MODAL: A MINHA CONTA */}
       {showMyAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
-          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-lg shadow-2xl animate-in zoom-in-95 relative border border-white/50 flex flex-col md:flex-row gap-8">
+          {/* O tamanho máximo passou para max-w-2xl para corrigir o layout cortado */}
+          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 relative border border-white/50 flex flex-col md:flex-row gap-10">
             <button onClick={() => setShowMyAccountModal(false)} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors z-10"><X className="w-5 h-5" /></button>
-            <div className="flex flex-col items-center md:w-1/3 pt-4">
-              <div className="relative group cursor-pointer w-28 h-28 rounded-[1.5rem] overflow-hidden mb-4 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-4 border-white transition-transform hover:scale-105">
+            <div className="flex flex-col items-center md:w-5/12 pt-4">
+              <div className="relative group cursor-pointer w-32 h-32 rounded-[1.5rem] overflow-hidden mb-5 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-4 border-white transition-transform hover:scale-105">
                 <input type="file" accept="image/*" className="hidden" id="myAvatarUpload" onChange={handleImageUpload} disabled={isUploadingAvatar || !currentUser} />
                 <label htmlFor="myAvatarUpload" className="w-full h-full flex items-center justify-center cursor-pointer relative">
                   {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : userInfo?.role === 'SuperAdmin' ? <img src="/superadmin_default.png" alt="SuperAdmin" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-blue-50 text-blue-600"><UserIcon className="w-10 h-10" /></div>}
@@ -292,24 +290,32 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </div>
                 </label>
               </div>
-              <h3 className="text-lg font-black text-slate-900 text-center mb-0.5">{userInfo?.username}</h3>
-              {/* 👇 O E-MAIL APARECE AQUI COM O ÍCONE DA CARTA 👇 */}
-              {currentUser?.email && <p className="text-slate-500 text-[11px] font-medium flex items-center justify-center gap-1 mb-2"><Mail className="w-3.5 h-3.5" /> {currentUser.email}</p>}
-              <p className="text-slate-400 font-bold uppercase tracking-wider text-[10px]">{userInfo?.role}</p>
+              <h3 className="text-xl font-black text-slate-900 text-center mb-1">{userInfo?.username}</h3>
+              {currentUser?.email && <p className="text-slate-500 text-[12px] font-medium flex items-center justify-center gap-1.5 mb-3 break-all text-center"><Mail className="w-3.5 h-3.5 shrink-0" /> {currentUser.email}</p>}
+              <p className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">{userInfo?.role}</p>
             </div>
-            <div className="md:w-2/3 border-t md:border-t-0 md:border-l border-slate-100 pt-6 md:pt-0 md:pl-8">
+            <div className="md:w-7/12 border-t md:border-t-0 md:border-l border-slate-100 pt-6 md:pt-0 md:pl-10">
               <div className="flex items-center gap-2 mb-6 text-slate-800"><Lock className="w-5 h-5 text-purple-500" /><h3 className="text-lg font-black">Alterar Palavra-passe</h3></div>
               {successMessage ? (
                 <div className="flex flex-col items-center justify-center py-10 text-emerald-500 animate-in fade-in"><CheckCircle2 className="w-12 h-12 mb-3" /><p className="font-bold text-center">{successMessage}</p></div>
               ) : (
                 <div className="space-y-4">
-                  <input type="password" placeholder="Palavra-passe Atual" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none text-sm" />
-                  <input type="password" placeholder="Nova Palavra-passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3 font-bold text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none text-sm" />
-                  <input type="password" placeholder="Confirme a Nova Palavra-passe" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={`w-full bg-slate-50 border rounded-xl px-4 py-3 font-bold text-slate-900 outline-none text-sm transition-all ${confirmPassword && newPassword !== confirmPassword ? 'border-red-400 focus:ring-red-500 text-red-600' : 'border-slate-200 focus:ring-purple-500'}`} />
+                  <input type="password" placeholder="Palavra-passe Atual" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 font-bold text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none text-sm transition-all" />
+                  
+                  <div>
+                    <input type="password" placeholder="Nova Palavra-passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 font-bold text-slate-900 outline-none text-sm transition-all ${newPassword.length > 0 && newPassword.length < 6 ? 'border-red-400 focus:ring-2 focus:ring-red-500 text-red-600' : 'border-slate-200 focus:ring-2 focus:ring-purple-500'}`} />
+                    {newPassword.length > 0 && newPassword.length < 6 && (
+                      <p className="text-red-500 text-[11px] font-bold mt-1.5 ml-1 animate-in fade-in">A palavra-passe deve ter pelo menos 6 caracteres.</p>
+                    )}
+                  </div>
+
+                  <input type="password" placeholder="Confirme a Nova Palavra-passe" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 font-bold text-slate-900 outline-none text-sm transition-all ${confirmPassword && newPassword !== confirmPassword ? 'border-red-400 focus:ring-2 focus:ring-red-500 text-red-600' : 'border-slate-200 focus:ring-2 focus:ring-purple-500'}`} />
+                  
                   <button 
                     onClick={handleChangePassword} 
                     disabled={isProcessing || !oldPassword || newPassword.length < 6 || newPassword !== confirmPassword} 
-                    className="w-full py-3 mt-2 rounded-xl font-bold text-white bg-slate-900 hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"> {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Atualizar Segurança'}
+                    className="w-full py-3.5 mt-2 rounded-xl font-bold text-white bg-slate-900 hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"> 
+                    {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Atualizar Segurança'}
                   </button>
                 </div>
               )}
