@@ -1,7 +1,7 @@
 "use client";
 
 import { useEffect, useState, useMemo } from "react";
-import { Users, Search, Shield, User, Key, Trash2, X, Building2, Loader2, CheckCircle2, CalendarDays, Camera, Mail, AlertTriangle, Info, Plus, Lock } from "lucide-react";
+import { Users, Search, Shield, User, Trash2, X, Building2, Loader2, CheckCircle2, CalendarDays, Camera, Mail, AlertTriangle, Info, Plus, Lock } from "lucide-react";
 
 interface UserData {
   id: number;
@@ -87,7 +87,7 @@ export default function TeamPage() {
     setConfirmDialog({
       isOpen: true, 
       title: "Recuperar Acesso", 
-      message: `Queres enviar um e-mail de recuperação de palavra-passe para o SuperAdmin "${name}" (${email})?`,
+      message: `Queres enviar um e-mail de recuperação de palavra-passe para "${name}" (${email})?`,
       onConfirm: async () => {
         try {
           const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/forgot-password`, {
@@ -147,7 +147,7 @@ export default function TeamPage() {
     reader.readAsDataURL(file);
   };
 
-  // Separação dos SuperAdmins globais e agrupamento das empresas normais
+  // Separação dos SuperAdmins globais e agrupamento HIERÁRQUICO das empresas
   const { superAdmins, companyGroups } = useMemo(() => {
     const filtered = users.filter(u =>
       u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -158,8 +158,9 @@ export default function TeamPage() {
     const sAdmins: UserData[] = [];
     const groups: Record<string, {
       companyLogo?: string,
-      events: Record<string, { gestores: UserData[], utilizadores: UserData[] }>,
-      unassigned: { gestores: UserData[], utilizadores: UserData[] }
+      gestores: Record<string, UserData[]>, // Evento -> Gestores
+      utilizadores: Record<string, UserData[]>, // Evento -> Utilizadores
+      unassigned: UserData[] // Sem eventos
     }> = {};
 
     filtered.forEach(u => {
@@ -171,20 +172,21 @@ export default function TeamPage() {
       }
 
       if (!groups[u.companyName]) {
-        groups[u.companyName] = { companyLogo: u.companyLogo, events: {}, unassigned: { gestores: [], utilizadores: [] } };
+        groups[u.companyName] = { companyLogo: u.companyLogo, gestores: {}, utilizadores: {}, unassigned: [] };
       }
       const comp = groups[u.companyName];
 
       if (u.events.length === 0) {
-        if (u.role === "Gestor") comp.unassigned.gestores.push(u);
-        else comp.unassigned.utilizadores.push(u);
+        comp.unassigned.push(u);
       } else {
         u.events.forEach(ev => {
-          if (!comp.events[ev.name]) {
-            comp.events[ev.name] = { gestores: [], utilizadores: [] };
+          if (u.role === "Gestor") {
+            if (!comp.gestores[ev.name]) comp.gestores[ev.name] = [];
+            comp.gestores[ev.name].push(u);
+          } else {
+            if (!comp.utilizadores[ev.name]) comp.utilizadores[ev.name] = [];
+            comp.utilizadores[ev.name].push(u);
           }
-          if (u.role === "Gestor") comp.events[ev.name].gestores.push(u);
-          else comp.events[ev.name].utilizadores.push(u);
         });
       }
     });
@@ -217,7 +219,7 @@ export default function TeamPage() {
         )}
       </div>
 
-      <div className="bg-white/70 backdrop-blur-xl p-4 rounded-[2rem] border border-white/50 shadow-sm flex items-center gap-3 mb-8">
+      <div className="card-main p-4 flex items-center gap-3 mb-8">
         <Search className="w-5 h-5 text-slate-400 ml-2" />
         <input
           type="text"
@@ -229,15 +231,15 @@ export default function TeamPage() {
       </div>
 
       {superAdmins.length === 0 && Object.keys(companyGroups).length === 0 ? (
-        <div className="text-center py-20 bg-white/50 backdrop-blur-md rounded-[2.5rem] border border-white">
+        <div className="text-center py-20 card-main">
           <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-slate-900">Nenhum utilizador encontrado</h3>
         </div>
       ) : (
         <div className="space-y-12">
-          {/* 1. SECÇÃO DE SUPERADMINS NO TOPO (Sem mostrar empresa Seatly Admin) */}
+          {/* 1. SECÇÃO DE SUPERADMINS NO TOPO */}
           {superAdmins.length > 0 && (
-            <div className="bg-white/50 backdrop-blur-md rounded-[2.5rem] p-6 border border-slate-200/60 shadow-sm">
+            <div className="card-main p-6">
               <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4 flex items-center gap-2">
                 <Shield className="w-4 h-4" /> Administração Central (SuperAdmins)
               </h3>
@@ -249,55 +251,69 @@ export default function TeamPage() {
             </div>
           )}
 
-          {/* 2. SECÇÃO DE EMPRESAS INDIVIDUAIS COM O FLUXO CORRETO */}
+          {/* 2. SECÇÃO DE EMPRESAS INDIVIDUAIS */}
           {Object.entries(companyGroups).map(([companyName, data]) => (
-            <div key={companyName} className="bg-white/50 backdrop-blur-md rounded-[2.5rem] p-6 border border-slate-200/60 shadow-sm">
-              <div className="flex items-center gap-4 mb-6">
+            <div key={companyName} className="card-main p-6 lg:p-8">
+              <div className="flex items-center gap-4 mb-8">
                 <SafeCompanyLogo logoUrl={data.companyLogo} companyName={companyName} className="w-12 h-12" fallbackSize="w-6 h-6" />
                 <h2 className="text-2xl font-black text-slate-900">{companyName}</h2>
               </div>
 
-              <div className="space-y-8 pl-6 border-l-2 border-slate-200/60 ml-4">
-                {/* Eventos associados e respetivos utilizadores */}
-                {Object.entries(data.events).map(([eventName, roles]) => (
-                  <div key={eventName} className="relative bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
-                    <div className="absolute -left-[31px] top-8 w-3 h-3 bg-purple-500 rounded-full border-2 border-slate-100 shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div>
-                    <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
-                      <CalendarDays className="w-5 h-5 text-purple-500" /> Evento: {eventName}
-                    </h3>
-                    <div className="space-y-6">
-                      {roles.gestores.length > 0 && (
-                        <div>
-                          <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3">Gestores de Evento</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {roles.gestores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
-                          </div>
+              {/* BLOCO GESTORES */}
+              {Object.keys(data.gestores).length > 0 && (
+                <div className="mb-10">
+                  <h3 className="text-sm font-black text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <User className="w-4 h-4" /> Gestores da Empresa
+                  </h3>
+                  <div className="pl-6 border-l-2 border-blue-100 ml-2 space-y-6">
+                    {Object.entries(data.gestores).map(([eventName, usersList]) => (
+                      <div key={eventName} className="relative">
+                        <div className="absolute -left-[29px] top-1.5 w-2 h-2 bg-blue-400 rounded-full"></div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                          <CalendarDays className="w-3.5 h-3.5 text-blue-400" /> {eventName}
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {usersList.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
                         </div>
-                      )}
-                      {roles.utilizadores.length > 0 && (
-                        <div>
-                          <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-3">Validadores (Staff)</h4>
-                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                            {roles.utilizadores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
-                          </div>
-                        </div>
-                      )}
-                    </div>
+                      </div>
+                    ))}
                   </div>
-                ))}
+                </div>
+              )}
 
-                {/* Sem evento atribuído dentro desta empresa */}
-                {(data.unassigned.gestores.length > 0 || data.unassigned.utilizadores.length > 0) && (
-                  <div className="relative">
-                    <div className="absolute -left-[31px] top-2 w-3 h-3 bg-slate-300 rounded-full border-2 border-slate-100"></div>
-                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Sem Evento Atribuído</h3>
-                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                      {data.unassigned.gestores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
-                      {data.unassigned.utilizadores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
-                    </div>
+              {/* BLOCO UTILIZADORES (STAFF) */}
+              {Object.keys(data.utilizadores).length > 0 && (
+                <div className="mb-10">
+                  <h3 className="text-sm font-black text-emerald-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    <Users className="w-4 h-4" /> Validadores (Staff)
+                  </h3>
+                  <div className="pl-6 border-l-2 border-emerald-100 ml-2 space-y-6">
+                    {Object.entries(data.utilizadores).map(([eventName, usersList]) => (
+                      <div key={eventName} className="relative">
+                        <div className="absolute -left-[29px] top-1.5 w-2 h-2 bg-emerald-400 rounded-full"></div>
+                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                          <CalendarDays className="w-3.5 h-3.5 text-emerald-400" /> {eventName}
+                        </h4>
+                        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                          {usersList.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+                        </div>
+                      </div>
+                    ))}
                   </div>
-                )}
-              </div>
+                </div>
+              )}
+
+              {/* CONTAS SEM ATRIBUIÇÃO */}
+              {data.unassigned.length > 0 && (
+                <div className="pt-6 border-t border-slate-200/60 mt-4">
+                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                    Sem Evento Atribuído
+                  </h3>
+                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                    {data.unassigned.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+                  </div>
+                </div>
+              )}
             </div>
           ))}
         </div>
@@ -306,8 +322,8 @@ export default function TeamPage() {
       {/* --- MODAL: CRIAR NOVO SUPER ADMIN --- */}
       {showCreateAdminModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+          <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Shield className="w-5 h-5 text-red-500" /> Novo SuperAdmin</h3>
               <button onClick={() => setShowCreateAdminModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
@@ -334,10 +350,10 @@ export default function TeamPage() {
         </div>
       )}
 
-      {/* MODAL: Detalhes do Perfil (Com remoção da caixa de eventos se for SuperAdmin) */}
+      {/* MODAL: Detalhes do Perfil */}
       {detailsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
-          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95 relative border border-white/50">
+          <div className="card-nested-pop p-8 w-full max-w-md animate-in zoom-in-95 relative">
             <button onClick={() => setDetailsModalOpen(null)} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
               <X className="w-5 h-5" />
             </button>
@@ -370,9 +386,9 @@ export default function TeamPage() {
               )}
             </div>
 
-            {/* CAIXA DE EVENTOS: Omitida se for SuperAdmin */}
+            {/* CAIXA DE EVENTOS */}
             {detailsModalOpen.role !== "SuperAdmin" && (
-              <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] p-5">
+              <div className="card-nested-flat p-5">
                 <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-purple-500" /> Eventos Atribuídos
                 </h3>
@@ -397,10 +413,10 @@ export default function TeamPage() {
       {/* MODAL GLOBAL DE CONFIRMAÇÃO (Liquid Glass) */}
       {confirmDialog && confirmDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-white/50 zoom-in-95 animate-in flex flex-col items-center">
-            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
-            <h2 className="text-2xl font-black text-slate-900 text-center mb-2">{confirmDialog.title}</h2>
-            <p className="text-slate-500 text-center font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
+          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
+            <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
+            <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
             <div className="flex gap-3 w-full">
               <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
               <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">Confirmar</button>
@@ -412,10 +428,10 @@ export default function TeamPage() {
       {/* MODAL GLOBAL DE ALERTAS (Liquid Glass) */}
       {alertDialog && alertDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-white/50 zoom-in-95 animate-in flex flex-col items-center text-center">
-            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
-            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
-            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
+          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
+            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
+            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
             <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
             <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">OK, Entendido</button>
@@ -452,7 +468,7 @@ function UserCard({ user, currentUserRole, onClick, onDelete, onReset }: any) {
   const canResetPassword = currentUserRole === "SuperAdmin";
   
   return (
-    <div onClick={onClick} className="bg-white/80 backdrop-blur-xl p-4 rounded-[1.25rem] border border-white/60 shadow-sm hover:border-purple-200 hover:shadow-md hover:-translate-y-1 transition-all group flex items-center justify-between cursor-pointer">
+    <div onClick={onClick} className="card-nested-pop p-4 hover:border-purple-200 hover:-translate-y-1 transition-all group flex items-center justify-between cursor-pointer">
       <div className="flex items-center gap-4">
         <div className={`w-12 h-12 rounded-[1rem] flex items-center justify-center shrink-0 border overflow-hidden relative shadow-sm ${colorClass}`}>
           <SafeAvatar user={user} iconSize="w-6 h-6" />
