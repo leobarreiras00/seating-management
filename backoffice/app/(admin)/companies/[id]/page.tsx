@@ -187,7 +187,6 @@ export default function CompanyDetailsPage() {
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault(); 
     
-    // Validação Lógica de Datas
     if (new Date(eventEndDate) < new Date(eventStartDate)) {
       setEventError("A data de fim não pode ser anterior à data de início do evento.");
       return;
@@ -211,7 +210,6 @@ export default function CompanyDetailsPage() {
     e.preventDefault();
     if (!editEventId) return;
 
-    // Validação Lógica de Datas
     if (new Date(editEventEndDate) < new Date(editEventStartDate)) {
       setEditEventError("A data de fim não pode ser anterior à data de início do evento.");
       return;
@@ -452,6 +450,10 @@ export default function CompanyDetailsPage() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {sortedEvents.map(event => {
                   const progress = event.totalSeats > 0 ? Math.round((event.treatedSeats / event.totalSeats) * 100) : 0;
+                  
+                  // Formatação inteligente das datas
+                  const isOneDayEvent = event.startDate && event.endDate && new Date(event.startDate).toLocaleDateString('pt-PT') === new Date(event.endDate).toLocaleDateString('pt-PT');
+                  
                   return (
                     <div key={event.id} className="p-5 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors flex flex-col justify-between">
                       <div>
@@ -459,9 +461,13 @@ export default function CompanyDetailsPage() {
                           <div>
                             <h3 className="font-bold text-slate-900 text-lg mb-1">{event.name}</h3>
                             <div className="flex flex-col gap-0.5 mt-1 mb-4">
-                              <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Data de Início:</strong> {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "N/D"}</span>
-                              {event.endDate && event.endDate !== event.startDate && (
-                                <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Data de Fim:</strong> {new Date(event.endDate).toLocaleDateString('pt-PT')}</span>
+                              {isOneDayEvent ? (
+                                <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Data:</strong> {new Date(event.startDate).toLocaleDateString('pt-PT')}</span>
+                              ) : (
+                                <>
+                                  <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Início:</strong> {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "N/D"}</span>
+                                  <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Fim:</strong> {event.endDate ? new Date(event.endDate).toLocaleDateString('pt-PT') : "N/D"}</span>
+                                </>
                               )}
                             </div>
                           </div>
@@ -606,7 +612,6 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* --- MODAIS DE EVENTO ATUALIZADOS COM VALIDAÇÃO MIN={DATE} --- */}
       {showEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
@@ -661,7 +666,6 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* --- CÓDIGO DO UPLOAD E DIÁLOGOS FICA INTACTO ABAIXO DESTE PONTO --- */}
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
