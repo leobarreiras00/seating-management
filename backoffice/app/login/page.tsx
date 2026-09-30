@@ -151,6 +151,7 @@ export default function LoginScreen() {
 
       <div className="flex-1"></div>
 
+      {/* --- CARTÃO PRINCIPAL (SQUIRCLE) --- */}
       <div className="w-full max-w-[440px] bg-white/70 backdrop-blur-2xl p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(168,85,247,0.25)] border border-white/60 transition-all z-10 relative overflow-hidden">
         
         {/* --- VISTA: LOGIN NORMAL --- */}
@@ -275,26 +276,30 @@ export default function LoginScreen() {
             )}
           </div>
         )}
-      </div>
 
-      {/* --- FOOTER OTIMIZADO PARA MOBILE --- */}
-      <div className="flex-1 flex flex-col items-center justify-end pb-4 sm:pb-6 mt-8 z-10 w-full max-w-[440px]">
-        <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 mb-4 text-sm font-semibold text-slate-600">
-          <button onClick={() => setIsContactModalOpen(true)} className="hover:text-purple-700 transition-colors">
-            Contactar Suporte
-          </button>
-          <span className="hidden sm:inline text-slate-400">•</span>
-          <Link href="/privacy" className="hover:text-purple-700 transition-colors">
-            Política de Privacidade
-          </Link>
-          <span className="hidden sm:inline text-slate-400">•</span>
-          <Link href="/terms" className="hover:text-purple-700 transition-colors">
-            Termos de Serviço
-          </Link>
+        {/* --- LINKS LEGAIS MOVIDOS PARA DENTRO DO SQUIRCLE --- */}
+        <div className="mt-8 pt-6 border-t border-slate-200/60">
+          <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-2 text-xs font-bold text-slate-500">
+            <button onClick={() => setIsContactModalOpen(true)} className="hover:text-purple-600 transition-colors">
+              Contactar Suporte
+            </button>
+            <span className="text-slate-300">•</span>
+            <Link href="/privacy" className="hover:text-purple-600 transition-colors">
+              Política de Privacidade
+            </Link>
+            <span className="text-slate-300">•</span>
+            <Link href="/terms" className="hover:text-purple-600 transition-colors">
+              Termos de Serviço
+            </Link>
+          </div>
         </div>
 
-        <div className="flex flex-col items-center gap-1">
-          <div className="flex items-center gap-2 text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">
+      </div>
+
+      {/* --- FOOTER DE SEGURANÇA E COPYRIGHT (FORA DO CARTÃO) --- */}
+      <div className="flex-1 flex flex-col items-center justify-end pb-4 sm:pb-6 mt-6 z-10 w-full max-w-[440px]">
+        <div className="flex flex-col items-center gap-1.5">
+          <div className="flex items-center gap-2 text-slate-500 text-xs font-semibold uppercase tracking-wider">
             <Lock className="w-3.5 h-3.5 text-purple-500" />
             <span>Acesso Restrito · Encriptação E2E</span>
           </div>
