@@ -23,7 +23,6 @@ function ManageGuestsContent() {
   const searchParams = useSearchParams();
   
   const eventId = params.eventId as string;
-  // Recebe o ID da empresa vindo do URL para voltar à página correta
   const companyId = searchParams.get("companyId");
 
   const [guests, setGuests] = useState<Guest[]>([]);
@@ -217,51 +216,51 @@ function ManageGuestsContent() {
         </button>
       </div>
 
-      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm overflow-hidden">
-        <div className="p-6 border-b border-slate-100 flex items-center bg-slate-50/50">
+      <div className="card-main overflow-hidden">
+        <div className="p-6 border-b border-slate-200/50 flex items-center">
           <div className="relative w-full max-w-md">
             <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
-            <input type="text" placeholder="Pesquisar por nome, mesa ou categoria..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" />
+            <input type="text" placeholder="Pesquisar por nome, mesa ou categoria..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border border-white/60 bg-white/60 text-slate-900 focus:ring-2 focus:ring-purple-500 focus:bg-white outline-none transition-all shadow-sm" />
           </div>
         </div>
 
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-white border-b border-slate-100 text-slate-500 text-sm select-none">
-                <th onClick={() => handleSort("guestName")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-50 transition-colors">
+              <tr className="border-b border-slate-200/50 text-slate-500 text-sm select-none bg-slate-50/50">
+                <th onClick={() => handleSort("guestName")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-200/30 transition-colors">
                   <div className="flex items-center">Nome do Convidado {renderSortIcon("guestName")}</div>
                 </th>
-                <th onClick={() => handleSort("category")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-50 transition-colors">
+                <th onClick={() => handleSort("category")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-200/30 transition-colors">
                   <div className="flex items-center">Categoria {renderSortIcon("category")}</div>
                 </th>
-                <th onClick={() => handleSort("tableName")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-50 transition-colors">
+                <th onClick={() => handleSort("tableName")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-200/30 transition-colors">
                   <div className="flex items-center">Mesa / Lugar {renderSortIcon("tableName")}</div>
                 </th>
-                <th onClick={() => handleSort("status")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-50 transition-colors">
+                <th onClick={() => handleSort("status")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-200/30 transition-colors">
                   <div className="flex items-center">Estado {renderSortIcon("status")}</div>
                 </th>
                 <th className="py-4 px-6 font-bold uppercase tracking-wider text-right">Ações</th>
               </tr>
             </thead>
-            <tbody className="divide-y divide-slate-100">
+            <tbody>
               {processedGuests.length === 0 ? (
                 <tr><td colSpan={5} className="py-12 text-center text-slate-500">Nenhum convidado encontrado.</td></tr>
               ) : (
                 processedGuests.map(guest => (
-                  <tr key={guest.id} className="hover:bg-slate-50 transition-colors">
+                  <tr key={guest.id} className="hover:bg-white/60 transition-colors border-b border-slate-200/30 last:border-0">
                     <td className="py-4 px-6 font-bold text-slate-900">{guest.guestName}</td>
-                    <td className="py-4 px-6"><span className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider">{guest.category}</span></td>
+                    <td className="py-4 px-6"><span className="inline-flex items-center px-2.5 py-1 rounded-md bg-white border border-slate-200 text-slate-600 text-xs font-bold uppercase tracking-wider shadow-sm">{guest.category}</span></td>
                     <td className="py-4 px-6 text-slate-600 font-medium">{guest.tableName} <span className="text-slate-400">/</span> {guest.seatNumber}</td>
                     <td className="py-4 px-6">
                       {guest.status === 1 
-                        ? <span className="inline-flex items-center gap-1.5 text-emerald-600 bg-emerald-50 px-2.5 py-1 rounded-md text-xs font-bold"><CheckCircle2 className="w-3.5 h-3.5"/> Validado</span> 
-                        : <span className="inline-flex items-center gap-1.5 text-amber-600 bg-amber-50 px-2.5 py-1 rounded-md text-xs font-bold"><Info className="w-3.5 h-3.5"/> Pendente</span>}
+                        ? <span className="inline-flex items-center gap-1.5 text-emerald-700 bg-emerald-100/80 border border-emerald-200 px-2.5 py-1 rounded-md text-xs font-bold"><CheckCircle2 className="w-3.5 h-3.5"/> Validado</span> 
+                        : <span className="inline-flex items-center gap-1.5 text-amber-700 bg-amber-100/80 border border-amber-200 px-2.5 py-1 rounded-md text-xs font-bold"><Info className="w-3.5 h-3.5"/> Pendente</span>}
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => openEditModal(guest)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => promptDeleteGuest(guest.id, guest.guestName)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                        <button onClick={() => openEditModal(guest)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 bg-white rounded-lg border border-slate-200 transition-colors shadow-sm"><Edit2 className="w-4 h-4" /></button>
+                        <button onClick={() => promptDeleteGuest(guest.id, guest.guestName)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 bg-white rounded-lg border border-slate-200 transition-colors shadow-sm"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -275,8 +274,8 @@ function ManageGuestsContent() {
       {/* CRUD Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+          <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900">{modalMode === "add" ? "Adicionar Walk-in" : "Editar Convidado"}</h3>
               <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
@@ -297,8 +296,8 @@ function ManageGuestsContent() {
       {/* Global Dialogs */}
       {confirmDialog && confirmDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
-          <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-8 w-full max-w-sm text-center shadow-2xl border border-white/50">
-            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5"><AlertTriangle className="w-8 h-8" /></div>
+          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
             <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
             <div className="flex gap-3"><button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">Cancelar</button><button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800">Confirmar</button></div>
@@ -308,9 +307,10 @@ function ManageGuestsContent() {
       
       {alertDialog && alertDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
-          <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-8 w-full max-w-sm text-center shadow-2xl border border-white/50">
-            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex mx-auto items-center justify-center mb-5"><AlertTriangle className="w-8 h-8" /></div>}
-            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex mx-auto items-center justify-center mb-5"><CheckCircle2 className="w-8 h-8" /></div>}
+          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex mx-auto items-center justify-center mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
+            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex mx-auto items-center justify-center mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
+            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex mx-auto items-center justify-center mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
             <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
             <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800">OK, Entendido</button>

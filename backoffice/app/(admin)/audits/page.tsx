@@ -333,7 +333,7 @@ export default function AuditsPage() {
         <p className="text-slate-500 mt-2 font-medium">Acompanha e monitoriza todas as ações executadas na base de dados de cada evento em tempo real.</p>
       </div>
 
-      <div className="bg-white/70 backdrop-blur-xl p-4 rounded-[2rem] border border-white/50 shadow-sm flex items-center gap-3 mb-8">
+      <div className="card-main p-4 flex items-center gap-3 mb-8">
         <Search className="w-5 h-5 text-slate-400 ml-2" />
         <input
           type="text"
@@ -345,7 +345,7 @@ export default function AuditsPage() {
       </div>
 
       {filteredEvents.length === 0 ? (
-        <div className="text-center py-20 bg-white/50 backdrop-blur-md rounded-[2.5rem] border border-white">
+        <div className="text-center py-20 card-main">
           <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-slate-900">Nenhum evento encontrado</h3>
           <p className="text-slate-500 mt-1">Ainda não existem eventos com registos de auditoria.</p>
@@ -356,7 +356,7 @@ export default function AuditsPage() {
             <div
               key={event.id}
               onClick={() => openEventLogs(event)}
-              className="bg-white/80 backdrop-blur-lg rounded-[2rem] border border-white/60 shadow-sm hover:border-purple-300 hover:shadow-md hover:-translate-y-1 transition-all cursor-pointer group flex flex-col justify-between"
+              className="card-nested-pop hover:border-purple-300 hover:-translate-y-1 cursor-pointer group flex flex-col justify-between"
             >
               <div className="p-6">
                 <div className="flex justify-end items-start mb-2">
@@ -375,7 +375,7 @@ export default function AuditsPage() {
                   </div>
                 </div>
               </div>
-              <div className="bg-slate-50/50 backdrop-blur-sm px-6 py-4 border-t border-slate-100 rounded-b-[2rem] flex justify-between items-center">
+              <div className="bg-slate-50/50 backdrop-blur-sm px-6 py-4 border-t border-slate-100 rounded-b-[1.5rem] flex justify-between items-center">
                 <span className="text-sm font-bold text-slate-600">Total de Registos</span>
                 <span className="bg-purple-100 text-purple-700 py-1 px-3 rounded-xl text-sm font-extrabold">{event.totalLogs}</span>
               </div>
@@ -385,9 +385,9 @@ export default function AuditsPage() {
       )}
 
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/20 backdrop-blur-md">
-          <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] w-full max-w-4xl h-[85vh] shadow-2xl flex flex-col overflow-hidden border border-white/50 animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-200/50 bg-white flex justify-between items-center shrink-0">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md">
+          <div className="card-nested-pop w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
+            <div className="p-6 border-b border-slate-200/50 flex justify-between items-center shrink-0 rounded-t-[1.5rem]">
               <div>
                 <h2 className="text-xl font-extrabold text-slate-900">Registos: {selectedEvent.name}</h2>
                 <p className="text-sm font-medium text-slate-500 mt-1">{selectedEvent.companyName}</p>
@@ -403,7 +403,7 @@ export default function AuditsPage() {
                 </button>
                 <button
                   onClick={() => setSelectedEvent(null)}
-                  className="bg-white/50 p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors shadow-sm"
+                  className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors shadow-sm bg-white"
                 >
                   <X className="w-5 h-5" />
                 </button>
@@ -456,7 +456,6 @@ export default function AuditsPage() {
                   {displayedLogs.map((log) => {
                     const style = getActionStyles(log.actionType);
                     const logDate = new Date(log.timestamp);
-                    // Correção: Agora qualquer UPDATE permite o clique, independentemente do payload JSON existir já
                     const isUpdatable = log.actionType.includes("UPDATE");
 
                     return (
@@ -466,7 +465,7 @@ export default function AuditsPage() {
                         </div>
                         <div 
                           onClick={() => isUpdatable ? setSelectedLogDetails(log) : null}
-                          className={`bg-white p-5 rounded-[1.5rem] border border-slate-100 shadow-sm transition-all ${isUpdatable ? 'cursor-pointer hover:border-purple-300 hover:shadow-md ring-1 ring-transparent hover:ring-purple-100' : ''}`}
+                          className={`bg-white p-5 rounded-[1.5rem] border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all ${isUpdatable ? 'cursor-pointer hover:border-purple-300 hover:shadow-md ring-1 ring-transparent hover:ring-purple-100' : ''}`}
                         >
                           <div className="flex justify-between items-start mb-3">
                             <span className={`text-[11px] uppercase tracking-wider font-extrabold px-3 py-1.5 rounded-xl border ${style.bg} ${style.color} ${style.border}`}>
@@ -526,20 +525,20 @@ export default function AuditsPage() {
 
       {selectedLogDetails && (
         <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white rounded-[2rem] w-full max-w-2xl max-h-[80vh] shadow-2xl flex flex-col overflow-hidden border border-slate-200 zoom-in-95 animate-in">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0">
+          <div className="card-nested-pop w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0 rounded-t-[1.5rem]">
               <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
                 <FileJson className="w-5 h-5 text-purple-600" /> Detalhes da Alteração (Diff)
               </h3>
               <button
                 onClick={() => setSelectedLogDetails(null)}
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-white shadow-sm transition-colors border border-transparent hover:border-slate-200"
+                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-white shadow-sm transition-colors border border-transparent hover:border-slate-200 bg-white"
               >
                 <X className="w-5 h-5" />
               </button>
             </div>
             
-            <div className="p-6 overflow-y-auto bg-white flex-1">
+            <div className="p-6 overflow-y-auto bg-white flex-1 rounded-b-[1.5rem]">
               <p className="text-sm font-medium text-slate-600 mb-4">{selectedLogDetails.description}</p>
               
               {selectedLogDetails.payloadJson ? (
