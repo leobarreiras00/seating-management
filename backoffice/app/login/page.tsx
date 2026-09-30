@@ -194,15 +194,15 @@ export default function LoginScreen() {
                 </div>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-5 w-5 text-slate-400" /></div>
-                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className="w-full pl-11 pr-5 py-3.5 bg-slate-50/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 text-slate-800 text-sm font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300" placeholder="••••••••" required />
+                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`w-full pl-11 pr-5 py-3.5 bg-slate-50/80 backdrop-blur-sm rounded-2xl border text-slate-800 text-sm font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 transition-all duration-300 ${error ? 'border-red-300 focus:ring-red-500' : 'border-slate-200/80 focus:ring-purple-500 focus:border-transparent'}`} placeholder="••••••••" required />
                 </div>
+                {/* NOVO DESIGN DO ERRO: Discreto, sem caixa, diretamente debaixo do input */}
+                {error && (
+                  <p className="text-red-500 text-xs font-bold mt-2 ml-1 flex items-start gap-1.5 animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-[1px]" /> <span>{error}</span>
+                  </p>
+                )}
               </div>
-
-              {error && (
-                <div className="p-3 bg-red-50/90 text-red-600 text-sm font-semibold rounded-2xl border border-red-100 flex items-start gap-3 animate-in fade-in">
-                  <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" /> <span>{error}</span>
-                </div>
-              )}
 
               <button type="submit" disabled={isLoading || !email || !password} className="w-full bg-[#8B5CF6] hover:bg-[#7C3AED] text-white font-bold py-4 rounded-2xl transition-all duration-300 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 mt-2 flex justify-center items-center active:scale-[0.98] disabled:opacity-70">
                 {isLoading ? <span className="flex items-center gap-2"><Loader2 className="animate-spin h-5 w-5" /> A verificar...</span> : "ENTRAR NO SISTEMA"}
@@ -232,13 +232,14 @@ export default function LoginScreen() {
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Confirmar Nova Palavra-passe</label>
                 <input type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className={`w-full px-5 py-3.5 bg-slate-50/80 rounded-2xl border font-bold placeholder-slate-400 focus:bg-white outline-none transition-all ${confirmNewPassword && newPassword !== confirmNewPassword ? 'border-red-400 focus:ring-2 focus:ring-red-500 text-red-600' : 'border-slate-200/80 text-slate-800 focus:ring-2 focus:ring-purple-500'}`} placeholder="Repete a palavra-passe" required />
+                
+                {/* DESIGN DO ERRO SUBTIL AQUI TAMBÉM */}
+                {error && (
+                  <p className="text-red-500 text-xs font-bold mt-2 ml-1 flex items-start gap-1.5 animate-in fade-in">
+                    <AlertTriangle className="w-4 h-4 shrink-0 mt-[1px]" /> <span>{error}</span>
+                  </p>
+                )}
               </div>
-
-              {error && (
-                <div className="p-3 bg-red-50/90 text-red-600 text-sm font-semibold rounded-2xl border border-red-100 flex items-start gap-3">
-                  <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" /> <span>{error}</span>
-                </div>
-              )}
 
               <button type="submit" disabled={isLoading || newPassword.length < 6 || newPassword !== confirmNewPassword} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl transition-all shadow-lg mt-4 flex justify-center items-center disabled:opacity-50">
                 {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : "Guardar e Entrar no Dashboard"}
@@ -276,18 +277,19 @@ export default function LoginScreen() {
                       type="email" 
                       value={resetEmail} 
                       onChange={(e) => setResetEmail((e.target.value || "").toLowerCase())} 
-                      className="w-full pl-11 pr-5 py-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 text-slate-800 font-medium focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none transition-all" 
+                      className={`w-full pl-11 pr-5 py-3.5 bg-slate-50/80 rounded-2xl border font-medium focus:bg-white focus:outline-none focus:ring-2 transition-all ${error ? 'border-red-300 focus:ring-red-500 text-slate-800' : 'border-slate-200/80 text-slate-800 focus:ring-purple-500'}`} 
                       placeholder="exemplo@empresa.com" 
                       required 
                     />
                   </div>
+                  
+                  {/* DESIGN DO ERRO SUBTIL AQUI TAMBÉM */}
+                  {error && (
+                    <p className="text-red-500 text-xs font-bold mt-2 ml-1 flex items-start gap-1.5 animate-in fade-in">
+                      <AlertTriangle className="w-4 h-4 shrink-0 mt-[1px]" /> <span>{error}</span>
+                    </p>
+                  )}
                 </div>
-
-                {error && (
-                  <div className="p-3 bg-red-50/90 text-red-600 text-sm font-semibold rounded-2xl border border-red-100 flex items-start gap-3">
-                    <AlertTriangle className="h-5 w-5 shrink-0 mt-0.5" /> <span>{error}</span>
-                  </div>
-                )}
 
                 <button type="submit" disabled={isLoading || !resetEmail} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl transition-all shadow-lg mt-4 flex justify-center items-center disabled:opacity-50">
                   {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : "Enviar Link de Recuperação"}
