@@ -117,7 +117,6 @@ export default function CompanyDetailsPage() {
     return () => { client.end(); };
   }, [id, fetchCompanyData]);
 
-  // --- NOVA LÓGICA DE CONTAS (COM E-MAIL) ---
   const openCreateAccountModal = (role: "Gestor" | "Utilizador") => {
     setNewAccountRole(role); 
     setNewName(""); 
@@ -186,7 +185,17 @@ export default function CompanyDetailsPage() {
 
   // Eventos
   const handleCreateEvent = async (e: React.FormEvent) => {
-    e.preventDefault(); setIsCreatingEvent(true); setEventError("");
+    e.preventDefault(); 
+    
+    // Validação Lógica de Datas
+    if (new Date(eventEndDate) < new Date(eventStartDate)) {
+      setEventError("A data de fim não pode ser anterior à data de início do evento.");
+      return;
+    }
+    
+    setIsCreatingEvent(true); 
+    setEventError("");
+    
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}/events`, {
@@ -201,7 +210,16 @@ export default function CompanyDetailsPage() {
   const handleUpdateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editEventId) return;
-    setIsEditingEvent(true); setEditEventError("");
+
+    // Validação Lógica de Datas
+    if (new Date(editEventEndDate) < new Date(editEventStartDate)) {
+      setEditEventError("A data de fim não pode ser anterior à data de início do evento.");
+      return;
+    }
+
+    setIsEditingEvent(true); 
+    setEditEventError("");
+    
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${editEventId}`, {
@@ -340,12 +358,10 @@ export default function CompanyDetailsPage() {
                 <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase shrink-0">{account.username.charAt(0)}</div>
                 <div>
                   <p className="font-bold text-slate-900">{account.username}</p>
-                  {/* Mostramos agora o e-mail por baixo do nome */}
                   <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-0.5"><Mail className="w-3 h-3"/> {account.email}</p>
                 </div>
               </div>
               <div className="flex gap-2 shrink-0">
-                {/* O Cadeado agora envia o link de recuperação, garantindo que não há conflitos por ser baseado no E-mail! */}
                 <button onClick={() => promptSendResetEmail(account.email, account.username)} className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Enviar Link de Recuperação">
                   <Lock className="w-5 h-5" />
                 </button>
@@ -498,7 +514,6 @@ export default function CompanyDetailsPage() {
         )}
       </div>
 
-      {/* --- O NOVO MODAL DE CRIAÇÃO (SÓ NOME E EMAIL) --- */}
       {showCreateAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
@@ -508,12 +523,7 @@ export default function CompanyDetailsPage() {
             </div>
             <form onSubmit={handleCreateAccount} className="p-6 space-y-5">
               <p className="text-sm text-slate-500">A palavra-passe será gerada automaticamente e enviada para o e-mail inserido.</p>
-              
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Nome Completo</label>
-                <input type="text" required value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="Ex: João Silva" />
-              </div>
-
+              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome Completo</label><input type="text" required value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="Ex: João Silva" /></div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Endereço de E-mail</label>
                 <div className="relative">
@@ -521,9 +531,7 @@ export default function CompanyDetailsPage() {
                   <input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="joao@empresa.com" />
                 </div>
               </div>
-
               {createAccountError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex gap-2"><AlertTriangle className="w-5 h-5 shrink-0" /> {createAccountError}</div>}
-              
               <button type="submit" disabled={isCreatingAccount || !newName || !newEmail} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-all mt-2 flex justify-center items-center shadow-lg shadow-purple-600/20 disabled:opacity-70">
                 {isCreatingAccount ? <Loader2 className="w-5 h-5 animate-spin" /> : `Criar ${newAccountRole} e Enviar E-mail`}
               </button>
@@ -532,7 +540,6 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* MODAL MULTI-SELECT DE ATRIBUIÇÃO DE ACESSOS */}
       {showAssignModal && assignEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
@@ -543,9 +550,8 @@ export default function CompanyDetailsPage() {
             
             <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
               <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                Seleciona a equipa que queres atribuir ao evento <strong className="text-slate-800">{assignEvent.name}</strong>. Os utilizadores que já têm acesso não aparecem na lista.
+                Seleciona a equipa que queres atribuir ao evento <strong className="text-slate-800">{assignEvent.name}</strong>.
               </p>
-
               <div className="space-y-6">
                 <div>
                   <h4 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-3">Gestores Disponíveis</h4>
@@ -565,7 +571,6 @@ export default function CompanyDetailsPage() {
                     </div>
                   )}
                 </div>
-
                 <div>
                   <h4 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-3">Staff / Validadores Disponíveis</h4>
                   {availableUsers.length === 0 ? (
@@ -601,7 +606,7 @@ export default function CompanyDetailsPage() {
         </div>
       )}
 
-      {/* --- MODAIS DE EVENTO --- */}
+      {/* --- MODAIS DE EVENTO ATUALIZADOS COM VALIDAÇÃO MIN={DATE} --- */}
       {showEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
@@ -610,10 +615,19 @@ export default function CompanyDetailsPage() {
               <button onClick={() => setShowEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateEvent} className="p-6 space-y-5">
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label><input type="text" required value={eventName} onChange={(e) => setEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label><input type="date" required value={eventStartDate} onChange={(e) => setEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label><input type="date" required value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              {eventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{eventError}</div>}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
+                <input type="text" required value={eventName} onChange={(e) => setEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
+                <input type="date" required value={eventStartDate} onChange={(e) => setEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label>
+                <input type="date" required min={eventStartDate} value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              {eventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />{eventError}</div>}
               <button type="submit" disabled={isCreatingEvent} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingEvent ? "A Criar..." : "Criar Evento"}</button>
             </form>
           </div>
@@ -628,16 +642,26 @@ export default function CompanyDetailsPage() {
               <button onClick={() => setShowEditEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleUpdateEvent} className="p-6 space-y-5">
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label><input type="text" required value={editEventName} onChange={(e) => setEditEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label><input type="date" required value={editEventStartDate} onChange={(e) => setEditEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label><input type="date" required value={editEventEndDate} onChange={(e) => setEditEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              {editEventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{editEventError}</div>}
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
+                <input type="text" required value={editEventName} onChange={(e) => setEditEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
+                <input type="date" required value={editEventStartDate} onChange={(e) => setEditEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              <div>
+                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label>
+                <input type="date" required min={editEventStartDate} value={editEventEndDate} onChange={(e) => setEditEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+              </div>
+              {editEventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />{editEventError}</div>}
               <button type="submit" disabled={isEditingEvent} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isEditingEvent ? "A Guardar..." : "Guardar Alterações"}</button>
             </form>
           </div>
         </div>
       )}
 
+      {/* --- CÓDIGO DO UPLOAD E DIÁLOGOS FICA INTACTO ABAIXO DESTE PONTO --- */}
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
