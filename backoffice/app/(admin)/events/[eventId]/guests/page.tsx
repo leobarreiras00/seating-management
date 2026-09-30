@@ -1,8 +1,8 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams, useRouter } from "next/navigation";
-import { ChevronLeft, Search, Plus, Edit2, Trash2, X, AlertTriangle, CheckCircle2, Info, Users, UserPlus } from "lucide-react";
+import { useEffect, useState, useCallback, useMemo, Suspense } from "react";
+import { useParams, useRouter, useSearchParams } from "next/navigation";
+import { ChevronLeft, Search, Plus, Edit2, Trash2, X, AlertTriangle, CheckCircle2, Info, Users, UserPlus, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
 import mqtt from "mqtt";
 
 interface Guest {
@@ -14,15 +14,25 @@ interface Guest {
   status: number;
 }
 
-export default function ManageGuestsPage() {
+type SortColumn = "guestName" | "category" | "tableName" | "status";
+type SortDirection = "asc" | "desc";
+
+function ManageGuestsContent() {
   const params = useParams();
   const router = useRouter();
+  const searchParams = useSearchParams();
+  
   const eventId = params.eventId as string;
+  // Recebe o ID da empresa vindo do URL para voltar à página correta
+  const companyId = searchParams.get("companyId");
 
   const [guests, setGuests] = useState<Guest[]>([]);
-  const [filteredGuests, setFilteredGuests] = useState<Guest[]>([]);
   const [searchQuery, setSearchQuery] = useState("");
   const [isLoading, setIsLoading] = useState(true);
+
+  // States de ordenação
+  const [sortColumn, setSortColumn] = useState<SortColumn>("guestName");
+  const [sortDirection, setSortDirection] = useState<SortDirection>("asc");
 
   // Liquid Glass Dialogs
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void } | null>(null);
@@ -33,7 +43,7 @@ export default function ManageGuestsPage() {
   const [modalMode, setModalMode] = useState<"add" | "edit">("add");
   const [editingGuestId, setEditingGuestId] = useState<number | null>(null);
   
-  // Form State (Categoria começa vazia sem exemplo)
+  // Form State
   const [formData, setFormData] = useState({ guestName: "", category: "", tableName: "", seatNumber: "" });
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState("");
@@ -42,8 +52,6 @@ export default function ManageGuestsPage() {
     if (!eventId) return;
     try {
       const token = localStorage.getItem("token");
-      
-      // Rota corrigida com base no SeatController.cs
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Seat/${eventId}`, {
         headers: { Authorization: `Bearer ${token}` }
       });
@@ -52,17 +60,13 @@ export default function ManageGuestsPage() {
       
       const data = await res.json();
 
-      // Mapeamento alinhado com o backend C# (SeatDto.cs)
       const mappedGuests = Array.isArray(data) ? data.map((g: any) => {
-        // No backend, a "MESA-LUGAR" vem na propriedade SeatNumber (ex: "B1-A")
         const seatNumFull = g.seatNumber || g.SeatNumber || "";
         const [table, seat] = seatNumFull.includes('-') ? seatNumFull.split('-') : [seatNumFull, ""];
 
         return {
           id: g.id || g.Id,
-          // O nome do convidado está no AssignedTo
           guestName: g.assignedTo || g.AssignedTo || "Sem Nome",
-          // A Categoria foi guardada no EventName na importação CSV
           category: g.eventName || g.EventName || "",
           tableName: table,
           seatNumber: seat,
@@ -71,7 +75,6 @@ export default function ManageGuestsPage() {
       }) : [];
 
       setGuests(mappedGuests);
-      setFilteredGuests(mappedGuests);
     } catch (error: any) {
       console.error("Erro no fetchGuests:", error);
     } finally {
@@ -81,7 +84,6 @@ export default function ManageGuestsPage() {
 
   useEffect(() => { fetchGuests(); }, [fetchGuests]);
 
-  // Real-time updates via MQTT
   useEffect(() => {
     if (!eventId) return;
     const client = mqtt.connect(process.env.NEXT_PUBLIC_MQTT_URL as string, {
@@ -93,15 +95,42 @@ export default function ManageGuestsPage() {
     return () => { client.end(); };
   }, [eventId, fetchGuests]);
 
-  // Search Filter
-  useEffect(() => {
-    const query = searchQuery.toLowerCase();
-    setFilteredGuests(guests.filter(g => 
-      g.guestName.toLowerCase().includes(query) || 
-      g.tableName.toLowerCase().includes(query) ||
-      g.category.toLowerCase().includes(query)
-    ));
-  }, [searchQuery, guests]);
+  // Handle Sort Click
+  const handleSort = (column: SortColumn) => {
+    if (sortColumn === column) {
+      setSortDirection(sortDirection === "asc" ? "desc" : "asc");
+    } else {
+      setSortColumn(column);
+      setSortDirection("asc");
+    }
+  };
+
+  // Render Sort Icon
+  const renderSortIcon = (column: SortColumn) => {
+    if (sortColumn !== column) return <ArrowUpDown className="w-3.5 h-3.5 text-slate-300 ml-1.5" />;
+    return sortDirection === "asc" ? <ArrowUp className="w-3.5 h-3.5 text-purple-600 ml-1.5" /> : <ArrowDown className="w-3.5 h-3.5 text-purple-600 ml-1.5" />;
+  };
+
+  // Filter and Sort Data
+  const processedGuests = useMemo(() => {
+    let filtered = guests.filter(g => 
+      g.guestName.toLowerCase().includes(searchQuery.toLowerCase()) || 
+      g.tableName.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      g.category.toLowerCase().includes(searchQuery.toLowerCase())
+    );
+
+    return filtered.sort((a, b) => {
+      let valueA: string | number = a[sortColumn];
+      let valueB: string | number = b[sortColumn];
+
+      if (typeof valueA === "string") valueA = valueA.toLowerCase();
+      if (typeof valueB === "string") valueB = valueB.toLowerCase();
+
+      if (valueA < valueB) return sortDirection === "asc" ? -1 : 1;
+      if (valueA > valueB) return sortDirection === "asc" ? 1 : -1;
+      return 0;
+    });
+  }, [guests, searchQuery, sortColumn, sortDirection]);
 
   const openAddModal = () => {
     setModalMode("add");
@@ -119,7 +148,6 @@ export default function ManageGuestsPage() {
     e.preventDefault(); setIsSubmitting(true); setFormError("");
     try {
       const token = localStorage.getItem("token");
-      // Nota: Estes endpoints precisarão de ser criados no backend C# a seguir.
       const url = modalMode === "add" 
         ? `${process.env.NEXT_PUBLIC_API_URL}/api/Seat/event/${eventId}/walkin` 
         : `${process.env.NEXT_PUBLIC_API_URL}/api/Seat/${editingGuestId}/edit`;
@@ -149,7 +177,6 @@ export default function ManageGuestsPage() {
       onConfirm: async () => {
         try {
           const token = localStorage.getItem("token");
-          // Atualizado para coincidir com o padrão mais provável de backend
           const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Seat/${guestId}`, {
             method: "DELETE", headers: { Authorization: `Bearer ${token}` }
           });
@@ -164,11 +191,19 @@ export default function ManageGuestsPage() {
     });
   };
 
+  const handleGoBack = () => {
+    if (companyId) {
+      router.push(`/companies/${companyId}?tab=eventos`);
+    } else {
+      router.back();
+    }
+  };
+
   if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
 
   return (
     <div className="w-full max-w-7xl mx-auto relative px-2 sm:px-4 lg:px-8">
-      <button onClick={() => router.back()} className="inline-flex items-center text-slate-500 hover:text-purple-600 font-medium mb-8 transition-colors">
+      <button onClick={handleGoBack} className="inline-flex items-center text-slate-500 hover:text-purple-600 font-medium mb-8 transition-colors">
         <ChevronLeft className="w-5 h-5 mr-1" /> Voltar ao Evento
       </button>
 
@@ -193,19 +228,27 @@ export default function ManageGuestsPage() {
         <div className="overflow-x-auto">
           <table className="w-full text-left border-collapse">
             <thead>
-              <tr className="bg-white border-b border-slate-100 text-slate-500 text-sm">
-                <th className="py-4 px-6 font-bold uppercase tracking-wider">Nome do Convidado</th>
-                <th className="py-4 px-6 font-bold uppercase tracking-wider">Categoria</th>
-                <th className="py-4 px-6 font-bold uppercase tracking-wider">Mesa / Lugar</th>
-                <th className="py-4 px-6 font-bold uppercase tracking-wider">Estado</th>
+              <tr className="bg-white border-b border-slate-100 text-slate-500 text-sm select-none">
+                <th onClick={() => handleSort("guestName")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center">Nome do Convidado {renderSortIcon("guestName")}</div>
+                </th>
+                <th onClick={() => handleSort("category")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center">Categoria {renderSortIcon("category")}</div>
+                </th>
+                <th onClick={() => handleSort("tableName")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center">Mesa / Lugar {renderSortIcon("tableName")}</div>
+                </th>
+                <th onClick={() => handleSort("status")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-50 transition-colors">
+                  <div className="flex items-center">Estado {renderSortIcon("status")}</div>
+                </th>
                 <th className="py-4 px-6 font-bold uppercase tracking-wider text-right">Ações</th>
               </tr>
             </thead>
             <tbody className="divide-y divide-slate-100">
-              {filteredGuests.length === 0 ? (
+              {processedGuests.length === 0 ? (
                 <tr><td colSpan={5} className="py-12 text-center text-slate-500">Nenhum convidado encontrado.</td></tr>
               ) : (
-                filteredGuests.map(guest => (
+                processedGuests.map(guest => (
                   <tr key={guest.id} className="hover:bg-slate-50 transition-colors">
                     <td className="py-4 px-6 font-bold text-slate-900">{guest.guestName}</td>
                     <td className="py-4 px-6"><span className="inline-flex items-center px-2.5 py-1 rounded-md bg-slate-100 text-slate-600 text-xs font-bold uppercase tracking-wider">{guest.category}</span></td>
@@ -275,5 +318,13 @@ export default function ManageGuestsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function ManageGuestsPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>}>
+      <ManageGuestsContent />
+    </Suspense>
   );
 }
