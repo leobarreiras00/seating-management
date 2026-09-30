@@ -83,4 +83,10 @@ namespace SeatingManagement.API.DTOs
     { 
         public string AvatarBase64 { get; set; } = string.Empty; 
     }
+
+    public class ContactDto 
+    {
+        public string Email { get; set; }
+        public string Message { get; set; }
+    }
 }
