@@ -92,7 +92,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Gráfico 1: Ritmo de Entradas */}
-        <div className={`bg-white/70 backdrop-blur-2xl p-6 lg:p-8 rounded-[2.5rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)] ${activeEventsCount > 0 ? "lg:col-span-2" : "lg:col-span-3"}`}>
+        <div className={`card-main p-6 lg:p-8 ${activeEventsCount > 0 ? "lg:col-span-2" : "lg:col-span-3"}`}>
           <div className="mb-6">
             <h2 className="text-xl font-extrabold text-slate-900">Ritmo de Validações</h2>
             <p className="text-slate-500 text-sm font-medium mt-1">Volume de entradas nas últimas 12 horas</p>
@@ -128,7 +128,7 @@ export default function DashboardPage() {
 
         {/* Gráfico 2: Progresso dos Eventos (Ocultado se não houver eventos ativos) */}
         {activeEventsCount > 0 && (
-          <div className="bg-white/70 backdrop-blur-2xl p-6 lg:p-8 rounded-[2.5rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)]">
+          <div className="card-main p-6 lg:p-8">
             <div className="mb-6">
               <h2 className="text-xl font-extrabold text-slate-900">Progresso</h2>
               <p className="text-slate-500 text-sm font-medium mt-1">
@@ -144,7 +144,6 @@ export default function DashboardPage() {
                   <Tooltip 
                     cursor={{fill: 'rgba(241, 245, 249, 0.5)'}}
                     contentStyle={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.6)', backgroundColor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
-                    // Correção TypeScript: Utilização de 'any' para evitar o conflito com a interface ValueType do Recharts
                     formatter={(value: any, name: any) => [value, name]}
                   />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 600, color: '#64748b', paddingTop: '20px' }} />
@@ -163,7 +162,7 @@ export default function DashboardPage() {
 
 function StatCard({ title, value, icon: Icon, color, lightColor, textColor }: any) {
   return (
-    <div className="bg-white/70 backdrop-blur-2xl p-4 xl:p-6 rounded-[2rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)] hover:-translate-y-1 transition-transform group flex items-center overflow-hidden relative">
+    <div className="card-nested-pop p-4 xl:p-6 hover:-translate-y-1 transition-transform group flex items-center overflow-hidden relative">
       <div className={`absolute -right-6 -top-6 w-24 h-24 ${lightColor} rounded-full blur-2xl group-hover:scale-150 transition-transform pointer-events-none`}></div>
       <div className={`w-12 h-12 xl:w-16 xl:h-16 ${lightColor} ${textColor} rounded-[1.25rem] flex items-center justify-center mr-3 xl:mr-4 shrink-0 relative z-10`}>
         <Icon className="w-6 h-6 xl:w-8 xl:h-8" />

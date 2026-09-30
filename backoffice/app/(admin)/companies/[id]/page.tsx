@@ -27,7 +27,6 @@ function CompanyDetailsContent() {
   const [companyUsers, setCompanyUsers] = useState<AccountUser[]>([]);
   const [events, setEvents] = useState<EventStats[]>([]);
   
-  // Utilizar a tab proveniente do URL (se existir e for válida)
   const [activeTab, setActiveTab] = useState<"gestores" | "utilizadores" | "eventos">(
     initialTab === "eventos" || initialTab === "utilizadores" ? initialTab : "gestores"
   );
@@ -38,7 +37,7 @@ function CompanyDetailsContent() {
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' } | null>(null);
 
-  // Modais de Conta (Atualizado para E-mail)
+  // Modais de Conta
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
   const [newAccountRole, setNewAccountRole] = useState<"Gestor" | "Utilizador">("Gestor");
   const [newName, setNewName] = useState("");
@@ -358,7 +357,7 @@ function CompanyDetailsContent() {
       ) : (
         <div className="space-y-3">
           {list.map(account => (
-            <div key={account.id} className="flex items-center justify-between p-4 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors">
+            <div key={account.id} className="card-nested-pop p-4 flex items-center justify-between hover:border-purple-200 transition-colors">
               <div className="flex items-center gap-4">
                 <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase shrink-0">{account.username.charAt(0)}</div>
                 <div>
@@ -411,7 +410,8 @@ function CompanyDetailsContent() {
         <ChevronLeft className="w-5 h-5 mr-1" /> Voltar para Empresas
       </Link>
 
-      <div className="flex items-center gap-6 mb-10 bg-white p-8 rounded-[2.5rem] border border-slate-100 shadow-sm">
+      {/* Cartão Cabeçalho da Empresa */}
+      <div className="card-main p-8 flex items-center gap-6 mb-10">
         <div className="w-24 h-24 rounded-3xl bg-slate-50 border border-slate-100 flex items-center justify-center p-2 shrink-0 shadow-inner">
           {company.logoUrl ? (
             <img src={company.logoUrl} alt={company.name} className="w-full h-full object-contain" />
@@ -439,7 +439,8 @@ function CompanyDetailsContent() {
         </button>
       </div>
 
-      <div className="bg-white rounded-[2rem] border border-slate-100 shadow-sm p-8 min-h-[400px]">
+      {/* Cartão de Conteúdo Principal */}
+      <div className="card-main p-8 min-h-[400px]">
         {activeTab === "gestores" && renderAccountList(managers, "Gestores de Conta", "Gestor", "Ainda não existem gestores atribuídos a esta empresa.")}
         {activeTab === "utilizadores" && renderAccountList(companyUsers, "Utilizadores de Conta", "Utilizador", "Ainda não existem utilizadores atribuídos a esta empresa.")}
 
@@ -457,11 +458,10 @@ function CompanyDetailsContent() {
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
                 {sortedEvents.map(event => {
                   const progress = event.totalSeats > 0 ? Math.round((event.treatedSeats / event.totalSeats) * 100) : 0;
-                  
                   const isOneDayEvent = event.startDate && event.endDate && new Date(event.startDate).toLocaleDateString('pt-PT') === new Date(event.endDate).toLocaleDateString('pt-PT');
                   
                   return (
-                    <div key={event.id} className="p-5 rounded-2xl border border-slate-100 hover:border-purple-200 transition-colors flex flex-col justify-between">
+                    <div key={event.id} className="card-nested-pop p-5 flex flex-col justify-between">
                       <div>
                         <div className="flex justify-between items-start mb-2">
                           <div>
@@ -507,7 +507,6 @@ function CompanyDetailsContent() {
                       </div>
                       
                       <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        {/* PASSAMOS O PARÂMETRO COMPANYID (neste caso é o id da página atual) */}
                         <Link href={`/events/${event.id}/guests?companyId=${id}`} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-700 font-bold py-2.5 rounded-xl transition-colors text-[13px]">
                           <Users className="w-4 h-4" /> Convidados
                         </Link>
@@ -529,8 +528,8 @@ function CompanyDetailsContent() {
 
       {showCreateAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+          <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900">Novo {newAccountRole}</h3>
               <button onClick={() => setShowCreateAccountModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
@@ -555,8 +554,8 @@ function CompanyDetailsContent() {
 
       {showAssignModal && assignEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 shrink-0">
+          <div className="card-nested-pop w-full max-w-lg animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 shrink-0 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-purple-600" /> Atribuir Acessos</h3>
               <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
@@ -605,7 +604,7 @@ function CompanyDetailsContent() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-slate-100 shrink-0 bg-white">
+            <div className="p-6 border-t border-slate-100 shrink-0 bg-white rounded-b-[1.5rem]">
               {assignError && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{assignError}</div>}
               <button 
                 onClick={handleAssignAccess} 
@@ -621,8 +620,8 @@ function CompanyDetailsContent() {
 
       {showEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+          <div className="card-nested-pop w-full max-w-md">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900">Novo Evento</h3>
               <button onClick={() => setShowEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
@@ -648,8 +647,8 @@ function CompanyDetailsContent() {
 
       {showEditEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-md shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+          <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Edit2 className="w-5 h-5 text-purple-600" /> Editar Evento</h3>
               <button onClick={() => setShowEditEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
@@ -664,7 +663,7 @@ function CompanyDetailsContent() {
               </div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label>
-                <input type="date" required min={editEventStartDate} value={editEventEndDate} onChange={(e) => setEditEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
+                <input type="date" required min={editEventStartDate} value={editEventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
               {editEventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />{editEventError}</div>}
               <button type="submit" disabled={isEditingEvent} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isEditingEvent ? "A Guardar..." : "Guardar Alterações"}</button>
@@ -675,8 +674,8 @@ function CompanyDetailsContent() {
 
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="bg-white rounded-[2rem] w-full max-w-lg shadow-2xl overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50">
+          <div className="card-nested-pop w-full max-w-lg animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><UploadCloud className="w-5 h-5 text-emerald-600" /> Importar CSV</h3>
               <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
@@ -760,10 +759,10 @@ function CompanyDetailsContent() {
       {/* MODAL GLOBAL DE CONFIRMAÇÃO (Liquid Glass) */}
       {confirmDialog && confirmDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-white/50 zoom-in-95 animate-in flex flex-col items-center">
-            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
-            <h2 className="text-2xl font-black text-slate-900 text-center mb-2">{confirmDialog.title}</h2>
-            <p className="text-slate-500 text-center font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
+          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
+            <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
+            <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
             <div className="flex gap-3 w-full">
               <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
               <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">Confirmar</button>
@@ -775,10 +774,10 @@ function CompanyDetailsContent() {
       {/* MODAL GLOBAL DE ALERTAS (Liquid Glass) */}
       {alertDialog && alertDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-white/50 zoom-in-95 animate-in flex flex-col items-center text-center">
-            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
-            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
-            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
+          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
+            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
+            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
             <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
             <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">OK, Entendido</button>
