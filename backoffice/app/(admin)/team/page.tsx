@@ -58,7 +58,6 @@ export default function TeamPage() {
     fetchUsers();
   }, []);
 
-  // --- NOVA LÓGICA DE CRIAÇÃO (SUPER ADMIN) ---
   const handleCreateSuperAdmin = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsCreating(true); 
@@ -67,7 +66,6 @@ export default function TeamPage() {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/register`, {
         method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
-        // Enviamos para a Empresa de ID 1 (Seatly Admin) por defeito
         body: JSON.stringify({ email: newEmail, name: newName, role: "SuperAdmin", companyId: 1 }),
       });
       
@@ -85,7 +83,6 @@ export default function TeamPage() {
     }
   };
 
-  // --- NOVA LÓGICA DE RECUPERAÇÃO DE PASSWORD ---
   const promptSendResetEmail = (email: string, name: string) => {
     setConfirmDialog({
       isOpen: true, 
@@ -150,28 +147,35 @@ export default function TeamPage() {
     reader.readAsDataURL(file);
   };
 
-  const groupedUsers = useMemo(() => {
+  // Separação dos SuperAdmins globais e agrupamento das empresas normais
+  const { superAdmins, companyGroups } = useMemo(() => {
     const filtered = users.filter(u =>
       u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.companyName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       u.email?.toLowerCase().includes(searchQuery.toLowerCase())
     );
 
+    const sAdmins: UserData[] = [];
     const groups: Record<string, {
       companyLogo?: string,
-      superAdmins: UserData[],
       events: Record<string, { gestores: UserData[], utilizadores: UserData[] }>,
       unassigned: { gestores: UserData[], utilizadores: UserData[] }
     }> = {};
+
     filtered.forEach(u => {
+      const isSeatlyAdminComp = u.companyName.toLowerCase().includes("seatly admin") || u.companyName.toLowerCase().includes("seatly");
+
+      if (u.role === "SuperAdmin" || isSeatlyAdminComp) {
+        sAdmins.push(u);
+        return;
+      }
+
       if (!groups[u.companyName]) {
-        groups[u.companyName] = { companyLogo: u.companyLogo, superAdmins: [], events: {}, unassigned: { gestores: [], utilizadores: [] } };
+        groups[u.companyName] = { companyLogo: u.companyLogo, events: {}, unassigned: { gestores: [], utilizadores: [] } };
       }
       const comp = groups[u.companyName];
 
-      if (u.role === "SuperAdmin") {
-        comp.superAdmins.push(u);
-      } else if (u.events.length === 0) {
+      if (u.events.length === 0) {
         if (u.role === "Gestor") comp.unassigned.gestores.push(u);
         else comp.unassigned.utilizadores.push(u);
       } else {
@@ -185,7 +189,7 @@ export default function TeamPage() {
       }
     });
 
-    return groups;
+    return { superAdmins: sAdmins, companyGroups: groups };
   }, [users, searchQuery]);
 
   if (isLoading) {
@@ -206,7 +210,6 @@ export default function TeamPage() {
           <p className="text-slate-500 mt-2 font-medium">Administração centralizada de acessos e contas.</p>
         </div>
         
-        {/* NOVO: Botão Criar SuperAdmin */}
         {currentUserRole === "SuperAdmin" && (
           <button onClick={() => setShowCreateAdminModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-2xl transition-all flex items-center gap-2 shadow-lg shadow-slate-900/20">
             <Plus className="w-5 h-5" /> Novo SuperAdmin
@@ -225,72 +228,79 @@ export default function TeamPage() {
         />
       </div>
 
-      {Object.keys(groupedUsers).length === 0 ? (
+      {superAdmins.length === 0 && Object.keys(companyGroups).length === 0 ? (
         <div className="text-center py-20 bg-white/50 backdrop-blur-md rounded-[2.5rem] border border-white">
           <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
           <h3 className="text-lg font-bold text-slate-900">Nenhum utilizador encontrado</h3>
         </div>
       ) : (
-        Object.entries(groupedUsers).map(([companyName, data]) => (
-          <div key={companyName} className="mb-14">
-            <div className="flex items-center gap-4 mb-8">
-              <SafeCompanyLogo logoUrl={data.companyLogo} companyName={companyName} className="w-14 h-14" fallbackSize="w-7 h-7" />
-              <h2 className="text-2xl font-black text-slate-900">{companyName}</h2>
+        <div className="space-y-12">
+          {/* 1. SECÇÃO DE SUPERADMINS NO TOPO (Sem mostrar empresa Seatly Admin) */}
+          {superAdmins.length > 0 && (
+            <div className="bg-white/50 backdrop-blur-md rounded-[2.5rem] p-6 border border-slate-200/60 shadow-sm">
+              <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4 flex items-center gap-2">
+                <Shield className="w-4 h-4" /> Administração Central (SuperAdmins)
+              </h3>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                {superAdmins.map(user =>
+                  <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />
+                )}
+              </div>
             </div>
+          )}
 
-            <div className="space-y-10 pl-6 border-l-2 border-slate-100/80 ml-5">
-              {data.superAdmins.length > 0 && (
-                <div className="relative">
-                  <div className="absolute -left-[27px] top-2 w-3 h-3 bg-red-400 rounded-full border-2 border-slate-100"></div>
-                  <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4">Administração Central</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {data.superAdmins.map(user =>
-                      <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />
-                    )}
-                  </div>
-                </div>
-              )}
+          {/* 2. SECÇÃO DE EMPRESAS INDIVIDUAIS COM O FLUXO CORRETO */}
+          {Object.entries(companyGroups).map(([companyName, data]) => (
+            <div key={companyName} className="bg-white/50 backdrop-blur-md rounded-[2.5rem] p-6 border border-slate-200/60 shadow-sm">
+              <div className="flex items-center gap-4 mb-6">
+                <SafeCompanyLogo logoUrl={data.companyLogo} companyName={companyName} className="w-12 h-12" fallbackSize="w-6 h-6" />
+                <h2 className="text-2xl font-black text-slate-900">{companyName}</h2>
+              </div>
 
-              {Object.entries(data.events).map(([eventName, roles]) => (
-                <div key={eventName} className="relative bg-slate-50/50 rounded-3xl p-6 border border-slate-100">
-                  <div className="absolute -left-[27px] top-8 w-3 h-3 bg-purple-500 rounded-full border-2 border-slate-100 shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div>
-                  <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
-                    <CalendarDays className="w-5 h-5 text-purple-500" /> Evento: {eventName}
-                  </h3>
-                  <div className="space-y-6">
-                    {roles.gestores.length > 0 && (
-                      <div>
-                        <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3">Gestores de Evento</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {roles.gestores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+              <div className="space-y-8 pl-6 border-l-2 border-slate-200/60 ml-4">
+                {/* Eventos associados e respetivos utilizadores */}
+                {Object.entries(data.events).map(([eventName, roles]) => (
+                  <div key={eventName} className="relative bg-white rounded-3xl p-6 border border-slate-100 shadow-sm">
+                    <div className="absolute -left-[31px] top-8 w-3 h-3 bg-purple-500 rounded-full border-2 border-slate-100 shadow-[0_0_10px_rgba(168,85,247,0.5)]"></div>
+                    <h3 className="text-lg font-black text-slate-900 mb-6 flex items-center gap-2">
+                      <CalendarDays className="w-5 h-5 text-purple-500" /> Evento: {eventName}
+                    </h3>
+                    <div className="space-y-6">
+                      {roles.gestores.length > 0 && (
+                        <div>
+                          <h4 className="text-[10px] font-black text-blue-500 uppercase tracking-widest mb-3">Gestores de Evento</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {roles.gestores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+                          </div>
                         </div>
-                      </div>
-                    )}
-                    {roles.utilizadores.length > 0 && (
-                      <div>
-                        <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-3">Validadores (Staff)</h4>
-                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {roles.utilizadores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+                      )}
+                      {roles.utilizadores.length > 0 && (
+                        <div>
+                          <h4 className="text-[10px] font-black text-emerald-500 uppercase tracking-widest mb-3">Validadores (Staff)</h4>
+                          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            {roles.utilizadores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+                          </div>
                         </div>
-                      </div>
-                    )}
+                      )}
+                    </div>
                   </div>
-                </div>
-              ))}
+                ))}
 
-              {(data.unassigned.gestores.length > 0 || data.unassigned.utilizadores.length > 0) && (
-                <div className="relative">
-                  <div className="absolute -left-[27px] top-2 w-3 h-3 bg-slate-300 rounded-full border-2 border-slate-100"></div>
-                  <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Sem Evento Atribuído</h3>
-                  <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {data.unassigned.gestores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
-                    {data.unassigned.utilizadores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+                {/* Sem evento atribuído dentro desta empresa */}
+                {(data.unassigned.gestores.length > 0 || data.unassigned.utilizadores.length > 0) && (
+                  <div className="relative">
+                    <div className="absolute -left-[31px] top-2 w-3 h-3 bg-slate-300 rounded-full border-2 border-slate-100"></div>
+                    <h3 className="text-xs font-black text-slate-500 uppercase tracking-widest mb-4">Sem Evento Atribuído</h3>
+                    <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+                      {data.unassigned.gestores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+                      {data.unassigned.utilizadores.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+                    </div>
                   </div>
-                </div>
-              )}
+                )}
+              </div>
             </div>
-          </div>
-        ))
+          ))}
+        </div>
       )}
 
       {/* --- MODAL: CRIAR NOVO SUPER ADMIN --- */}
@@ -324,14 +334,14 @@ export default function TeamPage() {
         </div>
       )}
 
-      {/* MODAL: Detalhes do Perfil */}
+      {/* MODAL: Detalhes do Perfil (Com remoção da caixa de eventos se for SuperAdmin) */}
       {detailsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
           <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-md shadow-2xl animate-in zoom-in-95 relative border border-white/50">
             <button onClick={() => setDetailsModalOpen(null)} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
               <X className="w-5 h-5" />
             </button>
-            <div className="flex flex-col items-center mb-8 mt-4">
+            <div className="flex flex-col items-center mb-6 mt-4">
               <div className="relative group cursor-pointer w-24 h-24 rounded-[1.5rem] overflow-hidden mb-4 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-4 border-white transition-transform hover:scale-105">
                 <input type="file" accept="image/*" className="hidden" id="avatarUpload" onChange={handleImageUpload} disabled={isUploadingAvatar} />
                 <label htmlFor="avatarUpload" className="w-full h-full flex items-center justify-center cursor-pointer relative">
@@ -351,31 +361,35 @@ export default function TeamPage() {
               <h2 className="text-2xl font-black text-slate-900 text-center mb-1">{detailsModalOpen.username}</h2>
               <p className="text-slate-500 text-sm flex items-center gap-1 mb-2 font-medium"><Mail className="w-3.5 h-3.5" /> {detailsModalOpen.email}</p>
               <p className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-3">{detailsModalOpen.role}</p>
-              <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
-                <SafeCompanyLogo logoUrl={detailsModalOpen.companyLogo} companyName={detailsModalOpen.companyName} className="w-5 h-5 bg-transparent border-none shadow-none" fallbackSize="w-3.5 h-3.5" />
-                <span className="text-slate-600 text-xs font-bold">
-                  {detailsModalOpen.companyName}
-                </span>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] p-5">
-              <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
-                <CalendarDays className="w-4 h-4 text-purple-500" /> Eventos Atribuídos
-              </h3>
-              {detailsModalOpen.events.length === 0 ? (
-                <p className="text-sm text-slate-500 font-medium">Este utilizador não tem nenhum evento atribuído.</p>
-              ) : (
-                <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
-                  {detailsModalOpen.events.map(ev => (
-                    <div key={ev.id} className="bg-white border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm flex items-center gap-3">
-                      <div className="w-2 h-2 rounded-full bg-purple-500 shrink-0"></div>
-                      <span className="font-bold text-slate-700 text-sm truncate">{ev.name}</span>
-                    </div>
-                  ))}
+              
+              {detailsModalOpen.role !== "SuperAdmin" && (
+                <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
+                  <SafeCompanyLogo logoUrl={detailsModalOpen.companyLogo} companyName={detailsModalOpen.companyName} className="w-5 h-5 bg-transparent border-none shadow-none" fallbackSize="w-3.5 h-3.5" />
+                  <span className="text-slate-600 text-xs font-bold">{detailsModalOpen.companyName}</span>
                 </div>
               )}
             </div>
+
+            {/* CAIXA DE EVENTOS: Omitida se for SuperAdmin */}
+            {detailsModalOpen.role !== "SuperAdmin" && (
+              <div className="bg-slate-50 border border-slate-100 rounded-[1.5rem] p-5">
+                <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
+                  <CalendarDays className="w-4 h-4 text-purple-500" /> Eventos Atribuídos
+                </h3>
+                {detailsModalOpen.events.length === 0 ? (
+                  <p className="text-sm text-slate-500 font-medium">Este utilizador não tem nenhum evento atribuído.</p>
+                ) : (
+                  <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
+                    {detailsModalOpen.events.map(ev => (
+                      <div key={ev.id} className="bg-white border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm flex items-center gap-3">
+                        <div className="w-2 h-2 rounded-full bg-purple-500 shrink-0"></div>
+                        <span className="font-bold text-slate-700 text-sm truncate">{ev.name}</span>
+                      </div>
+                    ))}
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -431,7 +445,6 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
   return <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
 }
 
-// Componente Cartão de Utilizador Atualizado
 function UserCard({ user, currentUserRole, onClick, onDelete, onReset }: any) {
   const isSuperAdmin = user.role === "SuperAdmin";
   const isGestor = user.role === "Gestor";
