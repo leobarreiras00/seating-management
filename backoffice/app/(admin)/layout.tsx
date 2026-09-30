@@ -240,7 +240,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="relative">
               <button onClick={() => { setShowProfileMenu(!showProfileMenu); setShowNotifMenu(false); }} className="flex items-center gap-3 cursor-pointer group p-1.5 pr-3 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-slate-900 leading-tight group-hover:text-purple-600 transition-colors">{userInfo?.username}</p>
+                  <p className="text-sm font-bold text-slate-900 leading-tight group-hover:text-purple-600 transition-colors break-words w-max max-w-[150px]">{userInfo?.username}</p>
                   <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{userInfo?.role}</p>
                 </div>
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm transition-transform group-hover:scale-105 overflow-hidden ${userInfo?.role === 'SuperAdmin' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
@@ -276,7 +276,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       {/* MODAL: A MINHA CONTA */}
       {showMyAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
-          {/* O tamanho máximo passou para max-w-2xl para corrigir o layout cortado */}
+          {/* Ajuste de formatação e quebra de texto para evitar cortes */}
           <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 relative border border-white/50 flex flex-col md:flex-row gap-10">
             <button 
               onClick={() => {
@@ -300,8 +300,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   </div>
                 </label>
               </div>
-              <h3 className="text-xl font-black text-slate-900 text-center mb-1">{userInfo?.username}</h3>
-              {currentUser?.email && <p className="text-slate-500 text-[12px] font-medium flex items-center justify-center gap-1.5 mb-3 break-all text-center"><Mail className="w-3.5 h-3.5 shrink-0" /> {currentUser.email}</p>}
+              <h3 className="text-xl font-black text-slate-900 text-center mb-1 break-words w-full px-2 leading-tight">{userInfo?.username}</h3>
+              {currentUser?.email && <p className="text-slate-500 text-[12px] font-medium flex items-center justify-center gap-1.5 mb-3 break-words text-center w-full px-2"><Mail className="w-3.5 h-3.5 shrink-0" /> {currentUser.email}</p>}
               <p className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">{userInfo?.role}</p>
             </div>
             <div className="md:w-7/12 border-t md:border-t-0 md:border-l border-slate-100 pt-6 md:pt-0 md:pl-10">
