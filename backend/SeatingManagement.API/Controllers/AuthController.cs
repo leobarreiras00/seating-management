@@ -261,6 +261,22 @@ namespace SeatingManagement.API.Controllers
             return Ok(new { Message = "Palavra-passe atualizada com sucesso!" });
         }
 
+        [HttpPost("contact")]
+        [AllowAnonymous]
+        public async Task<IActionResult> ContactSupport([FromBody] ContactDto request)
+        {
+            if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Message))
+                return BadRequest(new { message = "Email e mensagem são obrigatórios." });
+
+            string subject = $"[Seatly Support] Novo contacto de {request.Email}";
+            string body = $"<p><strong>Remetente:</strong> {request.Email}</p><p><strong>Mensagem:</strong><br/>{request.Message}</p>";
+
+            // Utiliza o teu serviço de email existente que já está configurado com o Brevo
+            await _emailService.SendEmailAsync("leo.gbarreiras@gmail.com", subject, body);
+
+            return Ok(new { message = "Mensagem enviada com sucesso." });
+        }
+
         private string GenerateJwtToken(User user)
         {
             var jwtKey = _configuration["Jwt:Key"] ?? "ChaveDeSegurancaTemporariaParaOJWT2026!!_Minimo32Caracteres"; 

@@ -8,6 +8,7 @@ namespace SeatingManagement.API.Services
     {
         Task SendWelcomeEmailAsync(string toEmail, string displayName, string tempPassword, string role);
         Task SendPasswordResetEmailAsync(string toEmail, string resetToken);
+        Task SendEmailAsync(string to, string subject, string htmlBody);
     }
 
     public class EmailService : IEmailService
@@ -68,7 +69,7 @@ namespace SeatingManagement.API.Services
             await SendEmailAsync(toEmail, subject, body);
         }
 
-        private async Task SendEmailAsync(string to, string subject, string htmlBody)
+        public async Task SendEmailAsync(string to, string subject, string htmlBody)
         {
             try
             {

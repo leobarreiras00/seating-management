@@ -3,7 +3,9 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 import Image from "next/image";
+import Link from "next/link";
 import { Loader2, AlertTriangle, Mail, Lock, CheckCircle2, ChevronLeft } from "lucide-react";
+import ContactModal from "@/components/ContactModal";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -16,6 +18,7 @@ export default function LoginScreen() {
 
   // Estados de Vista
   const [currentView, setCurrentView] = useState<"login" | "firstLoginReset" | "forgotPassword">("login");
+  const [isContactModalOpen, setIsContactModalOpen] = useState(false);
 
   // Estados para Primeiro Login (Opção B)
   const [newPassword, setNewPassword] = useState("");
@@ -40,7 +43,6 @@ export default function LoginScreen() {
       const data = await res.json().catch(() => null);
 
       if (!res.ok) {
-        // Se a API devolver 403 e a flag estiver ativa, entramos na Opção B
         if (res.status === 403 && data?.requiresPasswordReset) {
           setCurrentView("firstLoginReset");
           return;
@@ -99,7 +101,6 @@ export default function LoginScreen() {
         throw new Error("Acesso Negado. Apenas a administração central pode aceder ao Backoffice.");
       }
 
-      // Login automático após reset bem sucedido
       localStorage.setItem("token", data.token);
       router.push("/dashboard");
 
@@ -150,7 +151,7 @@ export default function LoginScreen() {
 
       <div className="flex-1"></div>
 
-      <div className="w-full max-w-[440px] bg-white/70 backdrop-blur-2xl p-8 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(168,85,247,0.25)] border border-white/60 transition-all z-10 relative overflow-hidden">
+      <div className="w-full max-w-[440px] bg-white/70 backdrop-blur-2xl p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(168,85,247,0.25)] border border-white/60 transition-all z-10 relative overflow-hidden">
         
         {/* --- VISTA: LOGIN NORMAL --- */}
         {currentView === "login" && (
@@ -193,11 +194,6 @@ export default function LoginScreen() {
                 {isLoading ? <span className="flex items-center gap-2"><Loader2 className="animate-spin h-5 w-5" /> A verificar...</span> : "ENTRAR NO SISTEMA"}
               </button>
             </form>
-
-            <div className="mt-8 pt-6 border-t border-slate-200/60 flex items-center justify-center gap-2 text-slate-600">
-              <Lock className="w-4 h-4 text-purple-500" />
-              <span className="text-xs font-semibold uppercase tracking-wider">Acesso Restrito · Encriptação E2E</span>
-            </div>
           </div>
         )}
 
@@ -279,15 +275,36 @@ export default function LoginScreen() {
             )}
           </div>
         )}
-
       </div>
 
-      <div className="flex-1 flex items-end pb-2 sm:pb-6">
-        <div className="text-slate-500 text-xs sm:text-sm font-medium mt-8">
-          Copyright © Seatly {new Date().getFullYear()}.
+      {/* --- FOOTER OTIMIZADO PARA MOBILE --- */}
+      <div className="flex-1 flex flex-col items-center justify-end pb-4 sm:pb-6 mt-8 z-10 w-full max-w-[440px]">
+        <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 mb-4 text-sm font-semibold text-slate-600">
+          <button onClick={() => setIsContactModalOpen(true)} className="hover:text-purple-700 transition-colors">
+            Contact Staff
+          </button>
+          <span className="hidden sm:inline text-slate-400">•</span>
+          <Link href="/privacy" className="hover:text-purple-700 transition-colors">
+            Privacy Policy
+          </Link>
+          <span className="hidden sm:inline text-slate-400">•</span>
+          <Link href="/terms" className="hover:text-purple-700 transition-colors">
+            Terms of Service
+          </Link>
+        </div>
+
+        <div className="flex flex-col items-center gap-1">
+          <div className="flex items-center gap-2 text-slate-500 text-xs font-semibold uppercase tracking-wider mb-1">
+            <Lock className="w-3.5 h-3.5 text-purple-500" />
+            <span>Acesso Restrito · Encriptação E2E</span>
+          </div>
+          <div className="text-slate-400 text-xs font-medium">
+            Copyright © Seatly {new Date().getFullYear()}.
+          </div>
         </div>
       </div>
 
+      <ContactModal isOpen={isContactModalOpen} onClose={() => setIsContactModalOpen(false)} />
     </div>
   );
 }
