@@ -23,7 +23,6 @@ export default function CompaniesPage() {
   const [isEditing, setIsEditing] = useState(false);
   const [editError, setEditError] = useState("");
 
-  // 👇 Novos Estados de Diálogo 👇
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' } | null>(null);
 
@@ -54,7 +53,6 @@ export default function CompaniesPage() {
     return () => { client.end(); };
   }, [fetchCompanies]);
 
-  // Função refatorada para usar Confirm Customizado e Alerta Customizado
   const promptDeleteCompany = (id: number, name: string) => {
     setConfirmDialog({
       isOpen: true,
@@ -105,6 +103,9 @@ export default function CompaniesPage() {
     } catch (err: any) { setEditError(err.message); } finally { setIsEditing(false); }
   };
 
+  // Filtrar "Seatly Admin" da apresentação visual
+  const filteredCompanies = companies.filter(c => c.name.toLowerCase() !== "seatly admin");
+
   return (
     <div className="w-full max-w-7xl mx-auto relative px-2 sm:px-4 lg:px-8">
       <header className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
@@ -120,7 +121,7 @@ export default function CompaniesPage() {
       {isLoading && <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>}
       {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 font-medium">{error}</div>}
 
-      {!isLoading && !error && companies.length === 0 ? (
+      {!isLoading && !error && filteredCompanies.length === 0 ? (
         <div className="bg-white border border-slate-100 rounded-[2rem] p-16 flex flex-col items-center text-center shadow-sm">
           <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mb-4"><Building2 className="w-10 h-10 text-slate-300" /></div>
           <h3 className="text-xl font-bold text-slate-900 mb-2">Sem empresas ativas</h3>
@@ -128,7 +129,7 @@ export default function CompaniesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {companies.map((company) => (
+          {filteredCompanies.map((company) => (
             <div key={company.id} className="relative group">
               <Link href={`/companies/${company.id}`} className="block bg-white border border-slate-100 hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/5 transition-all rounded-3xl p-6 h-full flex flex-col">
                 <div className="flex items-center gap-4 mb-6">

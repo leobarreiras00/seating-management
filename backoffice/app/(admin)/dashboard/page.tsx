@@ -68,6 +68,9 @@ export default function DashboardPage() {
     );
   }
 
+  // Obter o número de eventos para o título e garantir que não excede os 10 visualmente descritos
+  const activeEventsCount = data?.eventsProgress ? Math.min(data.eventsProgress.length, 10) : 0;
+
   return (
     <div className="w-full max-w-7xl mx-auto pb-10 px-2 sm:px-4 lg:px-8">
       <header className="mb-8 lg:mb-10 pl-2">
@@ -78,7 +81,6 @@ export default function DashboardPage() {
       </header>
 
       {/* GRELHA DE ESTATÍSTICAS */}
-      {/* Mantém as 4 colunas em ecrãs grandes (lg) */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 xl:gap-6 mb-8">
         <StatCard title="Empresas Ativas" value={data?.stats.companies || 0} icon={Building2} color="bg-blue-500" lightColor="bg-blue-500/10" textColor="text-blue-600" />
         <StatCard title="Total de Eventos" value={data?.stats.events || 0} icon={CalendarDays} color="bg-purple-500" lightColor="bg-purple-500/10" textColor="text-purple-600" />
@@ -90,7 +92,7 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Gráfico 1: Ritmo de Entradas */}
-        <div className="lg:col-span-2 bg-white/70 backdrop-blur-2xl p-6 lg:p-8 rounded-[2.5rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)]">
+        <div className={`bg-white/70 backdrop-blur-2xl p-6 lg:p-8 rounded-[2.5rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)] ${activeEventsCount > 0 ? "lg:col-span-2" : "lg:col-span-3"}`}>
           <div className="mb-6">
             <h2 className="text-xl font-extrabold text-slate-900">Ritmo de Validações</h2>
             <p className="text-slate-500 text-sm font-medium mt-1">Volume de entradas nas últimas 12 horas</p>
@@ -124,43 +126,41 @@ export default function DashboardPage() {
           </div>
         </div>
 
-        {/* Gráfico 2: Progresso dos Eventos */}
-        <div className="bg-white/70 backdrop-blur-2xl p-6 lg:p-8 rounded-[2.5rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)]">
-          <div className="mb-6">
-            <h2 className="text-xl font-extrabold text-slate-900">Progresso</h2>
-            <p className="text-slate-500 text-sm font-medium mt-1">Top 4 eventos ativos</p>
-          </div>
-          <div className="h-[300px] w-full">
-            {data?.eventsProgress && data.eventsProgress.length > 0 ? (
+        {/* Gráfico 2: Progresso dos Eventos (Ocultado se não houver eventos ativos) */}
+        {activeEventsCount > 0 && (
+          <div className="bg-white/70 backdrop-blur-2xl p-6 lg:p-8 rounded-[2.5rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)]">
+            <div className="mb-6">
+              <h2 className="text-xl font-extrabold text-slate-900">Progresso</h2>
+              <p className="text-slate-500 text-sm font-medium mt-1">
+                {activeEventsCount === 1 ? "1 evento ativo" : `Top ${activeEventsCount} eventos ativos`}
+              </p>
+            </div>
+            <div className="h-[300px] w-full">
               <ResponsiveContainer width="100%" height="100%">
-                <BarChart data={data.eventsProgress} layout="vertical" margin={{ top: 0, right: 0, left: -20, bottom: 0 }}>
+                <BarChart data={data?.eventsProgress} layout="vertical" margin={{ top: 0, right: 0, left: -20, bottom: 0 }} stackOffset="expand">
                   <CartesianGrid strokeDasharray="3 3" horizontal={true} vertical={false} stroke="#e2e8f0" />
                   <XAxis type="number" hide />
                   <YAxis dataKey="name" type="category" axisLine={false} tickLine={false} tick={{fill: '#475569', fontSize: 12, fontWeight: 600}} width={100} />
                   <Tooltip 
                     cursor={{fill: 'rgba(241, 245, 249, 0.5)'}}
                     contentStyle={{ borderRadius: '16px', border: '1px solid rgba(255,255,255,0.6)', backgroundColor: 'rgba(255,255,255,0.9)', backdropFilter: 'blur(10px)', boxShadow: '0 10px 25px -5px rgb(0 0 0 / 0.1)', fontWeight: 'bold' }}
+                    // Correção TypeScript: Utilização de 'any' para evitar o conflito com a interface ValueType do Recharts
+                    formatter={(value: any, name: any) => [value, name]}
                   />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 600, color: '#64748b', paddingTop: '20px' }} />
                   <Bar dataKey="validated" name="Validados" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={24} />
                   <Bar dataKey="remaining" name="Restantes" stackId="a" fill="#94a3b8" radius={[0, 8, 8, 0]} barSize={24} />
                 </BarChart>
               </ResponsiveContainer>
-            ) : (
-              <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                <Database className="w-10 h-10 mb-2 opacity-20" />
-                <p className="text-sm font-medium">Sem dados de eventos</p>
-              </div>
-            )}
+            </div>
           </div>
-        </div>
+        )}
 
       </div>
     </div>
   );
 }
 
-// 👇 O Componente de Estatística totalmente revisto 👇
 function StatCard({ title, value, icon: Icon, color, lightColor, textColor }: any) {
   return (
     <div className="bg-white/70 backdrop-blur-2xl p-4 xl:p-6 rounded-[2rem] border border-white/60 shadow-[0_20px_60px_-15px_rgba(168,85,247,0.15)] hover:-translate-y-1 transition-transform group flex items-center overflow-hidden relative">
@@ -169,7 +169,6 @@ function StatCard({ title, value, icon: Icon, color, lightColor, textColor }: an
         <Icon className="w-6 h-6 xl:w-8 xl:h-8" />
       </div>
       <div className="min-w-0 flex-1 relative z-10">
-        {/* Retirado o truncate; adicionado break-words e leading-tight para permitir várias linhas se necessário */}
         <p className="text-slate-500 text-[10px] xl:text-xs font-bold mb-0.5 uppercase tracking-wide leading-tight break-words">
           {title}
         </p>
