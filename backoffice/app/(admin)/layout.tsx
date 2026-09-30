@@ -278,7 +278,17 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
           {/* O tamanho máximo passou para max-w-2xl para corrigir o layout cortado */}
           <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 relative border border-white/50 flex flex-col md:flex-row gap-10">
-            <button onClick={() => setShowMyAccountModal(false)} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors z-10"><X className="w-5 h-5" /></button>
+            <button 
+              onClick={() => {
+                setShowMyAccountModal(false);
+                setOldPassword("");
+                setNewPassword("");
+                setConfirmPassword("");
+              }} 
+              className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors z-10"
+            >
+              <X className="w-5 h-5" />
+            </button>
             <div className="flex flex-col items-center md:w-5/12 pt-4">
               <div className="relative group cursor-pointer w-32 h-32 rounded-[1.5rem] overflow-hidden mb-5 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-4 border-white transition-transform hover:scale-105">
                 <input type="file" accept="image/*" className="hidden" id="myAvatarUpload" onChange={handleImageUpload} disabled={isUploadingAvatar || !currentUser} />
