@@ -1,7 +1,7 @@
 "use client";
 
-import { useEffect, useState, useCallback } from "react";
-import { useParams } from "next/navigation";
+import { useEffect, useState, useCallback, Suspense } from "react";
+import { useParams, useSearchParams } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock, AlertTriangle, Download, CheckCircle2, Info, Loader2, Mail } from "lucide-react";
 import mqtt from "mqtt";
@@ -16,15 +16,22 @@ interface EventStats {
 
 interface CsvValidationError { line?: number; Line?: number; errorType?: string; ErrorType?: string; }
 
-export default function CompanyDetailsPage() {
+function CompanyDetailsContent() {
   const params = useParams();
+  const searchParams = useSearchParams();
   const id = params.id as string;
+  const initialTab = searchParams.get("tab") as "gestores" | "utilizadores" | "eventos" | null;
 
   const [company, setCompany] = useState<Company | null>(null);
   const [managers, setManagers] = useState<AccountUser[]>([]);
   const [companyUsers, setCompanyUsers] = useState<AccountUser[]>([]);
   const [events, setEvents] = useState<EventStats[]>([]);
-  const [activeTab, setActiveTab] = useState<"gestores" | "utilizadores" | "eventos">("gestores");
+  
+  // Utilizar a tab proveniente do URL (se existir e for válida)
+  const [activeTab, setActiveTab] = useState<"gestores" | "utilizadores" | "eventos">(
+    initialTab === "eventos" || initialTab === "utilizadores" ? initialTab : "gestores"
+  );
+  
   const [isLoading, setIsLoading] = useState(true);
 
   // Sistema de Diálogos (Liquid Glass)
@@ -451,7 +458,6 @@ export default function CompanyDetailsPage() {
                 {sortedEvents.map(event => {
                   const progress = event.totalSeats > 0 ? Math.round((event.treatedSeats / event.totalSeats) * 100) : 0;
                   
-                  // Formatação inteligente das datas
                   const isOneDayEvent = event.startDate && event.endDate && new Date(event.startDate).toLocaleDateString('pt-PT') === new Date(event.endDate).toLocaleDateString('pt-PT');
                   
                   return (
@@ -501,7 +507,8 @@ export default function CompanyDetailsPage() {
                       </div>
                       
                       <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <Link href={`/events/${event.id}/guests`} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-700 font-bold py-2.5 rounded-xl transition-colors text-[13px]">
+                        {/* PASSAMOS O PARÂMETRO COMPANYID (neste caso é o id da página atual) */}
+                        <Link href={`/events/${event.id}/guests?companyId=${id}`} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-700 font-bold py-2.5 rounded-xl transition-colors text-[13px]">
                           <Users className="w-4 h-4" /> Convidados
                         </Link>
                         <button onClick={() => openUploadModal(event.id)} className="w-full flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-bold py-2.5 rounded-xl transition-colors text-[13px]">
@@ -779,5 +786,13 @@ export default function CompanyDetailsPage() {
         </div>
       )}
     </div>
+  );
+}
+
+export default function CompanyDetailsPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>}>
+      <CompanyDetailsContent />
+    </Suspense>
   );
 }
