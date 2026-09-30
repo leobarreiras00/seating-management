@@ -6,48 +6,48 @@ export default function TermsOfService() {
     <div className="min-h-screen bg-slate-50 text-slate-800 p-6 md:p-12 font-sans selection:bg-purple-200">
       <div className="max-w-3xl mx-auto bg-white p-8 md:p-12 rounded-[2rem] shadow-sm border border-slate-200">
         <Link href="/login" className="inline-flex items-center text-sm font-bold text-purple-600 hover:text-purple-800 transition-colors mb-8">
-          <ChevronLeft className="w-4 h-4 mr-1" /> Back to Login
+          <ChevronLeft className="w-4 h-4 mr-1" /> Voltar ao Login
         </Link>
 
-        <h1 className="text-3xl font-black text-slate-900 mb-2">Terms of Service</h1>
-        <p className="text-sm font-medium text-slate-500 mb-8">Last Updated: September 2026</p>
+        <h1 className="text-3xl font-black text-slate-900 mb-2">Termos de Serviço</h1>
+        <p className="text-sm font-medium text-slate-500 mb-8">Última Atualização: Setembro de 2026</p>
 
         <div className="space-y-8 text-sm leading-relaxed text-slate-600">
           <section>
-            <h2 className="text-lg font-bold text-slate-900 mb-3">1. Acceptance of Terms</h2>
+            <h2 className="text-lg font-bold text-slate-900 mb-3">1. Aceitação dos Termos</h2>
             <p>
-              By accessing and using the Seatly Web Backoffice or Mobile Application, you agree to be bound by these Terms of Service. The Seatly platform is developed by Leonardo Barreiras ("Seatly") and is provided to you on behalf of your event organizer.
+              Ao aceder e utilizar o Backoffice Web ou a Aplicação Mobile do Seatly, concorda em ficar vinculado a estes Termos de Serviço. A plataforma Seatly é desenvolvida por Leonardo Barreiras ("Seatly") e é-lhe fornecida em nome do organizador do seu evento.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-slate-900 mb-3">2. Permitted Use</h2>
-            <p className="mb-2">The Seatly platform is strictly intended for:</p>
+            <h2 className="text-lg font-bold text-slate-900 mb-3">2. Uso Permitido</h2>
+            <p className="mb-2">A plataforma Seatly destina-se estritamente a:</p>
             <ul className="list-disc pl-5 space-y-1">
-              <li>Event capacity management and planning.</li>
-              <li>Ingesting authorized guest lists via CSV upload.</li>
-              <li>Validating guest entry at venue doors.</li>
+              <li>Gestão e planeamento da capacidade de eventos.</li>
+              <li>Importação de listas de convidados autorizadas via upload de ficheiros CSV.</li>
+              <li>Validação da entrada de convidados nas portas do recinto.</li>
             </ul>
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-slate-900 mb-3">3. User Accounts and Responsibilities</h2>
+            <h2 className="text-lg font-bold text-slate-900 mb-3">3. Contas de Utilizador e Responsabilidades</h2>
             <p>
-              You are responsible for maintaining the confidentiality of your account credentials (password and 4-digit mobile PIN). You agree not to share your credentials or attempt to bypass the platform's Role-Based Access Control (RBAC) security measures.
+              É responsável por manter a confidencialidade das credenciais da sua conta (palavra-passe e PIN mobile de 4 dígitos). Concorda em não partilhar as suas credenciais nem tentar contornar as medidas de segurança de Controlo de Acesso Baseado em Funções (RBAC) da plataforma.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-slate-900 mb-3">4. Limitation of Liability</h2>
+            <h2 className="text-lg font-bold text-slate-900 mb-3">4. Limitação de Responsabilidade</h2>
             <p>
-              Seatly provides the platform on an "as is" and "as available" basis without warranties of any kind. Seatly is a technology platform, not an event production company. We are not liable for event disruptions, physical venue capacity violations, or inaccurate data entry uploaded by facility managers.
+              O Seatly fornece a plataforma "tal como está" e "conforme disponível", sem garantias de qualquer tipo. O Seatly é uma plataforma tecnológica, não uma empresa de produção de eventos. Não nos responsabilizamos por interrupções de eventos, violações da capacidade física do recinto ou por entradas de dados imprecisos carregados pelos gestores.
             </p>
           </section>
 
           <section>
-            <h2 className="text-lg font-bold text-slate-900 mb-3">5. Governing Law</h2>
+            <h2 className="text-lg font-bold text-slate-900 mb-3">5. Lei Aplicável</h2>
             <p>
-              These Terms of Service shall be governed by and construed in accordance with the laws of Portugal. Any disputes arising from these terms shall be subject to the exclusive jurisdiction of the Portuguese courts.
+              Estes Termos de Serviço serão regidos e interpretados de acordo com as leis de Portugal. Quaisquer litígios decorrentes destes termos estarão sujeitos à jurisdição exclusiva dos tribunais portugueses.
             </p>
           </section>
         </div>

@@ -281,15 +281,15 @@ export default function LoginScreen() {
       <div className="flex-1 flex flex-col items-center justify-end pb-4 sm:pb-6 mt-8 z-10 w-full max-w-[440px]">
         <div className="flex flex-wrap justify-center items-center gap-x-4 gap-y-2 mb-4 text-sm font-semibold text-slate-600">
           <button onClick={() => setIsContactModalOpen(true)} className="hover:text-purple-700 transition-colors">
-            Contact Staff
+            Contactar Suporte
           </button>
           <span className="hidden sm:inline text-slate-400">•</span>
           <Link href="/privacy" className="hover:text-purple-700 transition-colors">
-            Privacy Policy
+            Política de Privacidade
           </Link>
           <span className="hidden sm:inline text-slate-400">•</span>
           <Link href="/terms" className="hover:text-purple-700 transition-colors">
-            Terms of Service
+            Termos de Serviço
           </Link>
         </div>
 
