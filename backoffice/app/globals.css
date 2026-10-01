@@ -1,9 +1,8 @@
 @import "tailwindcss";
 
 :root {
-  /* Fundo base ligeiramente mais fresco/escuro (slate-50) para garantir que o branco puro salta à vista */
-  --background: #f8fafc; 
-  --foreground: #0f172a;
+  --background: #f8fafc;
+  --foreground: #171717;
 }
 
 @theme inline {
@@ -15,8 +14,8 @@
 
 @media (prefers-color-scheme: dark) {
   :root {
-    --background: #0f172a;
-    --foreground: #f8fafc;
+    --background: #0a0a0a;
+    --foreground: #ededed;
   }
 }
 
@@ -26,23 +25,23 @@ body {
   font-family: Arial, Helvetica, sans-serif;
 }
 
+/* NAVEGAÇÃO POR TECLADO (Acessibilidade Global) */
+@layer base {
+  button, a, input, select, textarea, [role="button"] {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 transition-shadow;
+  }
+}
+
 /* SISTEMA GLOBAL DE CARTÕES (DESIGN SYSTEM) */
 @layer components {
-  /* NÍVEL 1: Contentor Principal.
-     Ao usar slate-100/60, criamos um "vidro cinzento" que contrasta perfeitamente com os cartões brancos que vêm a seguir. */
   .card-main {
     @apply bg-slate-100/60 backdrop-blur-2xl border border-slate-200/70 shadow-sm rounded-[2.5rem];
   }
 
-  /* NÍVEL 2: Sub-cartões de Destaque.
-     Branco 100% opaco. Como o fundo agora é ligeiramente cinza, estes cartões vão "saltar" visualmente.
-     Sombra aumentada para 8% de opacidade para criar mais profundidade. */
   .card-nested-pop {
     @apply bg-white border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.08)] rounded-[1.5rem] transition-all;
   }
 
-  /* NÍVEL 3: Sub-cartões Planos (Agrupamento).
-     Cinza um pouco mais denso para agrupar listas sem competir com os cartões principais. */
   .card-nested-flat {
     @apply bg-slate-200/50 border border-slate-300/50 rounded-[1.5rem];
   }
