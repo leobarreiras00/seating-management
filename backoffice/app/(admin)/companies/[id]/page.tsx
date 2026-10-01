@@ -1,9 +1,9 @@
 "use client";
 
 import { useEffect, useState, useCallback, Suspense } from "react";
-import { useParams, useSearchParams } from "next/navigation";
+import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock, AlertTriangle, Download, CheckCircle2, Info, Loader2, Mail } from "lucide-react";
+import { ChevronLeft, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock, AlertTriangle, Download, CheckCircle2, Info, Loader2, Mail, Building2 } from "lucide-react";
 import mqtt from "mqtt";
 
 interface Company { id: number; name: string; logoUrl: string | null; }
@@ -19,6 +19,7 @@ interface CsvValidationError { line?: number; Line?: number; errorType?: string;
 function CompanyDetailsContent() {
   const params = useParams();
   const searchParams = useSearchParams();
+  const router = useRouter();
   const id = params.id as string;
   const initialTab = searchParams.get("tab") as "gestores" | "utilizadores" | "eventos" | null;
 
@@ -32,12 +33,11 @@ function CompanyDetailsContent() {
   );
   
   const [isLoading, setIsLoading] = useState(true);
+  const [isExporting, setIsExporting] = useState(false);
 
-  // Sistema de Diálogos (Liquid Glass)
   const [confirmDialog, setConfirmDialog] = useState<{ isOpen: boolean, title: string, message: string, onConfirm: () => void } | null>(null);
   const [alertDialog, setAlertDialog] = useState<{ isOpen: boolean, title: string, message: string, type: 'error' | 'success' | 'info' } | null>(null);
 
-  // Modais de Conta
   const [showCreateAccountModal, setShowCreateAccountModal] = useState(false);
   const [newAccountRole, setNewAccountRole] = useState<"Gestor" | "Utilizador">("Gestor");
   const [newName, setNewName] = useState("");
@@ -45,7 +45,6 @@ function CompanyDetailsContent() {
   const [isCreatingAccount, setIsCreatingAccount] = useState(false);
   const [createAccountError, setCreateAccountError] = useState("");
 
-  // Modais de Evento
   const [showEventModal, setShowEventModal] = useState(false);
   const [eventName, setEventName] = useState("");
   const [eventStartDate, setEventStartDate] = useState("");
@@ -61,14 +60,14 @@ function CompanyDetailsContent() {
   const [isEditingEvent, setIsEditingEvent] = useState(false);
   const [editEventError, setEditEventError] = useState("");
 
-  // Modais de Acesso Multi-Select
   const [showAssignModal, setShowAssignModal] = useState(false);
   const [assignEvent, setAssignEvent] = useState<EventStats | null>(null);
   const [selectedUserIds, setSelectedUserIds] = useState<number[]>([]);
   const [isAssigning, setIsAssigning] = useState(false);
   const [assignError, setAssignError] = useState("");
 
-  // Modais de Upload CSV
+  const [filesModalEvent, setFilesModalEvent] = useState<EventStats | null>(null);
+
   const [showUploadModal, setShowUploadModal] = useState(false);
   const [uploadEventId, setUploadEventId] = useState<number | null>(null);
   const [uploadFile, setUploadFile] = useState<File | null>(null);
@@ -143,7 +142,6 @@ function CompanyDetailsContent() {
       });
       
       const data = await res.json().catch(() => ({}));
-      
       if (!res.ok) throw new Error(data.message || data.Message || `Erro ao criar o ${newAccountRole.toLowerCase()}.`);
       
       setShowCreateAccountModal(false); 
@@ -189,18 +187,13 @@ function CompanyDetailsContent() {
     });
   };
 
-  // Eventos
   const handleCreateEvent = async (e: React.FormEvent) => {
     e.preventDefault(); 
-    
     if (new Date(eventEndDate) < new Date(eventStartDate)) {
       setEventError("A data de fim não pode ser anterior à data de início do evento.");
       return;
     }
-    
-    setIsCreatingEvent(true); 
-    setEventError("");
-    
+    setIsCreatingEvent(true); setEventError("");
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}/events`, {
@@ -215,15 +208,11 @@ function CompanyDetailsContent() {
   const handleUpdateEvent = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!editEventId) return;
-
     if (new Date(editEventEndDate) < new Date(editEventStartDate)) {
       setEditEventError("A data de fim não pode ser anterior à data de início do evento.");
       return;
     }
-
-    setIsEditingEvent(true); 
-    setEditEventError("");
-    
+    setIsEditingEvent(true); setEditEventError("");
     try {
       const token = localStorage.getItem("token");
       const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${editEventId}`, {
@@ -301,7 +290,6 @@ function CompanyDetailsContent() {
     });
   };
 
-  // Upload CSV
   const openUploadModal = (eventId: number) => {
     setUploadEventId(eventId); setUploadFile(null); setUploadMode("replace");
     setUploadError(""); setUploadSuccess(""); setValidationErrors(null); setShowUploadModal(true);
@@ -329,6 +317,46 @@ function CompanyDetailsContent() {
     } catch (err: any) { setUploadError(err.message); } finally { setIsUploading(false); }
   };
 
+  const handleExportCsv = async (eventId: number, eventName: string) => {
+    setIsExporting(true);
+    try {
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Seat/${eventId}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (!res.ok) throw new Error("Falha ao obter os dados para exportação.");
+      const data = await res.json();
+      
+      let csvContent = "MESA;LUGAR;CATEGORIA;NOME;ESTADO\n";
+      
+      const mappedGuests = Array.isArray(data) ? data : [];
+      mappedGuests.forEach((g: any) => {
+        const seatNumFull = g.seatNumber || g.SeatNumber || "";
+        const [table, seat] = seatNumFull.includes('-') ? seatNumFull.split('-') : [seatNumFull, ""];
+        const name = g.assignedTo || g.AssignedTo || "";
+        const cat = g.eventName || g.EventName || "";
+        const status = g.status === 1 || g.Status === 1 ? "Validado" : "Pendente";
+        
+        csvContent += `"${table}";"${seat}";"${cat}";"${name}";"${status}"\n`;
+      });
+
+      const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.setAttribute("download", `Convidados_${eventName.replace(/\s+/g, '_')}.csv`);
+      document.body.appendChild(link);
+      link.click();
+      document.body.removeChild(link);
+      
+      setFilesModalEvent(null);
+    } catch (error) {
+      setAlertDialog({ isOpen: true, title: "Erro na Exportação", message: "Ocorreu um erro ao gerar o ficheiro.", type: 'error' });
+    } finally {
+      setIsExporting(false);
+    }
+  };
+
   const handleExportErrors = () => {
     if (!validationErrors) return;
     let csvContent = "Linha;Erro\n";
@@ -337,7 +365,7 @@ function CompanyDetailsContent() {
       const type = e.errorType || e.ErrorType || "Erro Desconhecido";
       csvContent += `${line === 0 ? 'Geral' : line};${type}\n`;
     });
-    const blob = new Blob([csvContent], { type: 'text/csv;charset=utf-8;' });
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
     const url = URL.createObjectURL(blob);
     const link = document.createElement("a");
     link.href = url; link.setAttribute("download", "relatorio_erros.csv");
@@ -346,9 +374,9 @@ function CompanyDetailsContent() {
 
   const renderAccountList = (list: AccountUser[], title: string, roleType: "Gestor" | "Utilizador", emptyMsg: string) => (
     <div>
-      <div className="flex justify-between items-center mb-6">
+      <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
         <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-        <button onClick={() => openCreateAccountModal(roleType)} className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-2">
+        <button type="button" onClick={() => openCreateAccountModal(roleType)} className="w-full sm:w-auto bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
           <UserPlus className="w-4 h-4" /> Criar {roleType}
         </button>
       </div>
@@ -358,18 +386,18 @@ function CompanyDetailsContent() {
         <div className="space-y-3">
           {list.map(account => (
             <div key={account.id} className="card-nested-pop p-4 flex items-center justify-between hover:border-purple-200 transition-colors">
-              <div className="flex items-center gap-4">
+              <div className="flex items-center gap-3 sm:gap-4 min-w-0 pr-2">
                 <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase shrink-0">{account.username.charAt(0)}</div>
-                <div>
-                  <p className="font-bold text-slate-900">{account.username}</p>
-                  <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-0.5"><Mail className="w-3 h-3"/> {account.email}</p>
+                <div className="min-w-0">
+                  <p className="font-bold text-slate-900 truncate">{account.username}</p>
+                  <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-0.5 truncate"><Mail className="w-3 h-3 shrink-0"/> {account.email}</p>
                 </div>
               </div>
-              <div className="flex gap-2 shrink-0">
-                <button onClick={() => promptSendResetEmail(account.email, account.username)} className="p-2 text-slate-300 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors" title="Enviar Link de Recuperação">
+              <div className="flex gap-1 sm:gap-2 shrink-0">
+                <button type="button" onClick={() => promptSendResetEmail(account.email, account.username)} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-amber-500" title="Enviar Link de Recuperação">
                   <Lock className="w-5 h-5" />
                 </button>
-                <button onClick={() => promptDeleteUser(account.id, account.username, account.role)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors" title={`Apagar ${account.role}`}>
+                <button type="button" onClick={() => promptDeleteUser(account.id, account.username, account.role)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500" title={`Apagar ${account.role}`}>
                   <Trash2 className="w-5 h-5" />
                 </button>
               </div>
@@ -387,7 +415,7 @@ function CompanyDetailsContent() {
   });
 
   if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
-  if (!company) return <div className="p-10 text-center"><h2 className="text-2xl font-bold text-slate-900">Empresa não encontrada</h2><Link href="/companies" className="text-purple-600 mt-4 inline-block">Voltar</Link></div>;
+  if (!company) return <div className="p-10 text-center"><h2 className="text-2xl font-bold text-slate-900">Empresa não encontrada</h2><button type="button" onClick={() => router.push("/companies")} className="text-purple-600 mt-4 inline-block font-bold outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded">Voltar</button></div>;
 
   const groupedErrors = validationErrors ? validationErrors.reduce((acc, err) => {
     const type = err.errorType || err.ErrorType || "Erro Desconhecido";
@@ -405,67 +433,65 @@ function CompanyDetailsContent() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto relative px-2 sm:px-4 lg:px-8">
-      <Link href="/companies" className="inline-flex items-center text-slate-500 hover:text-purple-600 font-medium mb-8 transition-colors">
+    <div className="w-full max-w-7xl mx-auto relative px-4 sm:px-6 lg:px-8 pb-10">
+      <Link href="/companies" className="inline-flex items-center text-slate-500 hover:text-purple-600 font-medium mb-8 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-md">
         <ChevronLeft className="w-5 h-5 mr-1" /> Voltar para Empresas
       </Link>
 
-      {/* Cartão Cabeçalho da Empresa */}
-      <div className="card-main p-8 flex items-center gap-6 mb-10">
-        <div className="w-24 h-24 rounded-3xl bg-slate-50 border border-slate-100 flex items-center justify-center p-2 shrink-0 shadow-inner">
+      <div className="card-main p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-5 sm:gap-6 mb-8 text-center sm:text-left">
+        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-slate-50 border border-slate-100 flex items-center justify-center p-2 shrink-0 shadow-inner">
           {company.logoUrl ? (
             <img src={company.logoUrl} alt={company.name} className="w-full h-full object-contain" />
           ) : (
             <span className="text-slate-400 font-bold text-xl">{company.name.charAt(0)}</span>
           )}
         </div>
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-900">{company.name}</h1>
+        <div className="min-w-0">
+          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 break-words">{company.name}</h1>
         </div>
       </div>
 
-      <div className="flex border-b border-slate-200 mb-8 gap-8">
-        <button onClick={() => setActiveTab("gestores")} className={`pb-4 text-base font-bold transition-colors relative ${activeTab === "gestores" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
+      <div className="flex overflow-x-auto scrollbar-hide border-b border-slate-200 mb-8 gap-6 sm:gap-8 snap-x">
+        <button type="button" onClick={() => setActiveTab("gestores")} className={`snap-start whitespace-nowrap pb-4 text-base font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "gestores" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
           <div className="flex items-center gap-2"><Users className="w-5 h-5" /> Gestores ({managers.length})</div>
           {activeTab === "gestores" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
         </button>
-        <button onClick={() => setActiveTab("utilizadores")} className={`pb-4 text-base font-bold transition-colors relative ${activeTab === "utilizadores" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
+        <button type="button" onClick={() => setActiveTab("utilizadores")} className={`snap-start whitespace-nowrap pb-4 text-base font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "utilizadores" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
           <div className="flex items-center gap-2"><User className="w-5 h-5" /> Utilizadores ({companyUsers.length})</div>
           {activeTab === "utilizadores" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
         </button>
-        <button onClick={() => setActiveTab("eventos")} className={`pb-4 text-base font-bold transition-colors relative ${activeTab === "eventos" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
+        <button type="button" onClick={() => setActiveTab("eventos")} className={`snap-start whitespace-nowrap pb-4 text-base font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "eventos" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
           <div className="flex items-center gap-2"><CalendarDays className="w-5 h-5" /> Eventos ({events.length})</div>
           {activeTab === "eventos" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
         </button>
       </div>
 
-      {/* Cartão de Conteúdo Principal */}
-      <div className="card-main p-8 min-h-[400px]">
+      <div className="card-main p-5 sm:p-6 lg:p-8 min-h-[400px]">
         {activeTab === "gestores" && renderAccountList(managers, "Gestores de Conta", "Gestor", "Ainda não existem gestores atribuídos a esta empresa.")}
         {activeTab === "utilizadores" && renderAccountList(companyUsers, "Utilizadores de Conta", "Utilizador", "Ainda não existem utilizadores atribuídos a esta empresa.")}
 
         {activeTab === "eventos" && (
           <div>
-            <div className="flex justify-between items-center mb-6">
+            <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
               <h2 className="text-xl font-bold text-slate-900">Eventos da Empresa</h2>
-              <button onClick={() => setShowEventModal(true)} className="bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center gap-2">
+              <button type="button" onClick={() => setShowEventModal(true)} className="w-full sm:w-auto bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
                 <CalendarPlus className="w-4 h-4" /> Criar Evento
               </button>
             </div>
             {sortedEvents.length === 0 ? (
               <div className="text-center py-12 text-slate-500">Esta empresa ainda não tem eventos criados.</div>
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
                 {sortedEvents.map(event => {
                   const progress = event.totalSeats > 0 ? Math.round((event.treatedSeats / event.totalSeats) * 100) : 0;
                   const isOneDayEvent = event.startDate && event.endDate && new Date(event.startDate).toLocaleDateString('pt-PT') === new Date(event.endDate).toLocaleDateString('pt-PT');
                   
                   return (
-                    <div key={event.id} className="card-nested-pop p-5 flex flex-col justify-between">
+                    <div key={event.id} className="card-nested-pop p-5 flex flex-col justify-between outline-none focus-visible:ring-2 focus-visible:ring-purple-500" tabIndex={0}>
                       <div>
                         <div className="flex justify-between items-start mb-2">
-                          <div>
-                            <h3 className="font-bold text-slate-900 text-lg mb-1">{event.name}</h3>
+                          <div className="min-w-0 pr-4">
+                            <h3 className="font-bold text-slate-900 text-lg mb-1 truncate" title={event.name}>{event.name}</h3>
                             <div className="flex flex-col gap-0.5 mt-1 mb-4">
                               {isOneDayEvent ? (
                                 <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Data:</strong> {new Date(event.startDate).toLocaleDateString('pt-PT')}</span>
@@ -477,9 +503,9 @@ function CompanyDetailsContent() {
                               )}
                             </div>
                           </div>
-                          <div className="flex gap-1">
-                            <button onClick={() => openEditEventModal(event)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors"><Edit2 className="w-5 h-5" /></button>
-                            <button onClick={() => promptDeleteEvent(event.id, event.name)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors"><Trash2 className="w-5 h-5" /></button>
+                          <div className="flex gap-1 shrink-0">
+                            <button type="button" onClick={() => openEditEventModal(event)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><Edit2 className="w-5 h-5" /></button>
+                            <button type="button" onClick={() => promptDeleteEvent(event.id, event.name)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500"><Trash2 className="w-5 h-5" /></button>
                           </div>
                         </div>
                         
@@ -498,7 +524,7 @@ function CompanyDetailsContent() {
                               {event.assignedUsers.map(au => (
                                 <span key={au.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-100 text-sm font-semibold text-purple-700 shadow-sm">
                                   {au.username}
-                                  <button onClick={() => promptRemoveAccess(event.id, au.id, au.username, event.name)} className="hover:bg-purple-200 p-0.5 rounded-md transition-colors"><X className="w-3.5 h-3.5" /></button>
+                                  <button type="button" onClick={() => promptRemoveAccess(event.id, au.id, au.username, event.name)} className="hover:bg-purple-200 p-0.5 rounded-md transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-700"><X className="w-3.5 h-3.5" /></button>
                                 </span>
                               ))}
                             </div>
@@ -507,13 +533,13 @@ function CompanyDetailsContent() {
                       </div>
                       
                       <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <Link href={`/events/${event.id}/guests?companyId=${id}`} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-700 font-bold py-2.5 rounded-xl transition-colors text-[13px]">
+                        <Link href={`/events/${event.id}/guests?companyId=${id}`} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-700 font-bold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                           <Users className="w-4 h-4" /> Convidados
                         </Link>
-                        <button onClick={() => openUploadModal(event.id)} className="w-full flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-bold py-2.5 rounded-xl transition-colors text-[13px]">
-                          <UploadCloud className="w-4 h-4" /> Importar
+                        <button type="button" onClick={() => setFilesModalEvent(event)} className="w-full flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-bold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                          <FileText className="w-4 h-4" /> Ficheiros
                         </button>
-                        <button onClick={() => openAssignModal(event)} className="w-full flex items-center justify-center gap-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-100 text-purple-700 font-bold py-2.5 rounded-xl transition-colors text-[13px]">
+                        <button type="button" onClick={() => openAssignModal(event)} className="w-full flex items-center justify-center gap-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-100 text-purple-700 font-bold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
                           <KeyRound className="w-4 h-4" /> Acessos
                         </button>
                       </div>
@@ -526,14 +552,50 @@ function CompanyDetailsContent() {
         )}
       </div>
 
+      {filesModalEvent && (
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+          <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><FileText className="w-5 h-5 text-emerald-600" /> Ficheiros do Evento</h3>
+              <button type="button" onClick={() => setFilesModalEvent(null)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"><X className="w-5 h-5" /></button>
+            </div>
+            <div className="p-5 sm:p-6">
+              <p className="text-sm text-slate-500 mb-6">Escolhe a operação que pretendes realizar para a lista de convidados do evento <strong className="text-slate-700">{filesModalEvent.name}</strong>.</p>
+              
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                <button 
+                  type="button"
+                  onClick={() => { openUploadModal(filesModalEvent.id); setFilesModalEvent(null); }} 
+                  className="flex flex-col items-center justify-center p-6 border border-slate-200 rounded-2xl hover:border-emerald-300 hover:bg-emerald-50 transition-colors group outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
+                >
+                  <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-emerald-600 mb-3 transition-colors" />
+                  <span className="font-bold text-slate-900 group-hover:text-emerald-700">Importar CSV</span>
+                  <span className="text-xs text-slate-500 mt-1">Carregar nova lista</span>
+                </button>
+                <button 
+                  type="button"
+                  disabled={isExporting}
+                  onClick={() => handleExportCsv(filesModalEvent.id, filesModalEvent.name)} 
+                  className="flex flex-col items-center justify-center p-6 border border-slate-200 rounded-2xl hover:border-blue-300 hover:bg-blue-50 transition-colors group outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50"
+                >
+                  {isExporting ? <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-3" /> : <Download className="w-8 h-8 text-slate-400 group-hover:text-blue-600 mb-3 transition-colors" />}
+                  <span className="font-bold text-slate-900 group-hover:text-blue-700">Exportar CSV</span>
+                  <span className="text-xs text-slate-500 mt-1">Descarregar dados</span>
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {showCreateAccountModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900">Novo {newAccountRole}</h3>
               <button onClick={() => setShowCreateAccountModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleCreateAccount} className="p-6 space-y-5">
+            <form onSubmit={handleCreateAccount} className="p-5 sm:p-6 space-y-5">
               <p className="text-sm text-slate-500">A palavra-passe será gerada automaticamente e enviada para o e-mail inserido.</p>
               <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome Completo</label><input type="text" required value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="Ex: João Silva" /></div>
               <div>
@@ -555,12 +617,12 @@ function CompanyDetailsContent() {
       {showAssignModal && assignEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="card-nested-pop w-full max-w-lg animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 shrink-0 rounded-t-[1.5rem]">
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 shrink-0 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-purple-600" /> Atribuir Acessos</h3>
               <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             
-            <div className="p-6 overflow-y-auto custom-scrollbar flex-1">
+            <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1">
               <p className="text-sm text-slate-500 mb-6 leading-relaxed">
                 Seleciona a equipa que queres atribuir ao evento <strong className="text-slate-800">{assignEvent.name}</strong>.
               </p>
@@ -570,15 +632,20 @@ function CompanyDetailsContent() {
                   {availableManagers.length === 0 ? (
                     <p className="text-sm text-slate-400 bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">Todos os gestores já têm acesso.</p>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {availableManagers.map(m => (
-                        <div key={m.id} onClick={() => toggleUserSelection(m.id)} className={`p-3 rounded-xl border cursor-pointer flex flex-col transition-all ${selectedUserIds.includes(m.id) ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-200'}`}>
+                        <button 
+                          type="button"
+                          key={m.id} 
+                          onClick={() => toggleUserSelection(m.id)} 
+                          className={`w-full text-left p-3 rounded-xl border flex flex-col transition-all outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-1 ${selectedUserIds.includes(m.id) ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-200'}`}
+                        >
                           <div className="flex items-center gap-2 mb-1">
-                            <input type="checkbox" readOnly checked={selectedUserIds.includes(m.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 cursor-pointer pointer-events-none" />
+                            <input type="checkbox" readOnly checked={selectedUserIds.includes(m.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 pointer-events-none" />
                             <span className={`text-sm font-bold truncate ${selectedUserIds.includes(m.id) ? 'text-blue-700' : 'text-slate-700'}`}>{m.username}</span>
                           </div>
                           <span className="text-[10px] text-slate-400 truncate pl-6">{m.email}</span>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -588,15 +655,20 @@ function CompanyDetailsContent() {
                   {availableUsers.length === 0 ? (
                     <p className="text-sm text-slate-400 bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">Todos os utilizadores já têm acesso.</p>
                   ) : (
-                    <div className="grid grid-cols-2 gap-2">
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
                       {availableUsers.map(u => (
-                        <div key={u.id} onClick={() => toggleUserSelection(u.id)} className={`p-3 rounded-xl border cursor-pointer flex flex-col transition-all ${selectedUserIds.includes(u.id) ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-white border-slate-200 hover:border-emerald-200'}`}>
+                        <button 
+                          type="button"
+                          key={u.id} 
+                          onClick={() => toggleUserSelection(u.id)} 
+                          className={`w-full text-left p-3 rounded-xl border flex flex-col transition-all outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-1 ${selectedUserIds.includes(u.id) ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-white border-slate-200 hover:border-emerald-200'}`}
+                        >
                           <div className="flex items-center gap-2 mb-1">
-                            <input type="checkbox" readOnly checked={selectedUserIds.includes(u.id)} className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 cursor-pointer pointer-events-none" />
+                            <input type="checkbox" readOnly checked={selectedUserIds.includes(u.id)} className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 pointer-events-none" />
                             <span className={`text-sm font-bold truncate ${selectedUserIds.includes(u.id) ? 'text-emerald-700' : 'text-slate-700'}`}>{u.username}</span>
                           </div>
                           <span className="text-[10px] text-slate-400 truncate pl-6">{u.email}</span>
-                        </div>
+                        </button>
                       ))}
                     </div>
                   )}
@@ -604,7 +676,7 @@ function CompanyDetailsContent() {
               </div>
             </div>
 
-            <div className="p-6 border-t border-slate-100 shrink-0 bg-white rounded-b-[1.5rem]">
+            <div className="p-5 sm:p-6 border-t border-slate-100 shrink-0 bg-white rounded-b-[1.5rem]">
               {assignError && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{assignError}</div>}
               <button 
                 onClick={handleAssignAccess} 
@@ -621,11 +693,11 @@ function CompanyDetailsContent() {
       {showEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="card-nested-pop w-full max-w-md">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900">Novo Evento</h3>
               <button onClick={() => setShowEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleCreateEvent} className="p-6 space-y-5">
+            <form onSubmit={handleCreateEvent} className="p-5 sm:p-6 space-y-5">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
                 <input type="text" required value={eventName} onChange={(e) => setEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
@@ -648,11 +720,11 @@ function CompanyDetailsContent() {
       {showEditEventModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Edit2 className="w-5 h-5 text-purple-600" /> Editar Evento</h3>
               <button onClick={() => setShowEditEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleUpdateEvent} className="p-6 space-y-5">
+            <form onSubmit={handleUpdateEvent} className="p-5 sm:p-6 space-y-5">
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
                 <input type="text" required value={editEventName} onChange={(e) => setEditEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
@@ -675,11 +747,11 @@ function CompanyDetailsContent() {
       {showUploadModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="card-nested-pop w-full max-w-lg animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><UploadCloud className="w-5 h-5 text-emerald-600" /> Importar CSV</h3>
               <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
-            <div className="p-6">
+            <div className="p-5 sm:p-6">
               {uploadSuccess ? (
                 <div className="bg-emerald-50 rounded-2xl flex flex-col items-center text-center p-6">
                   <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4"><FileText className="w-6 h-6 text-emerald-600" /></div>
@@ -699,7 +771,7 @@ function CompanyDetailsContent() {
                   <div className="max-h-64 overflow-y-auto mb-6 pr-2">
                     {Object.entries(groupedErrors).map(([type, lines]) => (
                       <details key={type} className="mb-2 bg-white rounded-xl border border-red-100 overflow-hidden group">
-                        <summary className="bg-white px-4 py-3.5 font-semibold text-slate-800 cursor-pointer hover:bg-red-50 flex items-center justify-between transition-colors">
+                        <summary className="bg-white px-4 py-3.5 font-semibold text-slate-800 cursor-pointer hover:bg-red-50 flex items-center justify-between transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500">
                           <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500"></span> {type}</span>
                           <span className="bg-red-100 text-red-800 text-xs py-1 px-2.5 rounded-lg font-bold">{lines.length} ocorrências</span>
                         </summary>
@@ -720,7 +792,7 @@ function CompanyDetailsContent() {
                       <div className="space-y-1 text-center">
                         <FileText className="mx-auto h-8 w-8 text-slate-400" />
                         <div className="flex text-sm text-slate-600 justify-center mt-2">
-                          <label htmlFor="csv-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-emerald-600 hover:text-emerald-500 focus-within:outline-none">
+                          <label htmlFor="csv-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-emerald-600 hover:text-emerald-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2">
                             <span>Procurar ficheiro .csv</span>
                             <input id="csv-upload" name="csv-upload" type="file" accept=".csv" className="sr-only" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setUploadFile(e.target.files[0]); }} />
                           </label>
@@ -732,10 +804,10 @@ function CompanyDetailsContent() {
                   <div>
                     <label className="block text-sm font-bold text-slate-700 mb-2">Método de Importação</label>
                     <div className="grid grid-cols-2 gap-3">
-                      <button type="button" onClick={() => setUploadMode("replace")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors ${uploadMode === 'replace' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
+                      <button type="button" onClick={() => setUploadMode("replace")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${uploadMode === 'replace' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
                         <Trash2 className={`w-5 h-5 mb-1 ${uploadMode === 'replace' ? 'text-emerald-600' : 'text-slate-400'}`} /> Substituir Lista
                       </button>
-                      <button type="button" onClick={() => setUploadMode("append")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors ${uploadMode === 'append' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
+                      <button type="button" onClick={() => setUploadMode("append")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${uploadMode === 'append' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
                         <CalendarPlus className={`w-5 h-5 mb-1 ${uploadMode === 'append' ? 'text-emerald-600' : 'text-slate-400'}`} /> Adicionar à Lista
                       </button>
                     </div>
@@ -759,7 +831,7 @@ function CompanyDetailsContent() {
       {/* MODAL GLOBAL DE CONFIRMAÇÃO (Liquid Glass) */}
       {confirmDialog && confirmDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
             <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
             <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
@@ -774,7 +846,7 @@ function CompanyDetailsContent() {
       {/* MODAL GLOBAL DE ALERTAS (Liquid Glass) */}
       {alertDialog && alertDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
             {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
             {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
             {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
@@ -784,14 +856,17 @@ function CompanyDetailsContent() {
           </div>
         </div>
       )}
+
     </div>
   );
 }
 
-export default function CompanyDetailsPageWrapper() {
-  return (
-    <Suspense fallback={<div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>}>
-      <CompanyDetailsContent />
-    </Suspense>
-  );
+function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: any) {
+  const [error, setError] = useState(false);
+  useEffect(() => { setError(false); }, [logoUrl]);
+  if (logoUrl && !error) {
+    const src = logoUrl.startsWith('http') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
+    return <div className={`relative bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
+  }
+  return <div className={`flex items-center justify-center bg-white border border-slate-100 rounded-2xl shadow-sm shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-slate-300`} /></div>;
 }

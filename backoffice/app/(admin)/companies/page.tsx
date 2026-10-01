@@ -106,19 +106,18 @@ export default function CompaniesPage() {
   const filteredCompanies = companies.filter(c => c.name.toLowerCase() !== "seatly admin");
 
   return (
-    <div className="w-full max-w-7xl mx-auto relative px-2 sm:px-4 lg:px-8 pb-10">
-      <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+    <div className="w-full max-w-7xl mx-auto pb-10 px-4 sm:px-6 lg:px-8">
+      <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900">Empresas Clientes</h1>
-          <p className="text-slate-500 mt-1">Gere as instâncias e acessos dos teus clientes.</p>
+          <p className="text-slate-500 mt-1 font-medium">Gere as instâncias e acessos dos teus clientes.</p>
         </div>
-        <Link href="/companies/new" className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-2xl transition-all flex items-center gap-2 shadow-lg shadow-slate-900/20">
+        <Link href="/companies/new" className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 sm:py-3 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20">
           <Plus className="w-5 h-5" /> Nova Empresa
         </Link>
       </header>
 
-      {/* ENVOLVEDOR PRINCIPAL (Cria o fundo cinzento translúcido para os cartões brancos sobressaírem) */}
-      <div className="card-main p-6 sm:p-8 min-h-[60vh]">
+      <div className="card-main p-5 sm:p-6 lg:p-8 min-h-[60vh]">
         {isLoading && <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>}
         {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 font-medium">{error}</div>}
 
@@ -129,21 +128,26 @@ export default function CompaniesPage() {
             <p className="text-slate-500 max-w-sm mb-6">Ainda não tens nenhum cliente registado na plataforma. Cria a tua primeira empresa para começar.</p>
           </div>
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {filteredCompanies.map((company) => (
               <div key={company.id} className="relative group">
-                <Link href={`/companies/${company.id}`} className="block card-nested-pop p-6 h-full flex flex-col hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/10">
+                <Link 
+                  href={`/companies/${company.id}`} 
+                  className="block card-nested-pop p-6 h-full flex flex-col hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/10 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
+                >
                   <div className="flex items-center gap-4 mb-6">
                     <SafeCompanyLogo logoUrl={company.logoUrl} companyName={company.name} className="w-16 h-16" fallbackSize="w-6 h-6" />
-                    <div className="flex-1 min-w-0 pr-8"><h3 className="text-lg font-bold text-slate-900 truncate">{company.name}</h3></div>
+                    <div className="flex-1 min-w-0 pr-8">
+                      <h3 className="text-lg font-bold text-slate-900 truncate" title={company.name}>{company.name}</h3>
+                    </div>
                   </div>
                   <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between text-sm font-semibold text-purple-600 group-hover:text-purple-700">
                     Gerir Empresa <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </div>
                 </Link>
-                <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                  <button onClick={() => openEditModal(company)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
-                  <button onClick={() => promptDeleteCompany(company.id, company.name)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
+                <div className="absolute top-4 right-4 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                  <button type="button" onClick={(e) => { e.preventDefault(); openEditModal(company); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><Edit2 className="w-4 h-4" /></button>
+                  <button type="button" onClick={(e) => { e.preventDefault(); promptDeleteCompany(company.id, company.name); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             ))}
@@ -154,11 +158,11 @@ export default function CompaniesPage() {
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Edit2 className="w-5 h-5 text-purple-600" /> Editar Empresa</h3>
               <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleEditSubmit} className="p-6 space-y-5">
+            <form onSubmit={handleEditSubmit} className="p-5 sm:p-6 space-y-5">
               <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome da Empresa</label><input type="text" required value={editCompanyName} onChange={(e) => setEditCompanyName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Novo Logótipo (Opcional)</label>
@@ -166,7 +170,7 @@ export default function CompaniesPage() {
                   <div className="space-y-1 text-center">
                     <Upload className="mx-auto h-8 w-8 text-slate-400" />
                     <div className="flex text-sm text-slate-600 justify-center">
-                      <label htmlFor="file-upload-edit" className="relative cursor-pointer bg-white rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none">
+                      <label htmlFor="file-upload-edit" className="relative cursor-pointer bg-white rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 focus-within:ring-offset-2">
                         <span>Carregar novo ficheiro</span>
                         <input id="file-upload-edit" name="file-upload-edit" type="file" className="sr-only" accept="image/png, image/jpeg, image/svg+xml" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setEditCompanyLogo(e.target.files[0]); }} />
                       </label>
@@ -182,10 +186,9 @@ export default function CompaniesPage() {
         </div>
       )}
 
-      {/* MODAL GLOBAL DE CONFIRMAÇÃO (Liquid Glass) */}
       {confirmDialog && confirmDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
             <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
             <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
@@ -197,10 +200,9 @@ export default function CompaniesPage() {
         </div>
       )}
 
-      {/* MODAL GLOBAL DE ALERTAS (Liquid Glass) */}
       {alertDialog && alertDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
             {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
             {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
             {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
@@ -221,9 +223,6 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
   if (logoUrl && !error) {
     const src = logoUrl.startsWith('http') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
     return <div className={`relative bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
-  }
-  if (companyName?.toLowerCase().includes("seatly admin") || companyName?.toLowerCase().includes("seatly")) {
-    return <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center shadow-sm ${className}`}><img src="/seatly_icon.png" alt="Seatly" className="w-full h-full object-cover" /></div>;
   }
   return <div className={`flex items-center justify-center bg-white border border-slate-100 rounded-2xl shadow-sm shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-slate-300`} /></div>;
 }
