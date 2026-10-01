@@ -104,29 +104,16 @@ namespace SeatingManagement.API.Controllers
 
         [HttpPut("{id}/logo")]
         [Authorize(Roles = "SuperAdmin")]
-        public async Task<IActionResult> UploadLogo(int id, IFormFile file)
+        public async Task<IActionResult> UploadLogo(int id, [FromBody] UpdateCompanyLogoDto dto)
         {
-            if (file == null || file.Length == 0)
-                return BadRequest(new { Message = "Nenhum ficheiro enviado." });
+            if (string.IsNullOrEmpty(dto.LogoBase64))
+                return BadRequest(new { Message = "Nenhuma imagem foi enviada." });
 
             var company = await _context.Companies.FindAsync(id);
             if (company == null) return NotFound(new { Message = "Empresa não encontrada." });
 
-            var uploadsFolder = Path.Combine(Directory.GetCurrentDirectory(), "wwwroot", "logos");
-            if (!Directory.Exists(uploadsFolder)) Directory.CreateDirectory(uploadsFolder);
-
-            var uniqueFileName = $"{Guid.NewGuid()}_{file.FileName}";
-            var filePath = Path.Combine(uploadsFolder, uniqueFileName);
-
-            using (var stream = new FileStream(filePath, FileMode.Create))
-            {
-                await file.CopyToAsync(stream);
-            }
-
-            var baseUrl = $"{Request.Scheme}://{Request.Host}";
-            var logoUrl = $"{baseUrl}/logos/{uniqueFileName}";
+            company.LogoUrl = dto.LogoBase64;
             
-            company.LogoUrl = logoUrl;
             await _context.SaveChangesAsync();
 
             var companyUserGuids = await _context.Users
@@ -141,7 +128,7 @@ namespace SeatingManagement.API.Controllers
             
             await _mqttService.PublishMessageAsync("seating/backoffice/companies", "REFRESH");
 
-            return Ok(new { Message = "Logótipo atualizado com sucesso!", LogoUrl = logoUrl });
+            return Ok(new { Message = "Logótipo atualizado com sucesso!", LogoUrl = company.LogoUrl });
         }
 
         [HttpDelete("{id}")]
@@ -201,7 +188,7 @@ namespace SeatingManagement.API.Controllers
         {
             var events = await _context.Events
                 .Where(e => e.CompanyId == id)
-                .OrderByDescending(e => e.StartDate) // 👈 ORDENAÇÃO AQUI (Do mais recente para o mais antigo)
+                .OrderByDescending(e => e.StartDate)
                 .Select(e => new 
                 {
                     Id = e.Id,

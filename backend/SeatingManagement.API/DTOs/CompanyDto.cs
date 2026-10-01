@@ -18,4 +18,9 @@ namespace SeatingManagement.API.DTOs
         public string Name { get; set; } = string.Empty;
         public string LogoUrl { get; set; } = string.Empty;
     }
+
+    public class UpdateCompanyLogoDto
+    {
+        public string LogoBase64 { get; set; } = string.Empty;
+    }
 }
