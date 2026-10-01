@@ -446,7 +446,8 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
   useEffect(() => { setError(false); }, [logoUrl]);
   if (companyName?.toLowerCase().includes("seatly admin") || companyName?.toLowerCase().includes("seatly")) return <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm shrink-0 flex items-center justify-center ${className}`}><img src="/seatly_icon.png" alt="Seatly Admin" className="w-full h-full object-cover" /></div>;
   if (!logoUrl || error) return <div className={`flex items-center justify-center bg-slate-100 border border-slate-200 rounded-2xl shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-slate-400`} /></div>;
-  const src = logoUrl.startsWith('http') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
+  
+  const src = logoUrl.startsWith('http') || logoUrl.startsWith('data:image') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
   return <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
 }
 
