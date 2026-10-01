@@ -344,7 +344,6 @@ export default function AuditsPage() {
         />
       </div>
 
-      {/* ENVOLVEDOR PRINCIPAL PARA A LISTAGEM DE EVENTOS */}
       <div className="card-main p-6 sm:p-8 min-h-[50vh]">
         {filteredEvents.length === 0 ? (
           <div className="text-center py-16">
@@ -354,35 +353,43 @@ export default function AuditsPage() {
           </div>
         ) : (
           <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEvents.map(event => (
-              <div
-                key={event.id}
-                onClick={() => openEventLogs(event)}
-                className="card-nested-pop hover:border-purple-300 hover:-translate-y-1 cursor-pointer group flex flex-col justify-between"
-              >
-                <div className="p-6">
-                  <div className="flex justify-end items-start mb-2">
-                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-purple-500 transition-colors" />
-                  </div>
-                  <h3 className="text-xl font-bold text-slate-900 mb-1 line-clamp-1">{event.name}</h3>
-                  <p className="text-sm font-semibold text-purple-600 mb-4">{event.companyName}</p>
-                  <div className="space-y-2">
-                    <div className="flex items-center text-sm text-slate-500">
-                      <CalendarDays className="w-4 h-4 mr-2" />
-                      {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "Sem data"}
+            {filteredEvents.map(event => {
+              const hasActivity = event.lastActivity && !event.lastActivity.startsWith("0001-01-01");
+
+              return (
+                /* ACESSIBILIDADE: Alterado de <div> para <button> para funcionar via TAB e ENTER */
+                <button
+                  type="button"
+                  key={event.id}
+                  onClick={() => openEventLogs(event)}
+                  className="text-left w-full card-nested-pop hover:border-purple-300 hover:-translate-y-1 cursor-pointer group flex flex-col justify-between"
+                >
+                  <div className="p-6 w-full">
+                    <div className="flex justify-end items-start mb-2">
+                      <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-purple-500 transition-colors" />
                     </div>
-                    <div className="flex items-center text-sm text-slate-500">
-                      <Activity className="w-4 h-4 mr-2" />
-                      Última ação: {event.lastActivity ? new Date(event.lastActivity).toLocaleDateString('pt-PT') : "N/A"}
+                    <h3 className="text-xl font-bold text-slate-900 mb-1 line-clamp-1">{event.name}</h3>
+                    <p className="text-sm font-semibold text-purple-600 mb-4">{event.companyName}</p>
+                    <div className="space-y-2">
+                      <div className="flex items-center text-sm text-slate-500">
+                        <CalendarDays className="w-4 h-4 mr-2 shrink-0" />
+                        {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "Sem data"}
+                      </div>
+                      <div className="flex items-center text-sm text-slate-500">
+                        <Activity className="w-4 h-4 mr-2 shrink-0" />
+                        {hasActivity 
+                          ? `Última ação: ${new Date(event.lastActivity!).toLocaleDateString('pt-PT')}` 
+                          : "Sem ações registadas"}
+                      </div>
                     </div>
                   </div>
-                </div>
-                <div className="bg-slate-50/50 backdrop-blur-sm px-6 py-4 border-t border-slate-100 rounded-b-[1.5rem] flex justify-between items-center">
-                  <span className="text-sm font-bold text-slate-600">Total de Registos</span>
-                  <span className="bg-purple-100 text-purple-700 py-1 px-3 rounded-xl text-sm font-extrabold">{event.totalLogs}</span>
-                </div>
-              </div>
-            ))}
+                  <div className="w-full bg-slate-50/50 backdrop-blur-sm px-6 py-4 border-t border-slate-100 rounded-b-[1.5rem] flex justify-between items-center">
+                    <span className="text-sm font-bold text-slate-600">Total de Registos</span>
+                    <span className="bg-purple-100 text-purple-700 py-1 px-3 rounded-xl text-sm font-extrabold">{event.totalLogs}</span>
+                  </div>
+                </button>
+              );
+            })}
           </div>
         )}
       </div>
@@ -466,9 +473,13 @@ export default function AuditsPage() {
                         <div className={`absolute -left-[17px] top-1 w-8 h-8 rounded-full border-4 border-slate-50 ${style.bg} ${style.color} flex items-center justify-center shadow-sm`}>
                           {style.icon}
                         </div>
-                        <div 
+                        
+                        {/* ACESSIBILIDADE: Alterado de <div> para <button> para funcionar via TAB e ENTER */}
+                        <button
+                          type="button"
                           onClick={() => isUpdatable ? setSelectedLogDetails(log) : null}
-                          className={`bg-white p-5 rounded-[1.5rem] border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all ${isUpdatable ? 'cursor-pointer hover:border-purple-300 hover:shadow-md ring-1 ring-transparent hover:ring-purple-100' : ''}`}
+                          disabled={!isUpdatable}
+                          className={`text-left w-full bg-white p-5 rounded-[1.5rem] border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all ${isUpdatable ? 'cursor-pointer hover:border-purple-300 hover:shadow-md' : 'cursor-default'}`}
                         >
                           <div className="flex justify-between items-start mb-3">
                             <span className={`text-[11px] uppercase tracking-wider font-extrabold px-3 py-1.5 rounded-xl border ${style.bg} ${style.color} ${style.border}`}>
@@ -503,13 +514,14 @@ export default function AuditsPage() {
                               </span>
                             )}
                           </div>
-                        </div>
+                        </button>
                       </div>
                     );
                   })}
                   {hasMore && displayedLogs.length > 0 && (
                     <div className="pt-6 pb-2 flex justify-center pl-6">
                       <button
+                        type="button"
                         onClick={loadMoreLogs}
                         disabled={isLoadingMore}
                         className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-600 hover:text-purple-600 rounded-2xl font-bold text-sm shadow-sm transition-all"
@@ -534,6 +546,7 @@ export default function AuditsPage() {
                 <FileJson className="w-5 h-5 text-purple-600" /> Detalhes da Alteração (Diff)
               </h3>
               <button
+                type="button"
                 onClick={() => setSelectedLogDetails(null)}
                 className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-white shadow-sm transition-colors border border-transparent hover:border-slate-200 bg-white"
               >
