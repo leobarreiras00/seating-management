@@ -106,8 +106,8 @@ export default function CompaniesPage() {
   const filteredCompanies = companies.filter(c => c.name.toLowerCase() !== "seatly admin");
 
   return (
-    <div className="w-full max-w-7xl mx-auto relative px-2 sm:px-4 lg:px-8">
-      <header className="flex flex-col md:flex-row md:items-center justify-between mb-10 gap-4">
+    <div className="w-full max-w-7xl mx-auto relative px-2 sm:px-4 lg:px-8 pb-10">
+      <header className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900">Empresas Clientes</h1>
           <p className="text-slate-500 mt-1">Gere as instâncias e acessos dos teus clientes.</p>
@@ -117,36 +117,39 @@ export default function CompaniesPage() {
         </Link>
       </header>
 
-      {isLoading && <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>}
-      {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 font-medium">{error}</div>}
+      {/* ENVOLVEDOR PRINCIPAL (Cria o fundo cinzento translúcido para os cartões brancos sobressaírem) */}
+      <div className="card-main p-6 sm:p-8 min-h-[60vh]">
+        {isLoading && <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>}
+        {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 font-medium">{error}</div>}
 
-      {!isLoading && !error && filteredCompanies.length === 0 ? (
-        <div className="card-main p-16 flex flex-col items-center text-center">
-          <div className="w-20 h-20 bg-slate-50 rounded-3xl flex items-center justify-center mb-4"><Building2 className="w-10 h-10 text-slate-300" /></div>
-          <h3 className="text-xl font-bold text-slate-900 mb-2">Sem empresas ativas</h3>
-          <p className="text-slate-500 max-w-sm mb-6">Ainda não tens nenhum cliente registado na plataforma. Cria a tua primeira empresa para começar.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-          {filteredCompanies.map((company) => (
-            <div key={company.id} className="relative group">
-              <Link href={`/companies/${company.id}`} className="block card-nested-pop p-6 h-full flex flex-col hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/10">
-                <div className="flex items-center gap-4 mb-6">
-                  <SafeCompanyLogo logoUrl={company.logoUrl} companyName={company.name} className="w-16 h-16" fallbackSize="w-6 h-6" />
-                  <div className="flex-1 min-w-0 pr-8"><h3 className="text-lg font-bold text-slate-900 truncate">{company.name}</h3></div>
+        {!isLoading && !error && filteredCompanies.length === 0 ? (
+          <div className="flex flex-col items-center text-center py-16">
+            <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-4 shadow-sm border border-slate-100"><Building2 className="w-10 h-10 text-slate-300" /></div>
+            <h3 className="text-xl font-bold text-slate-900 mb-2">Sem empresas ativas</h3>
+            <p className="text-slate-500 max-w-sm mb-6">Ainda não tens nenhum cliente registado na plataforma. Cria a tua primeira empresa para começar.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredCompanies.map((company) => (
+              <div key={company.id} className="relative group">
+                <Link href={`/companies/${company.id}`} className="block card-nested-pop p-6 h-full flex flex-col hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/10">
+                  <div className="flex items-center gap-4 mb-6">
+                    <SafeCompanyLogo logoUrl={company.logoUrl} companyName={company.name} className="w-16 h-16" fallbackSize="w-6 h-6" />
+                    <div className="flex-1 min-w-0 pr-8"><h3 className="text-lg font-bold text-slate-900 truncate">{company.name}</h3></div>
+                  </div>
+                  <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between text-sm font-semibold text-purple-600 group-hover:text-purple-700">
+                    Gerir Empresa <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
+                  </div>
+                </Link>
+                <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
+                  <button onClick={() => openEditModal(company)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
+                  <button onClick={() => promptDeleteCompany(company.id, company.name)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
                 </div>
-                <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between text-sm font-semibold text-purple-600 group-hover:text-purple-700">
-                  Gerir Empresa <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                </div>
-              </Link>
-              <div className="absolute top-4 right-4 flex gap-1 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none group-hover:pointer-events-auto">
-                <button onClick={() => openEditModal(company)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors"><Edit2 className="w-4 h-4" /></button>
-                <button onClick={() => promptDeleteCompany(company.id, company.name)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors"><Trash2 className="w-4 h-4" /></button>
               </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       {showEditModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
@@ -179,6 +182,7 @@ export default function CompaniesPage() {
         </div>
       )}
 
+      {/* MODAL GLOBAL DE CONFIRMAÇÃO (Liquid Glass) */}
       {confirmDialog && confirmDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
           <div className="card-nested-pop p-8 w-full max-w-sm text-center">
@@ -193,6 +197,7 @@ export default function CompaniesPage() {
         </div>
       )}
 
+      {/* MODAL GLOBAL DE ALERTAS (Liquid Glass) */}
       {alertDialog && alertDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
           <div className="card-nested-pop p-8 w-full max-w-sm text-center">
@@ -218,7 +223,7 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
     return <div className={`relative bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
   }
   if (companyName?.toLowerCase().includes("seatly admin") || companyName?.toLowerCase().includes("seatly")) {
-    return <div className={`relative bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}><img src="/seatly_icon.png" alt="Seatly" className="w-full h-full object-cover" /></div>;
+    return <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center shadow-sm ${className}`}><img src="/seatly_icon.png" alt="Seatly" className="w-full h-full object-cover" /></div>;
   }
-  return <div className={`flex items-center justify-center bg-slate-50 border border-slate-100 rounded-2xl shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-slate-300`} /></div>;
+  return <div className={`flex items-center justify-center bg-white border border-slate-100 rounded-2xl shadow-sm shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-slate-300`} /></div>;
 }

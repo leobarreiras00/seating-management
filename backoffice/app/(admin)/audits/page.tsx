@@ -325,8 +325,8 @@ export default function AuditsPage() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-8">
-      <div className="mb-10">
+    <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 pb-10">
+      <div className="mb-8">
         <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
           <History className="w-8 h-8 text-purple-600" /> Auditoria de Eventos
         </h1>
@@ -344,45 +344,48 @@ export default function AuditsPage() {
         />
       </div>
 
-      {filteredEvents.length === 0 ? (
-        <div className="text-center py-20 card-main">
-          <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-slate-900">Nenhum evento encontrado</h3>
-          <p className="text-slate-500 mt-1">Ainda não existem eventos com registos de auditoria.</p>
-        </div>
-      ) : (
-        <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
-          {filteredEvents.map(event => (
-            <div
-              key={event.id}
-              onClick={() => openEventLogs(event)}
-              className="card-nested-pop hover:border-purple-300 hover:-translate-y-1 cursor-pointer group flex flex-col justify-between"
-            >
-              <div className="p-6">
-                <div className="flex justify-end items-start mb-2">
-                  <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-purple-500 transition-colors" />
+      {/* ENVOLVEDOR PRINCIPAL PARA A LISTAGEM DE EVENTOS */}
+      <div className="card-main p-6 sm:p-8 min-h-[50vh]">
+        {filteredEvents.length === 0 ? (
+          <div className="text-center py-16">
+            <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
+            <h3 className="text-lg font-bold text-slate-900">Nenhum evento encontrado</h3>
+            <p className="text-slate-500 mt-1">Ainda não existem eventos com registos de auditoria.</p>
+          </div>
+        ) : (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {filteredEvents.map(event => (
+              <div
+                key={event.id}
+                onClick={() => openEventLogs(event)}
+                className="card-nested-pop hover:border-purple-300 hover:-translate-y-1 cursor-pointer group flex flex-col justify-between"
+              >
+                <div className="p-6">
+                  <div className="flex justify-end items-start mb-2">
+                    <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-purple-500 transition-colors" />
+                  </div>
+                  <h3 className="text-xl font-bold text-slate-900 mb-1 line-clamp-1">{event.name}</h3>
+                  <p className="text-sm font-semibold text-purple-600 mb-4">{event.companyName}</p>
+                  <div className="space-y-2">
+                    <div className="flex items-center text-sm text-slate-500">
+                      <CalendarDays className="w-4 h-4 mr-2" />
+                      {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "Sem data"}
+                    </div>
+                    <div className="flex items-center text-sm text-slate-500">
+                      <Activity className="w-4 h-4 mr-2" />
+                      Última ação: {event.lastActivity ? new Date(event.lastActivity).toLocaleDateString('pt-PT') : "N/A"}
+                    </div>
+                  </div>
                 </div>
-                <h3 className="text-xl font-bold text-slate-900 mb-1 line-clamp-1">{event.name}</h3>
-                <p className="text-sm font-semibold text-purple-600 mb-4">{event.companyName}</p>
-                <div className="space-y-2">
-                  <div className="flex items-center text-sm text-slate-500">
-                    <CalendarDays className="w-4 h-4 mr-2" />
-                    {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "Sem data"}
-                  </div>
-                  <div className="flex items-center text-sm text-slate-500">
-                    <Activity className="w-4 h-4 mr-2" />
-                    Última ação: {event.lastActivity ? new Date(event.lastActivity).toLocaleDateString('pt-PT') : "N/A"}
-                  </div>
+                <div className="bg-slate-50/50 backdrop-blur-sm px-6 py-4 border-t border-slate-100 rounded-b-[1.5rem] flex justify-between items-center">
+                  <span className="text-sm font-bold text-slate-600">Total de Registos</span>
+                  <span className="bg-purple-100 text-purple-700 py-1 px-3 rounded-xl text-sm font-extrabold">{event.totalLogs}</span>
                 </div>
               </div>
-              <div className="bg-slate-50/50 backdrop-blur-sm px-6 py-4 border-t border-slate-100 rounded-b-[1.5rem] flex justify-between items-center">
-                <span className="text-sm font-bold text-slate-600">Total de Registos</span>
-                <span className="bg-purple-100 text-purple-700 py-1 px-3 rounded-xl text-sm font-extrabold">{event.totalLogs}</span>
-              </div>
-            </div>
-          ))}
-        </div>
-      )}
+            ))}
+          </div>
+        )}
+      </div>
 
       {selectedEvent && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md">
@@ -418,7 +421,7 @@ export default function AuditsPage() {
               <select 
                 value={filterAction} 
                 onChange={(e) => setFilterAction(e.target.value)}
-                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
               >
                 <option value="ALL">Todas as Ações</option>
                 <option value="VALIDATE">Validações</option>
@@ -431,7 +434,7 @@ export default function AuditsPage() {
               <select 
                 value={filterRole} 
                 onChange={(e) => setFilterRole(e.target.value)}
-                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500"
+                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
               >
                 <option value="ALL">Todos os Cargos</option>
                 <option value="SuperAdmin">SuperAdmins</option>
@@ -441,7 +444,7 @@ export default function AuditsPage() {
               </select>
             </div>
 
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50">
+            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 rounded-b-[1.5rem]">
               {isLoadingLogs ? (
                 <div className="flex justify-center items-center h-full">
                   <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
