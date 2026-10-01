@@ -88,15 +88,31 @@ export default function CompaniesPage() {
     try {
       const token = localStorage.getItem("token");
       const currentCompany = companies.find(c => c.id === editCompanyId);
+      
       const resName = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${editCompanyId}`, {
         method: "PUT",
         headers: { "Content-Type": "application/json", Authorization: `Bearer ${token}` },
         body: JSON.stringify({ name: editCompanyName, logoUrl: currentCompany?.logoUrl }),
       });
       if (!resName.ok) throw new Error("Erro ao atualizar o nome da empresa.");
+
+      // Envio em formato Base64 JSON em vez de FormData
       if (editCompanyLogo) {
-        const formData = new FormData(); formData.append("file", editCompanyLogo);
-        const resLogo = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${editCompanyId}/logo`, { method: "PUT", headers: { Authorization: `Bearer ${token}` }, body: formData });
+        const base64String = await new Promise<string>((resolve, reject) => {
+          const reader = new FileReader();
+          reader.readAsDataURL(editCompanyLogo);
+          reader.onload = () => resolve(reader.result as string);
+          reader.onerror = error => reject(error);
+        });
+
+        const resLogo = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${editCompanyId}/logo`, { 
+          method: "PUT", 
+          headers: { 
+            "Content-Type": "application/json",
+            Authorization: `Bearer ${token}` 
+          }, 
+          body: JSON.stringify({ logoBase64: base64String }) 
+        });
         if (!resLogo.ok) throw new Error("O nome foi atualizado, mas ocorreu um erro no upload do novo logótipo.");
       }
       setShowEditModal(false); fetchCompanies();
@@ -146,7 +162,6 @@ export default function CompaniesPage() {
                   </div>
                 </Link>
                 
-                {/* ACESSIBILIDADE: focus-within:opacity-100 revela a barra de ações via teclado */}
                 <div className="absolute top-4 right-4 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                   <button type="button" onClick={(e) => { e.preventDefault(); openEditModal(company); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><Edit2 className="w-4 h-4" /></button>
                   <button type="button" onClick={(e) => { e.preventDefault(); promptDeleteCompany(company.id, company.name); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500"><Trash2 className="w-4 h-4" /></button>
@@ -214,7 +229,6 @@ export default function CompaniesPage() {
           </div>
         </div>
       )}
-
     </div>
   );
 }
@@ -223,8 +237,12 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
   const [error, setError] = useState(false);
   useEffect(() => { setError(false); }, [logoUrl]);
   if (logoUrl && !error) {
-    const src = logoUrl.startsWith('http') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
+    // Permite renderizar strings em base64 diretamente (data:image) além de URLs completos
+    const src = logoUrl.startsWith('http') || logoUrl.startsWith('data:image') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
     return <div className={`relative bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
+  }
+  if (companyName?.toLowerCase().includes("seatly admin") || companyName?.toLowerCase().includes("seatly")) {
+    return <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center shadow-sm ${className}`}><img src="/seatly_icon.png" alt="Seatly" className="w-full h-full object-cover" /></div>;
   }
   return <div className={`flex items-center justify-center bg-white border border-slate-100 rounded-2xl shadow-sm shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-slate-300`} /></div>;
 }
