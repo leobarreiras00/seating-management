@@ -112,7 +112,7 @@ export default function CompaniesPage() {
           <h1 className="text-3xl font-extrabold text-slate-900">Empresas Clientes</h1>
           <p className="text-slate-500 mt-1 font-medium">Gere as instâncias e acessos dos teus clientes.</p>
         </div>
-        <Link href="/companies/new" className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 sm:py-3 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20">
+        <Link href="/companies/new" className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 sm:py-3 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
           <Plus className="w-5 h-5" /> Nova Empresa
         </Link>
       </header>
@@ -145,7 +145,9 @@ export default function CompaniesPage() {
                     Gerir Empresa <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                   </div>
                 </Link>
-                <div className="absolute top-4 right-4 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 transition-opacity">
+                
+                {/* ACESSIBILIDADE: focus-within:opacity-100 revela a barra de ações via teclado */}
+                <div className="absolute top-4 right-4 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
                   <button type="button" onClick={(e) => { e.preventDefault(); openEditModal(company); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><Edit2 className="w-4 h-4" /></button>
                   <button type="button" onClick={(e) => { e.preventDefault(); promptDeleteCompany(company.id, company.name); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500"><Trash2 className="w-4 h-4" /></button>
                 </div>
@@ -160,7 +162,7 @@ export default function CompaniesPage() {
           <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
             <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Edit2 className="w-5 h-5 text-purple-600" /> Editar Empresa</h3>
-              <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
+              <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleEditSubmit} className="p-5 sm:p-6 space-y-5">
               <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome da Empresa</label><input type="text" required value={editCompanyName} onChange={(e) => setEditCompanyName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
@@ -180,7 +182,7 @@ export default function CompaniesPage() {
                 </div>
               </div>
               {editError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{editError}</div>}
-              <button type="submit" disabled={isEditing} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isEditing ? "A Guardar..." : "Guardar Alterações"}</button>
+              <button type="submit" disabled={isEditing} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">{isEditing ? "A Guardar..." : "Guardar Alterações"}</button>
             </form>
           </div>
         </div>
@@ -193,8 +195,8 @@ export default function CompaniesPage() {
             <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
             <div className="flex gap-3 w-full">
-              <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
-              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">Confirmar</button>
+              <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-slate-400">Cancelar</button>
+              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-slate-900">Confirmar</button>
             </div>
           </div>
         </div>
@@ -208,7 +210,7 @@ export default function CompaniesPage() {
             {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
             <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
-            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">OK, Entendido</button>
+            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-slate-900">OK, Entendido</button>
           </div>
         </div>
       )}

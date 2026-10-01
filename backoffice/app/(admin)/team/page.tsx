@@ -147,7 +147,6 @@ export default function TeamPage() {
     reader.readAsDataURL(file);
   };
 
-  // Separação dos SuperAdmins globais e agrupamento HIERÁRQUICO das empresas
   const { superAdmins, companyGroups } = useMemo(() => {
     const filtered = users.filter(u =>
       u.username.toLowerCase().includes(searchQuery.toLowerCase()) ||
@@ -158,9 +157,9 @@ export default function TeamPage() {
     const sAdmins: UserData[] = [];
     const groups: Record<string, {
       companyLogo?: string,
-      gestores: Record<string, UserData[]>, // Evento -> Gestores
-      utilizadores: Record<string, UserData[]>, // Evento -> Utilizadores
-      unassigned: UserData[] // Sem eventos
+      gestores: Record<string, UserData[]>,
+      utilizadores: Record<string, UserData[]>,
+      unassigned: UserData[]
     }> = {};
 
     filtered.forEach(u => {
@@ -203,7 +202,7 @@ export default function TeamPage() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto pb-10 px-2 sm:px-4 lg:px-8">
+    <div className="w-full max-w-7xl mx-auto pb-10 px-4 sm:px-6 lg:px-8">
       <div className="mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
@@ -213,8 +212,8 @@ export default function TeamPage() {
         </div>
         
         {currentUserRole === "SuperAdmin" && (
-          <button onClick={() => setShowCreateAdminModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3 px-6 rounded-2xl transition-all flex items-center gap-2 shadow-lg shadow-slate-900/20">
-            <Plus className="w-5 h-5" /> Novo SuperAdmin
+          <button type="button" onClick={() => setShowCreateAdminModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 sm:py-3 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+            <Plus className="w-5 h-5" /> Nova Conta Seatly
           </button>
         )}
       </div>
@@ -236,14 +235,13 @@ export default function TeamPage() {
           <h3 className="text-lg font-bold text-slate-900">Nenhum utilizador encontrado</h3>
         </div>
       ) : (
-        <div className="space-y-12">
-          {/* 1. SECÇÃO DE SUPERADMINS NO TOPO */}
+        <div className="space-y-8 sm:space-y-12">
           {superAdmins.length > 0 && (
-            <div className="card-main p-6">
-              <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-4 flex items-center gap-2">
-                <Shield className="w-4 h-4" /> Administração Central (SuperAdmins)
+            <div className="card-main p-6 sm:p-8">
+              <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+                <Shield className="w-4 h-4" /> Administração Central
               </h3>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
                 {superAdmins.map(user =>
                   <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />
                 )}
@@ -251,24 +249,22 @@ export default function TeamPage() {
             </div>
           )}
 
-          {/* 2. SECÇÃO DE EMPRESAS INDIVIDUAIS */}
           {Object.entries(companyGroups).map(([companyName, data]) => (
-            <div key={companyName} className="card-main p-6 lg:p-8">
+            <div key={companyName} className="card-main p-6 sm:p-8">
               <div className="flex items-center gap-4 mb-8">
                 <SafeCompanyLogo logoUrl={data.companyLogo} companyName={companyName} className="w-12 h-12" fallbackSize="w-6 h-6" />
                 <h2 className="text-2xl font-black text-slate-900">{companyName}</h2>
               </div>
 
-              {/* BLOCO GESTORES */}
               {Object.keys(data.gestores).length > 0 && (
                 <div className="mb-10">
                   <h3 className="text-sm font-black text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
                     <User className="w-4 h-4" /> Gestores da Empresa
                   </h3>
-                  <div className="pl-6 border-l-2 border-blue-100 ml-2 space-y-6">
+                  <div className="pl-4 sm:pl-6 border-l-2 border-blue-100 ml-2 space-y-6">
                     {Object.entries(data.gestores).map(([eventName, usersList]) => (
                       <div key={eventName} className="relative">
-                        <div className="absolute -left-[29px] top-1.5 w-2 h-2 bg-blue-400 rounded-full"></div>
+                        <div className="absolute -left-[21px] sm:-left-[29px] top-1.5 w-2 h-2 bg-blue-400 rounded-full"></div>
                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                           <CalendarDays className="w-3.5 h-3.5 text-blue-400" /> {eventName}
                         </h4>
@@ -281,16 +277,15 @@ export default function TeamPage() {
                 </div>
               )}
 
-              {/* BLOCO UTILIZADORES (STAFF) */}
               {Object.keys(data.utilizadores).length > 0 && (
                 <div className="mb-10">
                   <h3 className="text-sm font-black text-emerald-600 uppercase tracking-widest mb-4 flex items-center gap-2">
                     <Users className="w-4 h-4" /> Validadores (Staff)
                   </h3>
-                  <div className="pl-6 border-l-2 border-emerald-100 ml-2 space-y-6">
+                  <div className="pl-4 sm:pl-6 border-l-2 border-emerald-100 ml-2 space-y-6">
                     {Object.entries(data.utilizadores).map(([eventName, usersList]) => (
                       <div key={eventName} className="relative">
-                        <div className="absolute -left-[29px] top-1.5 w-2 h-2 bg-emerald-400 rounded-full"></div>
+                        <div className="absolute -left-[21px] sm:-left-[29px] top-1.5 w-2 h-2 bg-emerald-400 rounded-full"></div>
                         <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
                           <CalendarDays className="w-3.5 h-3.5 text-emerald-400" /> {eventName}
                         </h4>
@@ -303,7 +298,6 @@ export default function TeamPage() {
                 </div>
               )}
 
-              {/* CONTAS SEM ATRIBUIÇÃO */}
               {data.unassigned.length > 0 && (
                 <div className="pt-6 border-t border-slate-200/60 mt-4">
                   <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
@@ -319,15 +313,14 @@ export default function TeamPage() {
         </div>
       )}
 
-      {/* --- MODAL: CRIAR NOVO SUPER ADMIN --- */}
       {showCreateAdminModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Shield className="w-5 h-5 text-red-500" /> Novo SuperAdmin</h3>
-              <button onClick={() => setShowCreateAdminModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
+              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Shield className="w-5 h-5 text-red-500" /> Nova Conta Seatly</h3>
+              <button type="button" onClick={() => setShowCreateAdminModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleCreateSuperAdmin} className="p-6 space-y-5">
+            <form onSubmit={handleCreateSuperAdmin} className="p-5 sm:p-6 space-y-5">
               <p className="text-sm text-slate-500">A palavra-passe será gerada automaticamente e enviada para o e-mail inserido.</p>
               <div>
                 <label className="block text-sm font-bold text-slate-700 mb-2">Nome Completo</label>
@@ -350,17 +343,16 @@ export default function TeamPage() {
         </div>
       )}
 
-      {/* MODAL: Detalhes do Perfil */}
       {detailsModalOpen && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
-          <div className="card-nested-pop p-8 w-full max-w-md animate-in zoom-in-95 relative">
-            <button onClick={() => setDetailsModalOpen(null)} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors">
+          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-md animate-in zoom-in-95 relative">
+            <button type="button" onClick={() => setDetailsModalOpen(null)} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors outline-none focus-visible:ring-2 focus-visible:ring-slate-400">
               <X className="w-5 h-5" />
             </button>
             <div className="flex flex-col items-center mb-6 mt-4">
               <div className="relative group cursor-pointer w-24 h-24 rounded-[1.5rem] overflow-hidden mb-4 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-4 border-white transition-transform hover:scale-105">
                 <input type="file" accept="image/*" className="hidden" id="avatarUpload" onChange={handleImageUpload} disabled={isUploadingAvatar} />
-                <label htmlFor="avatarUpload" className="w-full h-full flex items-center justify-center cursor-pointer relative">
+                <label htmlFor="avatarUpload" className="w-full h-full flex items-center justify-center cursor-pointer relative outline-none focus-within:ring-2 focus-within:ring-purple-500">
                   <div className={`w-full h-full flex items-center justify-center ${
                     detailsModalOpen.role === "SuperAdmin" ? "bg-red-50 text-red-600" :
                     detailsModalOpen.role === "Gestor" ? "bg-blue-50 text-blue-600" : "bg-emerald-50 text-emerald-600"
@@ -386,7 +378,6 @@ export default function TeamPage() {
               )}
             </div>
 
-            {/* CAIXA DE EVENTOS */}
             {detailsModalOpen.role !== "SuperAdmin" && (
               <div className="card-nested-flat p-5">
                 <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
@@ -395,7 +386,7 @@ export default function TeamPage() {
                 {detailsModalOpen.events.length === 0 ? (
                   <p className="text-sm text-slate-500 font-medium">Este utilizador não tem nenhum evento atribuído.</p>
                 ) : (
-                  <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto pr-2">
+                  <div className="flex flex-col gap-2 max-h-[200px] overflow-y-auto custom-scrollbar pr-2">
                     {detailsModalOpen.events.map(ev => (
                       <div key={ev.id} className="bg-white border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-purple-500 shrink-0"></div>
@@ -410,31 +401,29 @@ export default function TeamPage() {
         </div>
       )}
 
-      {/* MODAL GLOBAL DE CONFIRMAÇÃO (Liquid Glass) */}
       {confirmDialog && confirmDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
             <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
             <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
             <div className="flex gap-3 w-full">
-              <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
-              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">Confirmar</button>
+              <button type="button" onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
+              <button type="button" onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">Confirmar</button>
             </div>
           </div>
         </div>
       )}
 
-      {/* MODAL GLOBAL DE ALERTAS (Liquid Glass) */}
       {alertDialog && alertDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
             {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
             {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
             {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
             <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
-            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">OK, Entendido</button>
+            <button type="button" onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">OK, Entendido</button>
           </div>
         </div>
       )}
@@ -461,6 +450,7 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
   return <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shadow-sm shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
 }
 
+// ACESSIBILIDADE CORRIGIDA (DIV para navegação com teclado no cartão)
 function UserCard({ user, currentUserRole, onClick, onDelete, onReset }: any) {
   const isSuperAdmin = user.role === "SuperAdmin";
   const isGestor = user.role === "Gestor";
@@ -468,23 +458,48 @@ function UserCard({ user, currentUserRole, onClick, onDelete, onReset }: any) {
   const canResetPassword = currentUserRole === "SuperAdmin";
   
   return (
-    <div onClick={onClick} className="card-nested-pop p-4 hover:border-purple-200 hover:-translate-y-1 transition-all group flex items-center justify-between cursor-pointer">
-      <div className="flex items-center gap-4">
+    <div 
+      role="button"
+      tabIndex={0}
+      onClick={onClick}
+      onKeyDown={(e) => {
+        if (e.key === 'Enter' || e.key === ' ') {
+          e.preventDefault();
+          onClick(e);
+        }
+      }}
+      className="card-nested-pop p-4 hover:border-purple-200 hover:-translate-y-1 transition-all group flex items-center justify-between cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
+    >
+      <div className="flex items-center gap-3 sm:gap-4 min-w-0 pr-2">
         <div className={`w-12 h-12 rounded-[1rem] flex items-center justify-center shrink-0 border overflow-hidden relative shadow-sm ${colorClass}`}>
           <SafeAvatar user={user} iconSize="w-6 h-6" />
         </div>
-        <div className="flex flex-col">
-          <h4 className="font-extrabold text-slate-900 line-clamp-1">{user.username}</h4>
+        <div className="flex flex-col min-w-0">
+          <h4 className="font-extrabold text-slate-900 truncate" title={user.username}>{user.username}</h4>
           <span className="text-[10px] font-medium text-slate-500 truncate mt-0.5">{user.email}</span>
         </div>
       </div>
-      <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
+      
+      {/* ACESSIBILIDADE: focus-within inserido para tornar os botões visíveis no TAB */}
+      <div className="flex items-center gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity shrink-0">
         {canResetPassword && (
-          <button onClick={onReset} title="Enviar Link de Recuperação" className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-colors">
+          <button 
+            type="button" 
+            onClick={(e) => { e.stopPropagation(); onReset(e); }} 
+            onKeyDown={(e) => e.stopPropagation()} // Previne que o ENTER ative o cartão principal
+            title="Enviar Link de Recuperação" 
+            className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-xl transition-colors outline-none focus-visible:ring-2 focus-visible:ring-amber-500 bg-white"
+          >
             <Lock className="w-4 h-4" />
           </button>
         )}
-        <button onClick={onDelete} title="Apagar Conta" className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors">
+        <button 
+          type="button" 
+          onClick={(e) => { e.stopPropagation(); onDelete(e); }} 
+          onKeyDown={(e) => e.stopPropagation()} // Previne que o ENTER ative o cartão principal
+          title="Apagar Conta" 
+          className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-xl transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500 bg-white"
+        >
           <Trash2 className="w-4 h-4" />
         </button>
       </div>
