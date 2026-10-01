@@ -870,3 +870,11 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
   }
   return <div className={`flex items-center justify-center bg-white border border-slate-100 rounded-2xl shadow-sm shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-slate-300`} /></div>;
 }
+
+export default function CompanyDetailsPageWrapper() {
+  return (
+    <Suspense fallback={<div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>}>
+      <CompanyDetailsContent />
+    </Suspense>
+  );
+}
