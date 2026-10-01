@@ -1,0 +1,132 @@
+name: CI
+
+on:
+  push:
+    branches: [develop]
+  pull_request:
+    branches: [main, develop]
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  changes:
+    name: Detect changes
+    runs-on: ubuntu-24.04
+    outputs:
+      backend: ${{ steps.diff.outputs.backend }}
+      web: ${{ steps.diff.outputs.web }}
+      android: ${{ steps.diff.outputs.android }}
+      base: ${{ steps.diff.outputs.base }}
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - id: diff
+        shell: bash
+        run: |
+          if [ "${{ github.event_name }}" = "pull_request" ]; then
+            BASE="${{ github.event.pull_request.base.sha }}"
+          else
+            BASE="${{ github.event.before }}"
+          fi
+          if [ -z "$BASE" ] || [ "$BASE" = "0000000000000000000000000000000000000000" ] || ! git cat-file -e "$BASE^{commit}" 2>/dev/null; then
+            echo "No usable base commit - running every job."
+            echo "backend=true" >> "$GITHUB_OUTPUT"
+            echo "web=true" >> "$GITHUB_OUTPUT"
+            echo "android=true" >> "$GITHUB_OUTPUT"
+            echo "base=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          FILES=$(git diff --name-only "$BASE" "${{ github.sha }}")
+          echo "$FILES"
+          flag() { if echo "$FILES" | grep -qE "$1"; then echo true; else echo false; fi; }
+          echo "backend=$(flag '^(backend/|\.github/workflows/ci\.yml)')" >> "$GITHUB_OUTPUT"
+          echo "web=$(flag '^(backoffice/|\.github/workflows/ci\.yml)')" >> "$GITHUB_OUTPUT"
+          echo "android=$(flag '^(frontend/|\.github/workflows/ci\.yml)')" >> "$GITHUB_OUTPUT"
+          echo "base=$BASE" >> "$GITHUB_OUTPUT"
+
+  secret-scan:
+    name: Secret scan (Gitleaks)
+    runs-on: ubuntu-24.04
+    needs: changes
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          fetch-depth: 0
+      - name: Install Gitleaks
+        run: |
+          curl -sSL https://github.com/gitleaks/gitleaks/releases/download/v8.30.1/gitleaks_8.30.1_linux_x64.tar.gz | tar -xz gitleaks
+      - name: Scan new commits only
+        run: |
+          BASE="${{ needs.changes.outputs.base }}"
+          if [ -n "$BASE" ]; then RANGE="$BASE..${{ github.sha }}"; else RANGE="-1"; fi
+          ./gitleaks git --redact --verbose --log-opts="$RANGE" .
+
+  backend:
+    name: Backend (.NET)
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-dotnet@v5
+        with:
+          dotnet-version: 10.0.x
+      - run: dotnet restore backend/SeatingManagement.API.Tests/SeatingManagement.API.Tests.csproj
+      - run: dotnet build backend/SeatingManagement.API.Tests/SeatingManagement.API.Tests.csproj --no-restore -c Release
+      - run: dotnet test backend/SeatingManagement.API.Tests/SeatingManagement.API.Tests.csproj --no-build -c Release --logger "trx;LogFileName=results.trx"
+      - uses: actions/upload-artifact@v5
+        if: always()
+        with:
+          name: backend-test-results
+          path: "**/results.trx"
+
+  web:
+    name: Backoffice (Next.js)
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.web == 'true'
+    defaults:
+      run:
+        working-directory: backoffice
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-node@v6
+        with:
+          node-version: 22
+          cache: npm
+          cache-dependency-path: backoffice/package-lock.json
+      - run: npm ci
+      # Lint debt (63 errors / 29 warnings at 2026-10-01) is reported but not blocking yet.
+      # Switch to blocking once the backlog is cleared.
+      - name: Lint (informational)
+        run: npm run lint
+        continue-on-error: true
+      - name: Build
+        run: npm run build
+        env:
+          NEXT_PUBLIC_API_URL: http://localhost:8080
+          NEXT_PUBLIC_MQTT_URL: ws://localhost:9001
+
+  android:
+    name: Android (Gradle)
+    runs-on: ubuntu-24.04
+    needs: changes
+    if: needs.changes.outputs.android == 'true'
+    defaults:
+      run:
+        working-directory: frontend/SeatingManagementApp
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+          cache: gradle
+      - run: chmod +x gradlew
+      - run: ./gradlew lintDebug assembleDebug --no-daemon
