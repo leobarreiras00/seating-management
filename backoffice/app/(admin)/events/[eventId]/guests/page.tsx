@@ -2,7 +2,7 @@
 
 import { useEffect, useState, useCallback, useMemo, Suspense } from "react";
 import { useParams, useRouter, useSearchParams } from "next/navigation";
-import { ChevronLeft, Search, Plus, Edit2, Trash2, X, AlertTriangle, CheckCircle2, Info, Users, UserPlus, ArrowUpDown, ArrowUp, ArrowDown } from "lucide-react";
+import { ChevronLeft, Search, Plus, Edit2, Trash2, X, AlertTriangle, CheckCircle2, Info, Users, UserPlus, ArrowUpDown, ArrowUp, ArrowDown, Download } from "lucide-react";
 import mqtt from "mqtt";
 
 interface Guest {
@@ -190,6 +190,28 @@ function ManageGuestsContent() {
     });
   };
 
+  const handleExportCsv = () => {
+    if (guests.length === 0) {
+      setAlertDialog({ isOpen: true, title: "Lista Vazia", message: "Não existem convidados para exportar.", type: 'info' });
+      return;
+    }
+
+    let csvContent = "MESA;LUGAR;CATEGORIA;NOME;ESTADO\n";
+    guests.forEach((g) => {
+      const status = g.status === 1 ? "Validado" : "Pendente";
+      csvContent += `"${g.tableName}";"${g.seatNumber}";"${g.category}";"${g.guestName}";"${status}"\n`;
+    });
+
+    const blob = new Blob(["\uFEFF" + csvContent], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const link = document.createElement("a");
+    link.href = url;
+    link.setAttribute("download", `Lista_Convidados_Evento_${eventId}.csv`);
+    document.body.appendChild(link);
+    link.click();
+    document.body.removeChild(link);
+  };
+
   const handleGoBack = () => {
     if (companyId) {
       router.push(`/companies/${companyId}?tab=eventos`);
@@ -201,23 +223,30 @@ function ManageGuestsContent() {
   if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
 
   return (
-    <div className="w-full max-w-7xl mx-auto relative px-2 sm:px-4 lg:px-8">
-      <button onClick={handleGoBack} className="inline-flex items-center text-slate-500 hover:text-purple-600 font-medium mb-8 transition-colors">
+    <div className="w-full max-w-7xl mx-auto relative px-4 sm:px-6 lg:px-8 pb-10">
+      <button onClick={handleGoBack} className="inline-flex items-center text-slate-500 hover:text-purple-600 font-medium mb-8 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-md">
         <ChevronLeft className="w-5 h-5 mr-1" /> Voltar ao Evento
       </button>
 
-      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-4">
+      <div className="flex flex-col md:flex-row md:items-center justify-between mb-8 gap-5">
         <div>
           <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3"><Users className="w-8 h-8 text-purple-600" /> Gestão de Convidados</h1>
           <p className="text-slate-500 mt-1">Gere individualmente a lista de convidados e adiciona walk-ins.</p>
         </div>
-        <button onClick={openAddModal} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-6 rounded-2xl transition-all flex items-center gap-2 shadow-lg shadow-purple-600/20">
-          <UserPlus className="w-5 h-5" /> Adicionar Walk-in
-        </button>
+        
+        {/* ALTERAÇÃO: Agrupamento dos botões Exportar e Adicionar */}
+        <div className="flex flex-col sm:flex-row gap-3 w-full md:w-auto">
+          <button onClick={handleExportCsv} className="w-full sm:w-auto bg-white hover:bg-slate-50 text-slate-700 border border-slate-200 font-bold py-3 px-5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400">
+            <Download className="w-4 h-4" /> Exportar CSV
+          </button>
+          <button onClick={openAddModal} className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-5 rounded-xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-purple-600/20 outline-none focus-visible:ring-2 focus-visible:ring-purple-700 focus-visible:ring-offset-1">
+            <UserPlus className="w-4 h-4" /> Adicionar Walk-in
+          </button>
+        </div>
       </div>
 
       <div className="card-main overflow-hidden">
-        <div className="p-6 border-b border-slate-200/50 flex items-center">
+        <div className="p-5 sm:p-6 border-b border-slate-200/50 flex items-center">
           <div className="relative w-full max-w-md">
             <Search className="w-5 h-5 absolute left-4 top-1/2 -translate-y-1/2 text-slate-400" />
             <input type="text" placeholder="Pesquisar por nome, mesa ou categoria..." value={searchQuery} onChange={(e) => setSearchQuery(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border border-white/60 bg-white/60 text-slate-900 focus:ring-2 focus:ring-purple-500 focus:bg-white outline-none transition-all shadow-sm" />
@@ -225,7 +254,7 @@ function ManageGuestsContent() {
         </div>
 
         <div className="overflow-x-auto">
-          <table className="w-full text-left border-collapse">
+          <table className="w-full text-left border-collapse min-w-[700px]">
             <thead>
               <tr className="border-b border-slate-200/50 text-slate-500 text-sm select-none bg-slate-50/50">
                 <th onClick={() => handleSort("guestName")} className="py-4 px-6 font-bold uppercase tracking-wider cursor-pointer hover:bg-slate-200/30 transition-colors">
@@ -259,8 +288,8 @@ function ManageGuestsContent() {
                     </td>
                     <td className="py-4 px-6 text-right">
                       <div className="flex justify-end gap-2">
-                        <button onClick={() => openEditModal(guest)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 bg-white rounded-lg border border-slate-200 transition-colors shadow-sm"><Edit2 className="w-4 h-4" /></button>
-                        <button onClick={() => promptDeleteGuest(guest.id, guest.guestName)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 bg-white rounded-lg border border-slate-200 transition-colors shadow-sm"><Trash2 className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => openEditModal(guest)} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 bg-white rounded-lg border border-slate-200 transition-colors shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><Edit2 className="w-4 h-4" /></button>
+                        <button type="button" onClick={() => promptDeleteGuest(guest.id, guest.guestName)} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 bg-white rounded-lg border border-slate-200 transition-colors shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-red-500"><Trash2 className="w-4 h-4" /></button>
                       </div>
                     </td>
                   </tr>
@@ -271,15 +300,14 @@ function ManageGuestsContent() {
         </div>
       </div>
 
-      {/* CRUD Modal */}
       {showModal && (
         <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
           <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
               <h3 className="text-xl font-bold text-slate-900">{modalMode === "add" ? "Adicionar Walk-in" : "Editar Convidado"}</h3>
-              <button onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
+              <button type="button" onClick={() => setShowModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"><X className="w-5 h-5" /></button>
             </div>
-            <form onSubmit={handleSubmit} className="p-6 space-y-4">
+            <form onSubmit={handleSubmit} className="p-5 sm:p-6 space-y-4">
               <div><label className="block text-sm font-bold text-slate-700 mb-1">Nome Completo</label><input type="text" required value={formData.guestName} onChange={e => setFormData({...formData, guestName: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
               <div><label className="block text-sm font-bold text-slate-700 mb-1">Categoria</label><input type="text" required value={formData.category} onChange={e => setFormData({...formData, category: e.target.value})} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
               <div className="grid grid-cols-2 gap-4">
@@ -296,24 +324,24 @@ function ManageGuestsContent() {
       {/* Global Dialogs */}
       {confirmDialog && confirmDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
-          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
             <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
             <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
-            <div className="flex gap-3"><button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">Cancelar</button><button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800">Confirmar</button></div>
+            <div className="flex gap-3 w-full"><button type="button" onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200">Cancelar</button><button type="button" onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800">Confirmar</button></div>
           </div>
         </div>
       )}
       
       {alertDialog && alertDialog.isOpen && (
         <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
-          <div className="card-nested-pop p-8 w-full max-w-sm text-center">
+          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
             {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex mx-auto items-center justify-center mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
             {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex mx-auto items-center justify-center mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
             {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex mx-auto items-center justify-center mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
             <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
-            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800">OK, Entendido</button>
+            <button type="button" onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800">OK, Entendido</button>
           </div>
         </div>
       )}

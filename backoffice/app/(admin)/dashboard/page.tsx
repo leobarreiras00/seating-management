@@ -72,8 +72,8 @@ export default function DashboardPage() {
   const activeEventsCount = data?.eventsProgress ? Math.min(data.eventsProgress.length, 10) : 0;
 
   return (
-    <div className="w-full max-w-7xl mx-auto pb-10 px-2 sm:px-4 lg:px-8">
-      <header className="mb-8 lg:mb-10 pl-2">
+    <div className="w-full max-w-7xl mx-auto pb-10 px-4 sm:px-6 lg:px-8">
+      <header className="mb-8 lg:mb-10">
         <h1 className="text-3xl lg:text-4xl font-extrabold text-slate-900 tracking-tight">
           Visão Geral
         </h1>
@@ -92,7 +92,13 @@ export default function DashboardPage() {
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         
         {/* Gráfico 1: Ritmo de Entradas */}
-        <div className={`card-main p-6 lg:p-8 ${activeEventsCount > 0 ? "lg:col-span-2" : "lg:col-span-3"}`}>
+        {/* ACESSIBILIDADE: Adicionado tabIndex e focus-visible para navegação por teclado */}
+        <div 
+          tabIndex={0}
+          role="region"
+          aria-label="Gráfico de Ritmo de Validações"
+          className={`card-main p-5 sm:p-6 lg:p-8 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 transition-shadow ${activeEventsCount > 0 ? "lg:col-span-2" : "lg:col-span-3"}`}
+        >
           <div className="mb-6">
             <h2 className="text-xl font-extrabold text-slate-900">Ritmo de Validações</h2>
             <p className="text-slate-500 text-sm font-medium mt-1">Volume de entradas nas últimas 12 horas</p>
@@ -128,7 +134,12 @@ export default function DashboardPage() {
 
         {/* Gráfico 2: Progresso dos Eventos (Ocultado se não houver eventos ativos) */}
         {activeEventsCount > 0 && (
-          <div className="card-main p-6 lg:p-8">
+          <div 
+            tabIndex={0}
+            role="region"
+            aria-label="Progresso dos eventos ativos"
+            className="card-main p-5 sm:p-6 lg:p-8 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 transition-shadow"
+          >
             <div className="mb-6">
               <h2 className="text-xl font-extrabold text-slate-900">Progresso</h2>
               <p className="text-slate-500 text-sm font-medium mt-1">
@@ -162,8 +173,14 @@ export default function DashboardPage() {
 
 function StatCard({ title, value, icon: Icon, color, lightColor, textColor }: any) {
   return (
-    <div className="card-nested-pop p-4 xl:p-6 hover:-translate-y-1 transition-transform group flex items-center overflow-hidden relative">
-      <div className={`absolute -right-6 -top-6 w-24 h-24 ${lightColor} rounded-full blur-2xl group-hover:scale-150 transition-transform pointer-events-none`}></div>
+    /* ACESSIBILIDADE: Adicionado tabIndex e pseudo-classes focus-visible para interatividade de teclado */
+    <div 
+      tabIndex={0}
+      role="article"
+      aria-label={`${title}: ${value}`}
+      className="card-nested-pop p-4 xl:p-6 hover:-translate-y-1 focus-visible:-translate-y-1 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 transition-all group flex items-center overflow-hidden relative"
+    >
+      <div className={`absolute -right-6 -top-6 w-24 h-24 ${lightColor} rounded-full blur-2xl group-hover:scale-150 group-focus-visible:scale-150 transition-transform pointer-events-none`}></div>
       <div className={`w-12 h-12 xl:w-16 xl:h-16 ${lightColor} ${textColor} rounded-[1.25rem] flex items-center justify-center mr-3 xl:mr-4 shrink-0 relative z-10`}>
         <Icon className="w-6 h-6 xl:w-8 xl:h-8" />
       </div>
