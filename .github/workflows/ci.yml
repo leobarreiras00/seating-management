@@ -16,7 +16,7 @@ concurrency:
 jobs:
   changes:
     name: Detect changes
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     outputs:
       backend: ${{ steps.diff.outputs.backend }}
       web: ${{ steps.diff.outputs.web }}
@@ -52,7 +52,7 @@ jobs:
 
   secret-scan:
     name: Secret scan (Gitleaks)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: changes
     steps:
       - uses: actions/checkout@v6
@@ -69,7 +69,7 @@ jobs:
 
   backend:
     name: Backend (.NET)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: changes
     if: needs.changes.outputs.backend == 'true'
     steps:
@@ -88,7 +88,7 @@ jobs:
 
   web:
     name: Backoffice (Next.js)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: changes
     if: needs.changes.outputs.web == 'true'
     defaults:
@@ -115,7 +115,7 @@ jobs:
 
   android:
     name: Android (Gradle)
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-24.04
     needs: changes
     if: needs.changes.outputs.android == 'true'
     defaults:
