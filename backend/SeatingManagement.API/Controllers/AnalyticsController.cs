@@ -2,6 +2,7 @@ using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SeatingManagement.API.Data;
+using SeatingManagement.API.Services;
 
 namespace SeatingManagement.API.Controllers
 {
@@ -11,23 +12,33 @@ namespace SeatingManagement.API.Controllers
     public class AnalyticsController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IEventAccessService _access;
 
-        public AnalyticsController(AppDbContext context)
+        public AnalyticsController(AppDbContext context, IEventAccessService access)
         {
             _context = context;
+            _access = access;
         }
 
         [HttpGet("dashboard")]
         public async Task<IActionResult> GetDashboardStats()
         {
-            var totalCompanies = await _context.Companies.CountAsync();
-            var totalEvents = await _context.Events.CountAsync();
-            var totalSeats = await _context.Seats.CountAsync();
+            // Only data of events the caller may access is counted.
+            var accessibleEvents = _access.AccessibleEvents(User);
+            var eventIds = await accessibleEvents.Select(e => e.Id).ToListAsync();
+
+            var totalCompanies = User.IsInRole("SuperAdmin")
+                ? await _context.Companies.CountAsync()
+                : await accessibleEvents.Select(e => e.CompanyId).Distinct().CountAsync();
+            var totalEvents = eventIds.Count;
+
+            var seatsInScope = _context.Seats.Where(s => eventIds.Contains(s.EventId));
+            var totalSeats = await seatsInScope.CountAsync();
             
-            var validatedSeats = await _context.Seats.CountAsync(s => (int)s.Status != 0);
+            var validatedSeats = await seatsInScope.CountAsync(s => (int)s.Status != 0);
 
             var twelveHoursAgo = DateTime.UtcNow.AddHours(-12);
-            var recentValidations = await _context.Seats
+            var recentValidations = await seatsInScope
                 .Where(s => s.MarkedAt != null && s.MarkedAt >= twelveHoursAgo && (int)s.Status != 0)
                 .ToListAsync();
 
@@ -41,6 +52,7 @@ namespace SeatingManagement.API.Controllers
                 .ToList();
 
             var eventsProgressRaw = await _context.Events
+                .Where(e => eventIds.Contains(e.Id))
                 .Select(e => new {
                     Name = e.Name,
                     Total = _context.Seats.Count(s => s.EventId == e.Id),

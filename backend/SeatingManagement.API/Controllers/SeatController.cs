@@ -29,14 +29,17 @@ namespace SeatingManagement.API.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IMqttService _mqttService;
+        private readonly IEventAccessService _access;
 
-        public SeatController(AppDbContext context, IMqttService mqttService)
+        public SeatController(AppDbContext context, IMqttService mqttService, IEventAccessService access)
         {
             _context = context;
             _mqttService = mqttService;
+            _access = access;
         }
 
         [HttpGet]
+        [Authorize(Roles = "SuperAdmin")]
         public async Task<ActionResult<IEnumerable<SeatDto>>> GetSeats()
         {
             return await _context.Seats.Select(s => new SeatDto
@@ -54,6 +57,8 @@ namespace SeatingManagement.API.Controllers
         [HttpGet("{eventId}")]
         public async Task<ActionResult<IEnumerable<SeatDto>>> GetSeatsByEvent(int eventId)
         {
+            if (!await _access.CanAccessEventAsync(User, eventId)) return Forbid();
+
             var seats = await _context.Seats
                 .Where(s => s.EventId == eventId)
                 .Select(s => new SeatDto
@@ -75,7 +80,7 @@ namespace SeatingManagement.API.Controllers
         public async Task<IActionResult> UpdateSeatStatus(int id, [FromBody] UpdateSeatStatusDto request)
         {
             var seat = await _context.Seats.FindAsync(id);
-            if (seat == null) return NotFound("Lugar não encontrado.");
+            if (seat == null || !await _access.CanAccessEventAsync(User, seat.EventId)) return NotFound("Lugar não encontrado.");
 
             if (!Enum.TryParse(request.Status, true, out SeatStatus statusEnum))
                 return BadRequest("Estado inválido.");
@@ -94,6 +99,8 @@ namespace SeatingManagement.API.Controllers
         [HttpPut("{eventId}/update/{seatId}")]
         public async Task<IActionResult> UpdateSingleSeat(int eventId, int seatId, [FromBody] UpdateSingleSeatDto request)
         {
+            if (!await _access.CanAccessEventAsync(User, eventId)) return Forbid();
+
             var seat = await _context.Seats.FirstOrDefaultAsync(s => s.EventId == eventId && s.Id == seatId);
             
             if (seat == null) 
@@ -132,6 +139,8 @@ namespace SeatingManagement.API.Controllers
         [HttpPost("validate-ticket")]
         public async Task<IActionResult> ValidateTicket([FromBody] ValidateTicketDto request)
         {
+            if (!await _access.CanAccessEventAsync(User, request.EventId)) return Forbid();
+
             var seat = await _context.Seats
                 .FirstOrDefaultAsync(s => s.EventId == request.EventId && s.SeatNumber == request.TicketHash);
 
@@ -169,6 +178,8 @@ namespace SeatingManagement.API.Controllers
         [HttpPut("{eventId}/bulk-status")]
         public async Task<IActionResult> BulkUpdateStatus(int eventId, [FromBody] BulkUpdateDto request)
         {
+            if (!await _access.CanAccessEventAsync(User, eventId)) return Forbid();
+
             if (!Enum.TryParse(request.Status, true, out SeatStatus statusEnum))
                 return BadRequest(new { Message = "Estado inválido." });
 
@@ -208,6 +219,8 @@ namespace SeatingManagement.API.Controllers
         [HttpPost("event/{eventId}/walkin")]
         public async Task<IActionResult> AddWalkIn(int eventId, [FromBody] ManageGuestDto request)
         {
+            if (!await _access.CanAccessEventAsync(User, eventId)) return Forbid();
+
             var ev = await _context.Events.FindAsync(eventId);
             if (ev == null) return NotFound(new { Message = "Evento não encontrado." });
 
@@ -248,7 +261,7 @@ namespace SeatingManagement.API.Controllers
         public async Task<IActionResult> EditGuest(int id, [FromBody] ManageGuestDto request)
         {
             var seat = await _context.Seats.FindAsync(id);
-            if (seat == null) return NotFound(new { Message = "Convidado não encontrado." });
+            if (seat == null || !await _access.CanAccessEventAsync(User, seat.EventId)) return NotFound(new { Message = "Convidado não encontrado." });
 
             var seatNumber = $"{request.TableName.Trim()}-{request.SeatNumber.Trim()}";
             var oldName = seat.AssignedTo ?? "Sem Nome";
@@ -296,7 +309,7 @@ namespace SeatingManagement.API.Controllers
         public async Task<IActionResult> DeleteGuest(int id)
         {
             var seat = await _context.Seats.FindAsync(id);
-            if (seat == null) return NotFound(new { Message = "Convidado não encontrado." });
+            if (seat == null || !await _access.CanAccessEventAsync(User, seat.EventId)) return NotFound(new { Message = "Convidado não encontrado." });
 
             int eventId = seat.EventId;
             string guestName = seat.AssignedTo ?? "Sem Nome";
