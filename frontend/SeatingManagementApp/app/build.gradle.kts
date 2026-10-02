@@ -88,8 +88,8 @@ dependencies {
     implementation("com.hivemq:hivemq-mqtt-client:1.3.3")
 
     // --- RETROFIT & REDE ---
-    implementation("com.squareup.retrofit2:retrofit:2.11.0")
-    implementation("com.squareup.retrofit2:converter-gson:2.11.0")
+    implementation("com.squareup.retrofit2:retrofit:3.0.0")
+    implementation("com.squareup.retrofit2:converter-gson:3.0.0")
 
     // --- OUTROS UTILITÁRIOS (Atualizados) ---
     implementation("org.mindrot:jbcrypt:0.4")
