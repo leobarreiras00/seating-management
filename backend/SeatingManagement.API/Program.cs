@@ -85,8 +85,11 @@ builder.Services.AddScoped<IEmailService, EmailService>();
 
 var app = builder.Build();
 
-app.UseSwagger();
-app.UseSwaggerUI();
+if (app.Environment.IsDevelopment())
+{
+    app.UseSwagger();
+    app.UseSwaggerUI();
+}
 
 app.UseCors("StrictPolicy");
 app.UseStaticFiles();
@@ -114,5 +117,5 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.MapGet("/", () => "A API do Seatly está online e a correr a 100%!");
+app.MapGet("/", () => "A API do Seatly está online e a correr a 100%!").AllowAnonymous();
 app.Run();
