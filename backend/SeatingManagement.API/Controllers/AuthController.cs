@@ -268,6 +268,16 @@ namespace SeatingManagement.API.Controllers
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Message))
               return BadRequest(new { message = "Email e mensagem são obrigatórios." });
 
+            if (request.Email.Length > 254 || request.Message.Length > 2000)
+                return BadRequest(new { message = "Email ou mensagem demasiado longos." });
+
+            var contactRecipient = _configuration["Contact:Recipient"];
+            if (string.IsNullOrWhiteSpace(contactRecipient))
+                return StatusCode(503, new { message = "O formulário de contacto não está disponível de momento." });
+
+            var safeEmail = System.Net.WebUtility.HtmlEncode(request.Email);
+            var safeMessage = System.Net.WebUtility.HtmlEncode(request.Message);
+
             string subject = $"[Seatly Support] Novo contacto de {request.Email}";
     
             string body = $@"
@@ -282,11 +292,11 @@ namespace SeatingManagement.API.Controllers
                     <div style='background-color: #f1f5f9; padding: 20px; border-radius: 10px; margin: 25px 0; border: 1px solid #e2e8f0;'>
                         <p style='margin: 0; color: #64748b; font-size: 12px; font-weight: bold; letter-spacing: 1px;'>REMETENTE</p>
                         <p style='margin: 5px 0 20px 0; color: #0f172a; font-size: 16px; font-weight: bold;'>
-                            <a href='mailto:{request.Email}' style='color: #7c3aed; text-decoration: none;'>{request.Email}</a>
+                            <a href='mailto:{safeEmail}' style='color: #7c3aed; text-decoration: none;'>{safeEmail}</a>
                         </p>
                 
                         <p style='margin: 0; color: #64748b; font-size: 12px; font-weight: bold; letter-spacing: 1px;'>MENSAGEM</p>
-                        <p style='margin: 5px 0 0 0; color: #0f172a; font-size: 15px; line-height: 1.6; white-space: pre-wrap;'>{request.Message}</p>
+                        <p style='margin: 5px 0 0 0; color: #0f172a; font-size: 15px; line-height: 1.6; white-space: pre-wrap;'>{safeMessage}</p>
                     </div>
             
                     <p style='color: #94a3b8; font-size: 13px; margin-top: 30px; text-align: center;'>
@@ -295,14 +305,14 @@ namespace SeatingManagement.API.Controllers
                 </div>
             </div>";
 
-            await _emailService.SendEmailAsync("leo.gbarreiras@gmail.com", subject, body);
+            await _emailService.SendEmailAsync(contactRecipient, subject, body);
 
             return Ok(new { message = "Mensagem enviada com sucesso." });
         }
 
         private string GenerateJwtToken(User user)
         {
-            var jwtKey = _configuration["Jwt:Key"] ?? "ChaveDeSegurancaTemporariaParaOJWT2026!!_Minimo32Caracteres"; 
+            var jwtKey = _configuration["Jwt:Key"] ?? throw new InvalidOperationException("JWT Key is missing"); 
             var key = new SymmetricSecurityKey(Encoding.UTF8.GetBytes(jwtKey));
             var creds = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
             var claims = new[]
