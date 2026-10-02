@@ -66,7 +66,7 @@ namespace SeatingManagement.API.Controllers
         public async Task<IActionResult> UpdateAvatar(int id, [FromBody] UpdateAvatarDto request)
         {
             var user = await _context.Users.FindAsync(id);
-            if (user == null) return NotFound(new { Message = "Utilizador não encontrado." });
+            if (user == null || !CanManageUser(user, allowSelf: true)) return NotFound(new { Message = "Utilizador não encontrado." });
 
             user.AvatarUrl = request.AvatarBase64;
             
@@ -92,6 +92,10 @@ namespace SeatingManagement.API.Controllers
             var isCurrentUserSuperAdmin = User.IsInRole("SuperAdmin");
             if (request.Role == "SuperAdmin" && !isCurrentUserSuperAdmin)
                 return StatusCode(403, new { Message = "Acesso Negado: Apenas um SuperAdmin pode criar outro SuperAdmin." });
+
+            if (!isCurrentUserSuperAdmin
+                && !(int.TryParse(User.FindFirstValue("CompanyId"), out var callerCompanyId) && callerCompanyId == request.CompanyId))
+                return StatusCode(403, new { Message = "Acesso Negado: só podes criar utilizadores na tua empresa." });
 
             if (await _context.Users.AnyAsync(u => u.Email == request.Email))
                 return Conflict(new { Message = "Este e-mail já está registado no sistema." });
@@ -227,11 +231,11 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpDelete("user/{id}")]
-        [Authorize] 
+        [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> DeleteUser(int id)
         {
             var user = await _context.Users.FindAsync(id);
-            if (user == null) return NotFound(new { Message = "Utilizador não encontrado." });
+            if (user == null || !CanManageUser(user, allowSelf: false)) return NotFound(new { Message = "Utilizador não encontrado." });
             string deletedUsername = user.Username;
             _context.Users.Remove(user);
             var performedBy = User.Identity?.Name ?? "Sistema";
@@ -324,6 +328,21 @@ namespace SeatingManagement.API.Controllers
             };
             var token = new JwtSecurityToken(issuer: _configuration["Jwt:Issuer"] ?? "SeatingManagementAPI", audience: _configuration["Jwt:Audience"] ?? "SeatingManagementClients", claims: claims, expires: DateTime.UtcNow.AddDays(1), signingCredentials: creds);
             return new JwtSecurityTokenHandler().WriteToken(token);
+        }
+
+        // SuperAdmin manages anyone; Gestor manages non-SuperAdmin users of their own company;
+        // any user may act on their own account only when allowSelf is true.
+        private bool CanManageUser(Models.User target, bool allowSelf)
+        {
+            if (allowSelf && Guid.TryParse(User.FindFirstValue(ClaimTypes.NameIdentifier), out var callerGuid) && callerGuid == target.UserGuid)
+                return true;
+
+            if (User.IsInRole("SuperAdmin")) return true;
+
+            return User.IsInRole("Gestor")
+                && int.TryParse(User.FindFirstValue("CompanyId"), out var callerCompanyId)
+                && target.CompanyId == callerCompanyId
+                && target.Role != "SuperAdmin";
         }
 
         private string GenerateRandomToken(int length)

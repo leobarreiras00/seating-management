@@ -14,10 +14,12 @@ namespace SeatingManagement.API.Services
     public class EmailService : IEmailService
     {
         private readonly IConfiguration _config;
+        private readonly ILogger<EmailService> _logger;
 
-        public EmailService(IConfiguration config)
+        public EmailService(IConfiguration config, ILogger<EmailService> logger)
         {
             _config = config;
+            _logger = logger;
         }
 
         public async Task SendWelcomeEmailAsync(string toEmail, string displayName, string tempPassword, string role)
@@ -92,22 +94,22 @@ namespace SeatingManagement.API.Services
                 var json = JsonSerializer.Serialize(payload);
                 var content = new StringContent(json, Encoding.UTF8, "application/json");
 
-                Console.WriteLine($"[EMAIL] A enviar via API do Brevo para: {to}...");
+                _logger.LogInformation("Sending e-mail through the Brevo API.");
                 var response = await client.PostAsync("https://api.brevo.com/v3/smtp/email", content);
 
                 if (response.IsSuccessStatusCode)
                 {
-                    Console.WriteLine($"[EMAIL] SUCESSO! E-mail enviado para {to}.");
+                    _logger.LogInformation("E-mail accepted by the Brevo API.");
                 }
                 else
                 {
-                    var error = await response.Content.ReadAsStringAsync();
-                    Console.WriteLine($"[EMAIL ERRO BREVO] {response.StatusCode}: {error}");
+                    // The provider response body is intentionally not logged (it may echo personal data).
+                    _logger.LogError("Brevo API rejected the e-mail request with status {StatusCode}.", (int)response.StatusCode);
                 }
             }
             catch (Exception ex)
             {
-                Console.WriteLine($"[EMAIL ERRO CRÍTICO] Falha ao enviar o e-mail: {ex.Message}");
+                _logger.LogError(ex, "Failed to send e-mail.");
                 throw; // Lança o erro para que não seja engolido!
             }
         }

@@ -3,6 +3,7 @@ using Microsoft.AspNetCore.Mvc;
 using Microsoft.EntityFrameworkCore;
 using SeatingManagement.API.Data;
 using SeatingManagement.API.Models;
+using SeatingManagement.API.Services;
 
 namespace SeatingManagement.API.Controllers
 {
@@ -12,17 +13,19 @@ namespace SeatingManagement.API.Controllers
     public class AuditController : ControllerBase
     {
         private readonly AppDbContext _context;
+        private readonly IEventAccessService _access;
 
-        public AuditController(AppDbContext context)
+        public AuditController(AppDbContext context, IEventAccessService access)
         {
             _context = context;
+            _access = access;
         }
 
         [HttpGet("events-overview")]
         [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> GetEventsOverview()
         {
-            var events = await _context.Events
+            var events = await _access.AccessibleEvents(User)
                 .Include(e => e.Company)
                 .Select(e => new
                 {
@@ -47,6 +50,8 @@ namespace SeatingManagement.API.Controllers
         [HttpGet("event/{eventId}")]
         public async Task<IActionResult> GetEventLogs(int eventId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
         {
+            if (!await _access.CanAccessEventAsync(User, eventId)) return Forbid();
+
             var query = _context.AuditLogs
                 .Where(al => al.EventId == eventId)
                 .OrderByDescending(al => al.Timestamp);

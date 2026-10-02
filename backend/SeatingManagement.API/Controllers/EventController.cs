@@ -16,11 +16,13 @@ namespace SeatingManagement.API.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IMqttService _mqttService;
+        private readonly IEventAccessService _access;
 
-        public EventController(AppDbContext context, IMqttService mqttService)
+        public EventController(AppDbContext context, IMqttService mqttService, IEventAccessService access)
         {
             _context = context;
             _mqttService = mqttService;
+            _access = access;
         }
 
         [HttpGet("my-events")]
@@ -80,6 +82,8 @@ namespace SeatingManagement.API.Controllers
         [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> UpdateEvent(int id, [FromBody] CreateEventDto request)
         {
+            if (!await _access.CanAccessEventAsync(User, id)) return Forbid();
+
             var ev = await _context.Events.FindAsync(id);
             if (ev == null) return NotFound(new { Message = "Evento não encontrado." });
 

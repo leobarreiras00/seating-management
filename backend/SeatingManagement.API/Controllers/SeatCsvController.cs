@@ -19,17 +19,21 @@ namespace SeatingManagement.API.Controllers
     {
         private readonly AppDbContext _context;
         private readonly IMqttService _mqttService; 
+        private readonly IEventAccessService _access;
         private const long MaxFileSizeBytes = 5 * 1024 * 1024; 
 
-        public SeatCsvController(AppDbContext context, IMqttService mqttService)
+        public SeatCsvController(AppDbContext context, IMqttService mqttService, IEventAccessService access)
         {
             _context = context;
             _mqttService = mqttService;
+            _access = access;
         }
 
         [HttpPost("import/{eventId}")]
         public async Task<IActionResult> ImportCsv(int eventId, IFormFile file, [FromQuery] string mode = "replace")
         {
+            if (!await _access.CanAccessEventAsync(User, eventId)) return Forbid();
+
             if (file == null || file.Length == 0) return BadRequest(new { message = "Ficheiro inválido." });
             if (file.Length > MaxFileSizeBytes) return BadRequest(new { message = "O ficheiro excede 5MB." });
 
@@ -197,6 +201,8 @@ namespace SeatingManagement.API.Controllers
         [HttpPost("clear/{eventId}")]
         public async Task<IActionResult> ClearDatabase(int eventId)
         {
+            if (!await _access.CanAccessEventAsync(User, eventId)) return Forbid();
+
             var userGuidStr = User.FindFirstValue(ClaimTypes.NameIdentifier);
             if (string.IsNullOrEmpty(userGuidStr)) return Unauthorized();
 
