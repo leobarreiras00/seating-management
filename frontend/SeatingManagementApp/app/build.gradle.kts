@@ -1,3 +1,5 @@
+import java.util.Properties
+
 plugins {
     id("com.android.application")
     id("org.jetbrains.kotlin.android")
@@ -5,6 +7,15 @@ plugins {
     id("com.google.devtools.ksp")
     id("com.google.dagger.hilt.android")
 }
+
+// MQTT credentials come from local.properties (not tracked by Git).
+// Without them (e.g. in CI) placeholder values are used so the project still builds.
+val localProps = Properties().apply {
+    val f = rootProject.file("local.properties")
+    if (f.exists()) f.inputStream().use { load(it) }
+}
+val mqttUsername: String = localProps.getProperty("mqtt.username") ?: "CHANGE_ME"
+val mqttPassword: String = localProps.getProperty("mqtt.password") ?: "CHANGE_ME"
 
 android {
     namespace = "com.leonardobarreiras.seatingmanagement"
@@ -17,6 +28,8 @@ android {
         versionCode = 1
         versionName = "1.0"
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
+        buildConfigField("String", "MQTT_USERNAME", "\"$mqttUsername\"")
+        buildConfigField("String", "MQTT_PASSWORD", "\"$mqttPassword\"")
     }
 
     buildTypes {
@@ -52,6 +65,7 @@ android {
 
     buildFeatures {
         compose = true
+        buildConfig = true
     }
 }
 

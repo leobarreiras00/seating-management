@@ -1,6 +1,7 @@
 package com.leonardobarreiras.seatingmanagement.network
 
 import android.util.Log
+import com.leonardobarreiras.seatingmanagement.BuildConfig
 import com.hivemq.client.mqtt.MqttClient
 import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import org.json.JSONObject
@@ -29,8 +30,8 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
     fun connect(onConnected: (() -> Unit)? = null) {
         client.connectWith()
             .simpleAuth()
-            .username("lbseatly-mqtt")
-            .password("Dvs.8713".toByteArray())
+            .username(BuildConfig.MQTT_USERNAME)
+            .password(BuildConfig.MQTT_PASSWORD.toByteArray())
             .applySimpleAuth()
             .send()
             .whenComplete { _, throwable ->
