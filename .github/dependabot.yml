@@ -23,6 +23,9 @@ updates:
       # Major upgrade with breaking OpenAPI changes: plan separately.
       - dependency-name: "Swashbuckle.AspNetCore"
         update-types: ["version-update:semver-major"]
+      # Not used by the code (Swashbuckle provides Swagger); 10.x pulls Microsoft.OpenApi 2.x and breaks Program.cs.
+      - dependency-name: "Microsoft.AspNetCore.OpenApi"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: nuget
     directory: /backend/SeatingManagement.API.Tests
