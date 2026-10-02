@@ -36,6 +36,12 @@ updates:
     groups:
       test-tooling:
         patterns: ["*"]
+    ignore:
+      # API packages are managed by the API block; the test project only references them.
+      - dependency-name: "Microsoft.AspNetCore.OpenApi"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "Swashbuckle.AspNetCore"
+        update-types: ["version-update:semver-major"]
 
   - package-ecosystem: docker
     directory: /backend/SeatingManagement.API
