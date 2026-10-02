@@ -92,7 +92,6 @@ if (app.Environment.IsDevelopment())
 }
 
 app.UseCors("StrictPolicy");
-app.UseStaticFiles();
 
 // 4. Ativar Autenticação ANTES da Autorização
 app.UseAuthentication(); 
