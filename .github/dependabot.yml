@@ -5,41 +5,68 @@ updates:
     target-branch: develop
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
+    groups:
+      actions:
+        patterns: ["*"]
+
   - package-ecosystem: nuget
     directory: /backend/SeatingManagement.API
     target-branch: develop
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
+    groups:
+      microsoft:
+        patterns: ["Microsoft.*", "System.*"]
+    ignore:
+      # Major upgrade with breaking OpenAPI changes: plan separately.
+      - dependency-name: "Swashbuckle.AspNetCore"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: nuget
     directory: /backend/SeatingManagement.API.Tests
     target-branch: develop
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 2
+    groups:
+      test-tooling:
+        patterns: ["*"]
+
   - package-ecosystem: docker
     directory: /backend/SeatingManagement.API
     target-branch: develop
     schedule:
       interval: weekly
+
   - package-ecosystem: npm
     directory: /backoffice
     target-branch: develop
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
+    open-pull-requests-limit: 3
+    groups:
+      next-react:
+        patterns: ["next", "react", "react-dom", "eslint-config-next", "@types/react", "@types/react-dom"]
+    ignore:
+      # Major upgrades to be planned separately (lint is informational for now).
+      - dependency-name: "typescript"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "eslint"
+        update-types: ["version-update:semver-major"]
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
+
   - package-ecosystem: gradle
     directory: /frontend/SeatingManagementApp
     target-branch: develop
     schedule:
       interval: weekly
-    open-pull-requests-limit: 5
-    # Android toolchain (AGP, Kotlin, KSP, Hilt) must be upgraded together as a
-    # planned task, not one dependency at a time.
+    open-pull-requests-limit: 2
+    # The Android toolchain (AGP, Gradle, Kotlin, KSP, Hilt, Retrofit) will be
+    # upgraded together as a planned task, not one dependency at a time.
     ignore:
-      - dependency-name: "org.jetbrains.kotlin.*"
-      - dependency-name: "org.jetbrains.kotlin:*"
-      - dependency-name: "com.google.devtools.ksp"
-      - dependency-name: "com.android.application"
-      - dependency-name: "com.google.dagger.hilt.android"
+      - dependency-name: "*"
+        update-types: ["version-update:semver-major", "version-update:semver-minor"]
+      - dependency-name: "gradle-wrapper"
