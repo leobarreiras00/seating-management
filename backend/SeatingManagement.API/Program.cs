@@ -117,6 +117,6 @@ using (var scope = app.Services.CreateScope())
     }
 }
 
-app.MapGet("/", () => "A API do Seatly está online e a correr a 100%!");
-app.MapGet("/health", () => Results.Ok(new { status = "ok" }));
+app.MapMethods("/", new[] { "GET", "HEAD" }, () => "A API do Seatly está online e a correr a 100%!");
+app.MapMethods("/health", new[] { "GET", "HEAD" }, () => Results.Ok(new { status = "ok" }));
 app.Run();
