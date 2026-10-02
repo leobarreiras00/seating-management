@@ -21,3 +21,4 @@ bin/
 obj/
 publish/
 .kotlin/
+backend/SeatingManagement.API/wwwroot/logos/
