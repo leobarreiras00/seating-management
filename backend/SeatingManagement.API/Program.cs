@@ -107,8 +107,7 @@ using (var scope = app.Services.CreateScope())
         var context = services.GetRequiredService<AppDbContext>();
         // Garante que a base de dados e as tabelas são criadas automaticamente no Deploy
         context.Database.Migrate();
-        // Injeta o Super Admin se estiver vazio
-        DbInitializer.Initialize(context);
+        DbInitializer.Initialize(context, services.GetRequiredService<IConfiguration>(), services.GetRequiredService<ILogger<Program>>());
     }
     catch (Exception ex)
     {

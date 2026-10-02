@@ -1,37 +1,47 @@
+using Microsoft.Extensions.Configuration;
+using Microsoft.Extensions.Logging;
 using SeatingManagement.API.Models;
 
 namespace SeatingManagement.API.Data
 {
     public static class DbInitializer
     {
-        public static void Initialize(AppDbContext context)
+        public static void Initialize(AppDbContext context, IConfiguration config, ILogger logger)
         {
             var systemCompany = context.Companies.FirstOrDefault(c => c.Name == "Seatly Admin");
-            
+
             if (systemCompany == null)
             {
                 systemCompany = new Company { Name = "Seatly Admin", LogoUrl = "" };
                 context.Companies.Add(systemCompany);
-                context.SaveChanges(); 
+                context.SaveChanges();
             }
 
-            var admin = context.Users.FirstOrDefault(u => u.Email == "leo.gbarreiras@gmail.com");
+            var adminEmail = "leo.gbarreiras@gmail.com";
+            var admin = context.Users.FirstOrDefault(u => u.Email == adminEmail);
 
             if (admin == null)
             {
+                var initialPassword = config["Seed:AdminPassword"];
+                if (string.IsNullOrWhiteSpace(initialPassword) || initialPassword.Length < 12)
+                {
+                    logger.LogWarning("No initial SuperAdmin created: set Seed__AdminPassword (minimum 12 characters) to seed one.");
+                    return;
+                }
+
                 var defaultAdmin = new User
                 {
-                    Email = "leo.gbarreiras@gmail.com",
-                    Username = "Leonardo Barreiras", // Display Name
-                    PasswordHash = BCrypt.Net.BCrypt.HashPassword("admin123"),
+                    Email = adminEmail,
+                    Username = "Leonardo Barreiras",
+                    PasswordHash = BCrypt.Net.BCrypt.HashPassword(initialPassword),
                     Role = "SuperAdmin",
                     UserGuid = Guid.NewGuid(),
                     CompanyId = systemCompany.Id,
-                    MustChangePassword = false // O admin mestre não é obrigado a mudar no 1º login
+                    MustChangePassword = true
                 };
 
                 context.Users.Add(defaultAdmin);
-                
+
                 context.AuditLogs.Add(new AuditLog
                 {
                     ActionType = "SYSTEM_INIT",
@@ -40,7 +50,7 @@ namespace SeatingManagement.API.Data
                     PerformedRole = "Sistema",
                     Timestamp = DateTime.UtcNow
                 });
-                
+
                 context.SaveChanges();
             }
         }
