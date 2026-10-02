@@ -95,7 +95,7 @@ dependencies {
     implementation("org.mindrot:jbcrypt:0.4")
     implementation("io.coil-kt:coil-compose:2.7.0")
     implementation("io.coil-kt:coil-svg:2.7.0")
-    implementation("androidx.security:security-crypto:1.1.0-alpha06")
+    implementation("androidx.security:security-crypto:1.1.0")
 
     // --- TESTES ---
     testImplementation("junit:junit:4.13.2")
