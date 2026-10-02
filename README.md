@@ -7,7 +7,6 @@ Event seating management system: ASP.NET Core API, Next.js backoffice and a nati
 - `backend/`: .NET API and its tests
 - `backoffice/`: Next.js administration site
 - `frontend/SeatingManagementApp/`: Android app
-- `infrastructure/`: early local setup (not used in production)
 - `.github/`: CI workflows, CodeQL and Dependabot configuration
 
 ## CI/CD
