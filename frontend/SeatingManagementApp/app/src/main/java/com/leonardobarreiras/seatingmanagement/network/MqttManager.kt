@@ -15,6 +15,10 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
     var onProfileRefresh: (() -> Unit)? = null
 
     private var currentManagerTopic: String? = null
+    private var hasConnectedOnce = false
+
+    /** Chamado quando a ligação é restabelecida automaticamente (subscrições têm de ser refeitas). */
+    var onReconnected: (() -> Unit)? = null
 
     private val client: Mqtt3AsyncClient = MqttClient.builder()
         .useMqttVersion3()
@@ -23,6 +27,15 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
         .serverPort(8883) // Porta segura SSL/TLS
         .sslWithDefaultConfig() // Ativa a encriptação SSL exigida pelo HiveMQ Cloud
         .automaticReconnectWithDefaultConfig() // <-- ADICIONADO: Mantém o cliente vivo e reconecta após quebras de rede
+        .addConnectedListener {
+            // Após uma reconexão automática as subscrições perdem-se: limpa o estado e pede para voltar a subscrever
+            if (hasConnectedOnce) {
+                currentTopic = null
+                currentManagerTopic = null
+                onReconnected?.invoke()
+            }
+            hasConnectedOnce = true
+        }
         .buildAsync()
 
     private var currentTopic: String? = null
@@ -160,6 +173,9 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
     }
 
     fun disconnect() {
+        currentTopic = null
+        currentManagerTopic = null
+        hasConnectedOnce = false
         client.disconnect()
     }
 }

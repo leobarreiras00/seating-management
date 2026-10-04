@@ -11,6 +11,7 @@ import androidx.compose.runtime.setValue
 import androidx.lifecycle.AndroidViewModel
 import androidx.lifecycle.viewModelScope
 import com.google.gson.annotations.SerializedName
+import com.leonardobarreiras.seatingmanagement.data.JwtUtils
 import com.leonardobarreiras.seatingmanagement.data.SeatEntity
 import com.leonardobarreiras.seatingmanagement.data.SeatRepository
 import com.leonardobarreiras.seatingmanagement.data.SecureStorage
@@ -29,6 +30,8 @@ import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
+
+const val MIN_PASSWORD_LENGTH = 6
 
 enum class FeedbackType { SUCCESS, ERROR, EXPORT, INFO, OFFLINE }
 data class AppFeedback(val type: FeedbackType, val title: String, val message: String)
@@ -125,6 +128,15 @@ class SeatViewModel @Inject constructor(
                 appFeedback = AppFeedback(FeedbackType.INFO, "Dados Atualizados", "Os dados ou acessos da tua empresa foram modificados pelo Administrador.")
             }
         }
+        mqttManager.onReconnected = {
+            // Ligação restabelecida: refaz subscrições e sincroniza logo empresa (logo) e eventos
+            viewModelScope.launch {
+                if (userGuid.isNotEmpty()) mqttManager.subscribeToManagerEvents(userGuid)
+                currentEventId?.let { mqttManager.subscribeToEventRoom(it) }
+                fetchMyCompany()
+                fetchMyEvents()
+            }
+        }
         // REMOVIDO: mqttManager.connect() daqui, passa a ser chamado nas funções de auth e startup.
     }
 
@@ -147,17 +159,28 @@ class SeatViewModel @Inject constructor(
             userRole = session.role
             companyName = session.companyName
             companyLogo = session.companyLogo
-            managerName = session.managerName
+            // Sessões antigas guardaram o e-mail como nome: recalcula a partir do token
+            managerName = if (session.managerName.isBlank() || JwtUtils.looksLikeEmail(session.managerName))
+                JwtUtils.resolveName(session.token, session.managerName)
+            else session.managerName
             userGuid = session.userGuid
 
             // Ligar ao MQTT apenas quando recuperamos a sessão
             connectMqttAndSubscribe()
             fetchMyEvents()
+            // Garante o logo/nome atuais da empresa (a sessão guardada pode estar desatualizada)
+            fetchMyCompany()
 
             if (secureStorage.hasPin()) "pin_auth" else "event_selection"
         } else {
             "login"
         }
+    }
+
+    /** Guarda no armazenamento seguro o estado atual (nome/logo da empresa atualizados). */
+    private fun persistSession() {
+        val token = jwtToken ?: return
+        secureStorage.saveSession(UserSession(token, userRole, companyName, companyLogo, managerName, userGuid))
     }
 
     fun fetchMyCompany() {
@@ -170,6 +193,7 @@ class SeatViewModel @Inject constructor(
                     if (companyData != null) {
                         companyName = companyData.name
                         companyLogo = companyData.logoUrl ?: ""
+                        persistSession()
                     }
                 }
             } catch (e: Exception) { Log.e("API", "Erro ao atualizar dados da empresa: ${e.message}") }
@@ -212,7 +236,7 @@ class SeatViewModel @Inject constructor(
                 if (response.companyName != null) companyName = response.companyName
                 if (response.companyLogo != null) companyLogo = response.companyLogo
 
-                managerName = email
+                managerName = JwtUtils.resolveName(response.token, email)
                 userGuid = response.userGuid ?: ""
 
                 secureStorage.saveSession(UserSession(jwtToken!!, userRole, companyName, companyLogo, managerName, userGuid))
@@ -253,6 +277,7 @@ class SeatViewModel @Inject constructor(
 
     fun firstLoginReset(email: String, tempPass: String, newPass: String, onSuccess: () -> Unit) {
         if (isOffline) { firstLoginError = "Sem ligação à internet."; return }
+        if (newPass.length < MIN_PASSWORD_LENGTH) { firstLoginError = "A palavra-passe tem de ter no mínimo $MIN_PASSWORD_LENGTH caracteres."; return }
         viewModelScope.launch {
             isResetLoading = true
             try {
@@ -264,7 +289,7 @@ class SeatViewModel @Inject constructor(
                 if (response.companyName != null) companyName = response.companyName
                 if (response.companyLogo != null) companyLogo = response.companyLogo
 
-                managerName = email
+                managerName = JwtUtils.resolveName(response.token, email)
                 userGuid = response.userGuid ?: ""
 
                 secureStorage.saveSession(UserSession(jwtToken!!, userRole, companyName, companyLogo, managerName, userGuid))
@@ -294,6 +319,7 @@ class SeatViewModel @Inject constructor(
 
     fun changePassword(oldPass: String, newPass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         val token = jwtToken ?: return
+        if (newPass.length < MIN_PASSWORD_LENGTH) { onError("A palavra-passe tem de ter no mínimo $MIN_PASSWORD_LENGTH caracteres."); return }
         viewModelScope.launch {
             try {
                 val res = apiService.changePassword("Bearer $token", ChangePasswordRequest(oldPass, newPass))
