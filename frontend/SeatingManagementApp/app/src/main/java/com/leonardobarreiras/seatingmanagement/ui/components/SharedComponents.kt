@@ -6,6 +6,7 @@ import androidx.compose.animation.core.RepeatMode
 import androidx.compose.animation.core.animateFloat
 import androidx.compose.animation.core.animateFloatAsState
 import androidx.compose.animation.core.infiniteRepeatable
+import androidx.compose.animation.animateContentSize
 import androidx.compose.animation.core.rememberInfiniteTransition
 import androidx.compose.animation.core.spring
 import androidx.compose.animation.core.tween
@@ -406,22 +407,49 @@ fun SelectableChip(label: String, selected: Boolean, onClick: () -> Unit, modifi
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun FilterChipGroup(label: String, options: List<String>, selected: Set<String>, onToggle: (String) -> Unit, onClear: () -> Unit) {
-    Column(modifier = Modifier.fillMaxWidth()) {
-        Row(modifier = Modifier.fillMaxWidth().padding(bottom = 10.dp), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
-            Text(label, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = CorporateBlue)
+    // Grupos longos começam compactados (só o título + resumo); grupos curtos começam abertos.
+    var expanded by remember { mutableStateOf(options.size <= COMPACT_THRESHOLD) }
+    val summary = when {
+        selected.isEmpty() -> "${options.size} opções"
+        selected.size == 1 -> selected.first()
+        else -> "${selected.size} selecionadas"
+    }
+    Column(modifier = Modifier.fillMaxWidth().animateContentSize()) {
+        Row(
+            modifier = Modifier
+                .fillMaxWidth()
+                .clip(RoundedCornerShape(10.dp))
+                .clickable { expanded = !expanded }
+                .padding(vertical = 6.dp),
+            horizontalArrangement = Arrangement.SpaceBetween,
+            verticalAlignment = Alignment.CenterVertically
+        ) {
+            Column(modifier = Modifier.weight(1f)) {
+                Text(label, fontSize = 14.sp, fontWeight = FontWeight.ExtraBold, color = CorporateBlue)
+                if (!expanded) {
+                    Text(summary, fontSize = 12.sp, color = if (selected.isEmpty()) TextGray else PrimaryBlue, fontWeight = if (selected.isEmpty()) FontWeight.Normal else FontWeight.SemiBold, maxLines = 1)
+                }
+            }
             if (selected.isNotEmpty()) {
                 Text("Limpar (${selected.size})", fontSize = 12.sp, fontWeight = FontWeight.Bold, color = ErrorRed, modifier = Modifier.clip(RoundedCornerShape(8.dp)).clickable(onClick = onClear).padding(horizontal = 6.dp, vertical = 2.dp))
             }
+            Text(if (expanded) "▴" else "▾", fontSize = 16.sp, color = PrimaryBlue, fontWeight = FontWeight.Bold, modifier = Modifier.padding(start = 8.dp))
         }
-        if (options.isEmpty()) {
-            Text("Sem opções disponíveis.", fontSize = 13.sp, color = TextGray)
-        } else {
-            FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
-                options.forEach { option -> SelectableChip(label = option, selected = selected.contains(option), onClick = { onToggle(option) }) }
+        if (expanded) {
+            Spacer(Modifier.height(6.dp))
+            if (options.isEmpty()) {
+                Text("Sem opções disponíveis.", fontSize = 13.sp, color = TextGray)
+            } else {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(8.dp), verticalArrangement = Arrangement.spacedBy(8.dp)) {
+                    options.forEach { option -> SelectableChip(label = option, selected = selected.contains(option), onClick = { onToggle(option) }) }
+                }
             }
         }
     }
 }
+
+/** Nº de opções a partir do qual um grupo de filtros começa compactado. */
+private const val COMPACT_THRESHOLD = 6
 
 /**
  * Mosaico de ação usado nos menus em painel inferior (ícone grande + título + legenda).

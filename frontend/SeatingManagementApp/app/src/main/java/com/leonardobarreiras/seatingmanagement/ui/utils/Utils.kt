@@ -41,11 +41,16 @@ fun eventPhase(startDate: String?, endDate: String?, now: Date = Date()): EventP
             SimpleDateFormat("yyyy-MM-dd'T'HH:mm:ss", Locale.getDefault()).parse(value.substringBefore("Z").substringBefore("."))
         } catch (e: Exception) { null }
     }
-    val start = parse(startDate) ?: return null
-    val endRaw = parse(endDate) ?: start
+    val parsedStart = parse(startDate)
+    val parsedEnd = parse(endDate)
+    if (parsedStart == null && parsedEnd == null) return null
     val oneDayMs = 24L * 60 * 60 * 1000
     val endsAtMidnight = (endDate ?: startDate ?: "").contains("T00:00:00")
+    val endRaw = parsedEnd ?: parsedStart!!
     val end = if (endsAtMidnight) Date(endRaw.time + oneDayMs) else endRaw
+    // Data de início inválida (ex.: ano 2206 por engano, posterior ao fim) é ignorada:
+    // o evento considera-se iniciado e o estado depende apenas da data de fim.
+    val start = if (parsedStart == null || parsedStart.after(end)) Date(0) else parsedStart
     return when {
         now.before(start) -> EventPhase.UPCOMING
         now.after(end) -> EventPhase.FINISHED
