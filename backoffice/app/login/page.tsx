@@ -153,30 +153,44 @@ export default function LoginScreen() {
   const isSeatLit = (row: number, col: number) =>
     ((row * 131 + col * 71 + row * col * 17) % 97) / 97 < 0.8 - row * 0.05;
 
-  const inputBase =
-    "w-full h-12 rounded-xl border bg-white text-slate-900 text-[15px] placeholder-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-0";
-  const inputOk = "border-slate-300 hover:border-slate-400 focus:border-purple-500";
-  const inputBad = "border-red-300 focus:ring-red-500 focus:border-red-500";
-  const labelCls = "block text-sm font-semibold text-slate-700 mb-1.5";
-  const primaryBtn =
-    "w-full h-12 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors flex justify-center items-center active:translate-y-px disabled:opacity-50 disabled:hover:bg-purple-600";
-
+  // Linha de erro partilhada pelas três vistas (usa a classe .notice do globals.css)
   const errorLine = error && (
-    <p className="text-red-600 text-sm font-medium mt-2 flex items-start gap-1.5 animate-in">
-      <AlertTriangle className="w-4 h-4 shrink-0 mt-[2px]" /> <span>{error}</span>
+    <p className="notice notice-error mt-3" role="alert">
+      <AlertTriangle className="w-4 h-4" /> <span>{error}</span>
     </p>
   );
 
+  // Links legais: ficam colados ao botão principal de cada vista (pedido de design)
+  const legalLinks = (
+    <nav aria-label="Links legais" className="mt-5 flex flex-wrap items-center justify-center gap-x-2.5 gap-y-1.5 text-xs font-semibold text-slate-500 whitespace-nowrap">
+      <button type="button" onClick={() => setIsContactModalOpen(true)} className="hover:text-purple-700 transition-colors rounded">
+        Contactar suporte
+      </button>
+      <span aria-hidden className="w-1 h-1 rounded-full bg-purple-300" />
+      <Link href="/privacy" className="hover:text-purple-700 transition-colors rounded">
+        Política de privacidade
+      </Link>
+      <span aria-hidden className="w-1 h-1 rounded-full bg-purple-300" />
+      <Link href="/terms" className="hover:text-purple-700 transition-colors rounded">
+        Termos de serviço
+      </Link>
+    </nav>
+  );
+
   return (
-    <div className="min-h-screen bg-white lg:grid lg:grid-cols-[1.05fr_0.95fr]">
+    <div className="min-h-screen lg:grid lg:grid-cols-[1.05fr_0.95fr]">
 
       {/* --- PAINEL VISUAL: a sala, com os lugares a acender --- */}
-      <aside className="hidden lg:flex relative flex-col justify-between overflow-hidden bg-purple-900 text-white px-14 py-14">
-        <p className="font-display text-lg text-purple-200">Administração central</p>
+      <aside className="hidden lg:flex relative flex-col justify-between overflow-hidden text-white px-14 py-14 bg-[linear-gradient(155deg,#2e1065_0%,#4c1d95_45%,#1e3a8a_100%)]">
+        {/* Halos de cor atrás da ilustração */}
+        <div aria-hidden className="absolute -top-32 -right-24 w-[28rem] h-[28rem] rounded-full bg-fuchsia-500/30 blur-3xl float-slow" />
+        <div aria-hidden className="absolute -bottom-40 -left-24 w-[30rem] h-[30rem] rounded-full bg-blue-500/30 blur-3xl float-slow" style={{ animationDelay: "-6s" }} />
 
-        <div className="flex flex-col items-center my-auto py-10">
-          <div className="w-72 h-1.5 rounded-full bg-white/35 mb-2" />
-          <p className="text-xs text-purple-300 mb-8">Palco</p>
+        <p className="relative font-display text-lg text-purple-200 reveal">Administração central</p>
+
+        <div className="relative flex flex-col items-center my-auto py-10 reveal" style={{ ["--i" as string]: 2 }}>
+          <div className="w-72 h-2 rounded-full bg-gradient-to-r from-fuchsia-300/60 via-white/70 to-blue-300/60 shadow-[0_0_40px_rgba(196,181,253,0.7)] mb-2" />
+          <p className="text-xs text-purple-200 mb-8 tracking-widest uppercase">Palco</p>
           <SeatMap
             rows={10}
             cols={18}
@@ -185,44 +199,44 @@ export default function LoginScreen() {
             gap={5}
             reveal
             filled={isSeatLit}
-            style={{ ["--seat-off" as string]: "rgba(255,255,255,0.13)", ["--seat-on" as string]: "#3ecf9a" }}
+            style={{ ["--seat-off" as string]: "rgba(255,255,255,0.14)", ["--seat-on" as string]: "#34d399" }}
           />
         </div>
 
-        <div>
-          <h2 className="font-display text-4xl xl:text-5xl font-semibold leading-[1.05] max-w-md">
-            Cada convidado no seu lugar.
+        <div className="relative reveal" style={{ ["--i" as string]: 4 }}>
+          <h2 className="font-display text-4xl xl:text-5xl font-bold leading-[1.05] max-w-md">
+            Cada convidado no <span className="bg-gradient-to-r from-emerald-300 to-sky-300 bg-clip-text text-transparent">seu lugar.</span>
           </h2>
-          <p className="mt-4 text-purple-200 text-base max-w-sm leading-relaxed">
+          <p className="mt-4 text-purple-100/90 text-base max-w-sm leading-relaxed">
             Empresas, eventos e entradas validadas, num só painel.
           </p>
         </div>
       </aside>
 
-      {/* --- FORMULÁRIO --- */}
-      <div className="flex flex-col min-h-screen px-6 sm:px-12 py-8">
+      {/* --- FORMULÁRIO (cartão de vidro sobre a aurora) --- */}
+      <div className="flex flex-col min-h-screen px-5 sm:px-12 py-8">
         <div className="flex-1 flex items-center justify-center">
-          <div className="w-full max-w-[400px]">
+          <div className="w-full max-w-[420px] card-main !p-7 sm:!p-9 reveal">
 
-            <Image src="/seatly_wrt.png" alt="Seatly" width={160} height={55} className="object-contain w-28 h-auto -ml-2 mb-8" priority />
+            <Image src="/seatly_wrt.png" alt="Seatly" width={160} height={55} className="object-contain w-28 h-auto -ml-2 mb-7" priority />
 
             {/* --- VISTA: LOGIN NORMAL --- */}
             {currentView === "login" && (
               <div className="animate-in">
-                <h1 className="text-3xl text-slate-900 mb-2">Entrar</h1>
-                <p className="text-slate-500 text-[15px] mb-8">Acede ao painel de administração do Seatly.</p>
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">Entrar</h1>
+                <p className="text-slate-500 text-[15px] mb-7">Acede ao painel de administração do Seatly.</p>
 
                 <form onSubmit={handleLogin} className="space-y-5">
                   <div>
-                    <label htmlFor="login-email" className={labelCls}>E-mail</label>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Mail className="h-[18px] w-[18px] text-slate-400" /></div>
+                    <label htmlFor="login-email" className="field-label">E-mail</label>
+                    <div className="input-wrap">
+                      <Mail className="input-icon" />
                       <input
                         id="login-email"
                         type="email"
                         value={email}
                         onChange={(e) => setEmail((e.target.value || "").toLowerCase())}
-                        className={`${inputBase} ${inputOk} pl-11 pr-4`}
+                        className="input input-with-icon"
                         placeholder="admin@seatly.com"
                         required
                       />
@@ -231,78 +245,82 @@ export default function LoginScreen() {
 
                   <div>
                     <div className="flex justify-between items-center mb-1.5">
-                      <label htmlFor="login-password" className="block text-sm font-semibold text-slate-700">Palavra-passe</label>
+                      <label htmlFor="login-password" className="field-label !mb-0">Palavra-passe</label>
                       <button type="button" onClick={() => { setCurrentView("forgotPassword"); setError(""); }} className="text-sm font-semibold text-purple-600 hover:text-purple-800 transition-colors rounded">Esqueceu-se?</button>
                     </div>
-                    <div className="relative">
-                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Lock className="h-[18px] w-[18px] text-slate-400" /></div>
-                      <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`${inputBase} ${error ? inputBad : inputOk} pl-11 pr-4`} placeholder="••••••••" required />
+                    <div className="input-wrap">
+                      <Lock className="input-icon" />
+                      <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`input input-with-icon ${error ? "input-invalid" : ""}`} placeholder="••••••••" required />
                     </div>
                     {errorLine}
                   </div>
 
-                  <button type="submit" disabled={isLoading || !email || !password} className={`${primaryBtn} mt-1`}>
+                  <button type="submit" disabled={isLoading || !email || !password} className="btn btn-primary btn-lg btn-block mt-1">
                     {isLoading ? <span className="flex items-center gap-2"><Loader2 className="animate-spin h-5 w-5" /> A verificar...</span> : "Entrar"}
                   </button>
                 </form>
+
+                {legalLinks}
               </div>
             )}
 
             {/* --- VISTA: PRIMEIRO LOGIN (OPÇÃO B) --- */}
             {currentView === "firstLoginReset" && (
               <div className="animate-in">
-                <h1 className="text-3xl text-slate-900 mb-2">Define a tua palavra-passe</h1>
-                <p className="text-slate-500 text-[15px] leading-relaxed mb-8">
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">Define a tua palavra-passe</h1>
+                <p className="text-slate-500 text-[15px] leading-relaxed mb-7">
                   Bem-vindo ao Seatly! Estás a usar uma palavra-passe temporária. Para tua segurança, define agora a tua palavra-passe definitiva.
                 </p>
 
                 <form onSubmit={handleFirstLoginReset} className="space-y-5">
                   <div>
-                    <label htmlFor="new-password" className={labelCls}>Nova palavra-passe</label>
-                    <input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`${inputBase} ${inputOk} px-4`} placeholder="Mínimo 6 caracteres" required />
+                    <label htmlFor="new-password" className="field-label">Nova palavra-passe</label>
+                    <input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input" placeholder="Mínimo 6 caracteres" required />
                   </div>
                   <div>
-                    <label htmlFor="confirm-new-password" className={labelCls}>Confirmar nova palavra-passe</label>
-                    <input id="confirm-new-password" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className={`${inputBase} px-4 ${confirmNewPassword && newPassword !== confirmNewPassword ? inputBad + " text-red-600" : inputOk}`} placeholder="Repete a palavra-passe" required />
+                    <label htmlFor="confirm-new-password" className="field-label">Confirmar nova palavra-passe</label>
+                    <input id="confirm-new-password" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className={`input ${confirmNewPassword && newPassword !== confirmNewPassword ? "input-invalid" : ""}`} placeholder="Repete a palavra-passe" required />
                     {errorLine}
                   </div>
 
-                  <button type="submit" disabled={isLoading || newPassword.length < 6 || newPassword !== confirmNewPassword} className={`${primaryBtn} mt-1`}>
+                  <button type="submit" disabled={isLoading || newPassword.length < 6 || newPassword !== confirmNewPassword} className="btn btn-primary btn-lg btn-block mt-1">
                     {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : "Guardar e entrar no dashboard"}
                   </button>
                 </form>
+
+                {legalLinks}
               </div>
             )}
 
             {/* --- VISTA: ESQUECI-ME DA PALAVRA-PASSE --- */}
             {currentView === "forgotPassword" && (
               <div className="animate-in">
-                <button onClick={() => { setCurrentView("login"); setError(""); setResetSuccessMessage(""); }} className="flex items-center text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors mb-6 -ml-1 rounded">
+                <button onClick={() => { setCurrentView("login"); setError(""); setResetSuccessMessage(""); }} className="flex items-center text-sm font-semibold text-slate-500 hover:text-purple-700 transition-colors mb-5 -ml-1 rounded">
                   <ChevronLeft className="w-4 h-4 mr-0.5" /> Voltar ao login
                 </button>
 
-                <h1 className="text-3xl text-slate-900 mb-2">Recuperar acesso</h1>
-                <p className="text-slate-500 text-[15px] leading-relaxed mb-8">
+                <h1 className="text-3xl font-bold text-slate-900 mb-2">Recuperar acesso</h1>
+                <p className="text-slate-500 text-[15px] leading-relaxed mb-7">
                   Insere o e-mail associado à tua conta. Iremos enviar-te um link seguro para redefinir a tua palavra-passe.
                 </p>
 
                 {resetSuccessMessage ? (
-                  <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-xl flex items-start gap-3 animate-in" role="status">
-                    <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
-                    <p className="text-emerald-800 font-medium text-sm leading-relaxed">{resetSuccessMessage}</p>
+                  <div className="notice notice-success !p-5 animate-in" role="status">
+                    <CheckCircle2 className="w-6 h-6" />
+                    <p className="font-medium text-sm leading-relaxed">{resetSuccessMessage}</p>
                   </div>
                 ) : (
                   <form onSubmit={handleForgotPassword} className="space-y-5">
                     <div>
-                      <label htmlFor="reset-email" className={labelCls}>O teu e-mail</label>
-                      <div className="relative">
-                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Mail className="h-[18px] w-[18px] text-slate-400" /></div>
+                      <label htmlFor="reset-email" className="field-label">O teu e-mail</label>
+                      <div className="input-wrap">
+                        <Mail className="input-icon" />
                         <input
                           id="reset-email"
                           type="email"
                           value={resetEmail}
                           onChange={(e) => setResetEmail((e.target.value || "").toLowerCase())}
-                          className={`${inputBase} ${error ? inputBad : inputOk} pl-11 pr-4`}
+                          className={`input input-with-icon ${error ? "input-invalid" : ""}`}
                           placeholder="exemplo@empresa.com"
                           required
                         />
@@ -310,31 +328,19 @@ export default function LoginScreen() {
                       {errorLine}
                     </div>
 
-                    <button type="submit" disabled={isLoading || !resetEmail} className={`${primaryBtn} mt-1`}>
+                    <button type="submit" disabled={isLoading || !resetEmail} className="btn btn-primary btn-lg btn-block mt-1">
                       {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : "Enviar link de recuperação"}
                     </button>
                   </form>
                 )}
+
+                {legalLinks}
               </div>
             )}
           </div>
         </div>
 
-        {/* --- RODAPÉ: links legais e direitos --- */}
-        <footer className="w-full max-w-[400px] mx-auto pt-8 text-sm text-slate-500">
-          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-medium">
-            <button onClick={() => setIsContactModalOpen(true)} className="hover:text-purple-700 transition-colors rounded">
-              Contactar suporte
-            </button>
-            <Link href="/privacy" className="hover:text-purple-700 transition-colors rounded">
-              Política de privacidade
-            </Link>
-            <Link href="/terms" className="hover:text-purple-700 transition-colors rounded">
-              Termos de serviço
-            </Link>
-          </div>
-          <p className="mt-4 text-slate-400">Acesso restrito à administração central. © Seatly {new Date().getFullYear()}</p>
-        </footer>
+        <p className="pt-6 text-center text-xs text-slate-400">Acesso restrito à administração central. © Seatly {new Date().getFullYear()}</p>
       </div>
 
       <ContactModal isOpen={isContactModalOpen} onClose={() => setIsContactModalOpen(false)} />
