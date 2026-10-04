@@ -7,6 +7,16 @@ import com.hivemq.client.mqtt.mqtt3.Mqtt3AsyncClient
 import org.json.JSONObject
 import java.util.UUID
 
+/**
+ * Cliente MQTT (HiveMQ Cloud, TLS) usado para tempo real entre dispositivos e backoffice.
+ *
+ * Tópicos:
+ *  - `seating/events/{id}/updates`: alterações de lugares de um evento;
+ *  - `seating/managers/{userGuid}/#`: mensagens para o gestor (`/profile` → LOGOUT | REFRESH_PROFILE, `/events` → REFRESH);
+ *  - `seating/alerts/capacity`: alertas de lotação publicados pela app.
+ *
+ * As credenciais vêm do BuildConfig (local.properties) e nunca ficam no código.
+ */
 class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
 
     var onManagerEventsUpdated: (() -> Unit)? = null
@@ -15,6 +25,7 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
     var onProfileRefresh: (() -> Unit)? = null
 
     private var currentManagerTopic: String? = null
+    private var currentTopic: String? = null
     private var hasConnectedOnce = false
 
     /** Chamado quando a ligação é restabelecida automaticamente (subscrições têm de ser refeitas). */
@@ -38,8 +49,9 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
         }
         .buildAsync()
 
-    private var currentTopic: String? = null
-
+    /**
+     * Liga ao broker; [onConnected] é chamado quando a ligação inicial fica pronta.
+     */
     fun connect(onConnected: (() -> Unit)? = null) {
         client.connectWith()
             .simpleAuth()
@@ -57,6 +69,9 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
             }
     }
 
+    /**
+     * Subscreve as atualizações de um evento (e cancela a subscrição do evento anterior).
+     */
     fun subscribeToEventRoom(eventId: Int) {
         val novoTopico = "seating/events/$eventId/updates"
         if (currentTopic == novoTopico) return
@@ -93,6 +108,9 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
             }
     }
 
+    /**
+     * Publica a alteração de estado de um lugar para os restantes dispositivos do evento.
+     */
     fun publishSeatUpdate(eventId: Int, id: Int, status: Int) {
         val topic = "seating/events/$eventId/updates"
         val payload = "{\"SeatId\": $id, \"Status\": $status}".toByteArray()
@@ -111,6 +129,9 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
     }
 
     // Dispara a notificação de lotação para o Backoffice
+    /**
+     * Publica um alerta de lotação (ex.: 90%) para o backoffice mostrar notificações.
+     */
     fun publishCapacityAlert(eventName: String, threshold: Int, validated: Int, total: Int) {
         val topic = "seating/alerts/capacity"
 
@@ -138,6 +159,9 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
             }
     }
 
+    /**
+     * Subscreve as mensagens dirigidas a este gestor (logout remoto, atualização de perfil e de eventos).
+     */
     fun subscribeToManagerEvents(userGuid: String) {
         val novoTopico = "seating/managers/$userGuid/#"
         if (currentManagerTopic == novoTopico) return
@@ -172,6 +196,9 @@ class MqttManager(private val onSeatUpdated: (Int, Int) -> Unit) {
             }
     }
 
+    /**
+     * Desliga do broker e esquece as subscrições (voltam a ser feitas numa nova ligação).
+     */
     fun disconnect() {
         currentTopic = null
         currentManagerTopic = null

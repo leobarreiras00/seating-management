@@ -29,15 +29,25 @@ data class EventDto(val id: Int, val name: String, val startDate: String?, val e
 data class UpdateSingleSeatRequest(val status: Int)
 data class CompanyDto(@SerializedName("name") val name: String, @SerializedName("logoUrl") val logoUrl: String?)
 
+/** Pedido do formulário de contacto com o suporte. */
+data class ContactRequest(val email: String, val message: String)
+
 data class ChangePasswordRequest(val oldPassword: String, val newPassword: String)
 data class GenericResponse(val message: String)
 
+/**
+ * Endpoints REST do backend Seatly (Retrofit). Os pedidos autenticados enviam `Authorization: Bearer {token}`.
+ */
 interface SeatingApiService {
 
     @POST("api/Auth/login")
     suspend fun login(@Body request: LoginRequest): AuthResponse
 
     // Novos Endpoints
+    /** Envia uma mensagem para a equipa de suporte (endpoint público, sem token). */
+    @POST("api/Auth/contact")
+    suspend fun contactSupport(@Body request: ContactRequest): Response<GenericResponse>
+
     @POST("api/Auth/forgot-password")
     suspend fun forgotPassword(@Body request: ForgotPasswordRequest): Response<GenericResponse>
 
@@ -92,6 +102,9 @@ interface SeatingApiService {
     ): Response<Unit>
 }
 
+/**
+ * Cliente Retrofit de referência com o endereço do servidor de produção.
+ */
 object RetrofitClient {
     private const val BASE_URL = "https://api-seatly.onrender.com/"
 

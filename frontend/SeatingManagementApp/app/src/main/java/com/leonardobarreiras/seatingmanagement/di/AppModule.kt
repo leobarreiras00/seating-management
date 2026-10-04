@@ -15,6 +15,9 @@ import retrofit2.Retrofit
 import retrofit2.converter.gson.GsonConverterFactory
 import javax.inject.Singleton
 
+/**
+ * Módulo Hilt que fornece a base de dados, o repositório, o armazenamento seguro e a API (singletons).
+ */
 @Module
 @InstallIn(SingletonComponent::class)
 object AppModule {
