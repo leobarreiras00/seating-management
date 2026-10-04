@@ -137,7 +137,7 @@ namespace SeatingManagement.API.Migrations
                         new
                         {
                             Id = 1,
-                            LogoUrl = "https://img.logoipsum.com/288.svg",
+                            LogoUrl = "https://seatly-backoffice.vercel.app/seatly_icon.png",
                             Name = "Seatly Admin"
                         });
                 });
