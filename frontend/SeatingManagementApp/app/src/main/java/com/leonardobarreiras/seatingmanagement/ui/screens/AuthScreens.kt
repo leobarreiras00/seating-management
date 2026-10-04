@@ -184,7 +184,7 @@ fun PinAuthScreen(viewModel: SeatViewModel, onSuccess: () -> Unit, onLogout: () 
                     .shadow(14.dp, RoundedCornerShape(28.dp), ambientColor = AccentPurple.copy(alpha = 0.25f), spotColor = AccentPurple.copy(alpha = 0.35f))
                     .background(Color.White, RoundedCornerShape(28.dp)).border(1.dp, BorderSoft, RoundedCornerShape(28.dp)),
                 contentAlignment = Alignment.Center
-            ) { Image(painter = painterResource(id = R.drawable.seatly_wrt), contentDescription = null, modifier = Modifier.size(54.dp).clip(RoundedCornerShape(12.dp))) }
+            ) { Image(painter = painterResource(id = R.drawable.seatly_icon), contentDescription = null, modifier = Modifier.size(54.dp)) }
 
             Spacer(modifier = Modifier.height(24.dp))
             Text("Bem-vindo de volta", fontSize = 24.sp, fontWeight = FontWeight.ExtraBold, color = CorporateBlue, textAlign = TextAlign.Center)
@@ -253,7 +253,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
             ) {
                 Column(modifier = Modifier.padding(28.dp), horizontalAlignment = Alignment.CenterHorizontally) {
                     // Só o logótipo da aplicação (a palavra "Seatly" já faz parte da imagem)
-                    Image(painter = painterResource(id = R.drawable.seatly_wrt), contentDescription = "Seatly", modifier = Modifier.height(84.dp).clip(RoundedCornerShape(16.dp)))
+                    Image(painter = painterResource(id = R.drawable.seatly_wrt), contentDescription = "Seatly", modifier = Modifier.height(64.dp))
                     Spacer(modifier = Modifier.height(16.dp))
                     Text("Bem-vindo de volta", fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = CorporateBlue)
                     Spacer(modifier = Modifier.height(4.dp))

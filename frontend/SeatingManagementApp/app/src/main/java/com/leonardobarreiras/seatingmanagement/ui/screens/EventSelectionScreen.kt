@@ -111,6 +111,7 @@ private const val PROFILE_PIN_LENGTH = 4
 fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
     var oldPass by remember { mutableStateOf("") }
     var newPass by remember { mutableStateOf("") }
+    var confirmPass by remember { mutableStateOf("") }
     var isChanging by remember { mutableStateOf(false) }
     var errorMsg by remember { mutableStateOf("") }
 
@@ -153,6 +154,8 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
                     // Aviso permanente do mínimo de caracteres (criar/alterar palavra-passe)
                     PasswordRulesHint(currentValue = newPass)
                     SeatlyTextField(value = newPass, onValueChange = { newPass = it; errorMsg = "" }, label = "Nova palavra-passe", leadingIcon = Icons.Rounded.Lock, isPassword = true)
+                    // Confirmação obrigatória para evitar erros de escrita
+                    SeatlyTextField(value = confirmPass, onValueChange = { confirmPass = it; errorMsg = "" }, label = "Confirmar nova palavra-passe", leadingIcon = Icons.Rounded.Lock, isPassword = true)
 
                     if (errorMsg.isNotEmpty()) {
                         Text(errorMsg, color = ErrorRed, fontSize = 12.sp, fontWeight = FontWeight.Bold, modifier = Modifier.fillMaxWidth())
@@ -169,6 +172,10 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
                             // Restrição de segurança: mínimo de caracteres
                             if (newPass.length < MIN_PASSWORD_LENGTH) {
                                 errorMsg = "A palavra-passe tem de ter no mínimo $MIN_PASSWORD_LENGTH caracteres."
+                                return@GradientButton
+                            }
+                            if (newPass != confirmPass) {
+                                errorMsg = "As palavras-passe não coincidem."
                                 return@GradientButton
                             }
                             isChanging = true
@@ -268,7 +275,7 @@ private fun EventPhaseChip(phase: EventPhase) {
     val (label, color, bg) = when (phase) {
         EventPhase.LIVE -> Triple("A decorrer", SuccessGreen, SuccessGreenLight)
         EventPhase.UPCOMING -> Triple("Brevemente", AccentPurple, AccentPurpleLight)
-        EventPhase.FINISHED -> Triple("Terminado", OfflineGray, Color(0xFFF1F5F9))
+        EventPhase.FINISHED -> Triple("Fechado", OfflineGray, Color(0xFFF1F5F9))
     }
     Row(modifier = Modifier.background(bg, RoundedCornerShape(8.dp)).padding(horizontal = 8.dp, vertical = 3.dp), verticalAlignment = Alignment.CenterVertically) {
         Box(modifier = Modifier.size(6.dp).background(color, CircleShape))
