@@ -106,7 +106,8 @@ export default function NewCompanyPage() {
             <label className="field-label">Logótipo da Marca</label>
             <div onClick={() => fileInputRef.current?.click()} className="flex justify-center px-4 py-6 lg:px-6 lg:py-8 border-2 border-dashed border-purple-200 rounded-3xl bg-purple-50/40 hover:border-purple-400 hover:bg-purple-50 transition-all cursor-pointer group">
               <div className="space-y-2 text-center">
-                {preview ? (
+                {preview && preview.startsWith("blob:") ? (
+                {/* Segurança: só mostramos URLs "blob:" criados por createObjectURL (evita XSS via DOM) */}
                   <div className="mx-auto w-20 h-20 lg:w-24 lg:h-24 rounded-3xl overflow-hidden shadow-lg border-4 border-white mb-3 lg:mb-4">
                     {/* eslint-disable-next-line @next/next/no-img-element */}
                     <img src={preview} alt="Preview" className="w-full h-full object-cover" />
@@ -145,7 +146,7 @@ export default function NewCompanyPage() {
           </div>
           <div className="px-6 pb-6">
             <div className="relative z-10 -mt-10 mb-4 w-20 h-20 rounded-3xl bg-white border-4 border-white shadow-lg overflow-hidden flex items-center justify-center">
-              {preview ? (
+              {preview && preview.startsWith("blob:") ? (
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={preview} alt="" className="w-full h-full object-cover" />
               ) : (
