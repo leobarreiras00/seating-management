@@ -19,6 +19,7 @@ val OfflineGray = Color(0xFF94A3B8)
 val TextGray = Color(0xFF6B7280)
 val BorderSoft = Color(0xFFE9E5FF)
 val SurfaceWhite = Color(0xFFFFFFFF)
+val FieldBg = Color(0xFFF8F7FF)            // Fundo dos campos de texto
 
 // Gradientes reutilizáveis
 val BrandGradient: Brush = Brush.linearGradient(listOf(Color(0xFF7C3AED), Color(0xFF4F46E5), Color(0xFF2563EB)))

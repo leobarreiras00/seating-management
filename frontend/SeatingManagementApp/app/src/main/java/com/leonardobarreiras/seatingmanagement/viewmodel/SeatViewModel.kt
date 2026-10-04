@@ -31,11 +31,23 @@ import java.util.Date
 import java.util.Locale
 import javax.inject.Inject
 
+/**
+ * Número mínimo de caracteres de qualquer palavra-passe (criar, alterar, redefinir).
+ */
 const val MIN_PASSWORD_LENGTH = 6
 
+/**
+ * Tipos de aviso mostrados ao utilizador (determinam ícone e cor do banner).
+ */
 enum class FeedbackType { SUCCESS, ERROR, EXPORT, INFO, OFFLINE }
+/**
+ * Aviso a apresentar no banner global (ver FeedbackToastHost).
+ */
 data class AppFeedback(val type: FeedbackType, val title: String, val message: String)
 
+/**
+ * Erro de validação de uma linha do CSV devolvido pelo servidor.
+ */
 data class CsvValidationError(
     @SerializedName(value = "line", alternate = ["Line"]) val line: Int?,
     @SerializedName(value = "errorType", alternate = ["ErrorType"]) val errorType: String?
@@ -44,17 +56,35 @@ data class CsvValidationError(
     val actualErrorType: String get() = errorType ?: "Erro Desconhecido"
 }
 
+/**
+ * Resposta de erro da importação de CSV: resumo e lista de erros por linha.
+ */
 data class UploadErrorResponse(
     @SerializedName(value = "message", alternate = ["Message"]) val message: String?,
     @SerializedName(value = "totalRows", alternate = ["TotalRows"]) val totalRows: Int?,
     @SerializedName(value = "errors", alternate = ["Errors"]) val errors: List<CsvValidationError>?
 )
 
+/**
+ * Corpo de erro do login; `requiresPasswordReset` indica que é o primeiro acesso.
+ */
 data class AuthErrorResponse(
     val message: String?,
     val requiresPasswordReset: Boolean?
 )
 
+/**
+ * ViewModel partilhado por toda a aplicação (sessão, eventos, lugares, MQTT e avisos).
+ *
+ * Responsabilidades:
+ *  - autenticação (login, primeiro acesso, recuperação e alteração de palavra-passe);
+ *  - estado da pessoa autenticada: nome (lido do JWT), função, empresa e logo atual;
+ *  - eventos do utilizador e lugares do evento aberto (base local Room + sincronização com a API);
+ *  - tempo real via MQTT (lugares, perfil/logout remoto, atualização de eventos);
+ *  - ações do gestor (importar/exportar CSV, validar em massa, limpar dados).
+ *
+ * O estado de interface é exposto como `mutableStateOf` para o Compose recompor automaticamente.
+ */
 @HiltViewModel
 class SeatViewModel @Inject constructor(
     application: Application,
@@ -141,6 +171,9 @@ class SeatViewModel @Inject constructor(
     }
 
     // --- FUNÇÃO DE SUPORTE PARA GERIR LIGAÇÃO ---
+    /**
+     * Liga ao broker MQTT e subscreve os tópicos do gestor e do evento aberto (se existirem).
+     */
     private fun connectMqttAndSubscribe() {
         mqttManager.connect {
             if (userGuid.isNotEmpty()) {
@@ -152,6 +185,11 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Restaura a sessão guardada (token, empresa, nome) e devolve a rota inicial da navegação.
+     *
+     * Também pede logo ao servidor os dados atuais da empresa, porque os guardados podem estar desatualizados.
+     */
     fun getStartDestination(): String {
         val session = secureStorage.getSession()
         return if (session != null) {
@@ -183,6 +221,9 @@ class SeatViewModel @Inject constructor(
         secureStorage.saveSession(UserSession(token, userRole, companyName, companyLogo, managerName, userGuid))
     }
 
+    /**
+     * Obtém o nome e o logo atuais da empresa (GET api/Company/my-company) e persiste-os na sessão.
+     */
     fun fetchMyCompany() {
         val token = jwtToken ?: return
         viewModelScope.launch {
@@ -200,6 +241,9 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Termina a sessão: limpa estado em memória, desliga o MQTT, apaga a sessão guardada e os lugares locais.
+     */
     fun logout() {
         jwtToken = null
         currentEventId = null
@@ -217,12 +261,21 @@ class SeatViewModel @Inject constructor(
         viewModelScope.launch { repository.deleteAllSeats() }
     }
 
+    /**
+     * Fecha o evento aberto e apaga os lugares locais (usado ao mudar de evento).
+     */
     fun clearCurrentEvent() {
         currentEventId = null
         announcedCapacityThresholds.clear()
         viewModelScope.launch { repository.deleteAllSeats() }
     }
 
+    /**
+     * Inicia sessão com e-mail e palavra-passe.
+     *
+     * Em caso de sucesso guarda a sessão, liga o MQTT e chama [onSuccess]. Se o servidor responder 403 com
+     * `requiresPasswordReset`, ativa `requiresFirstLoginReset` para pedir a palavra-passe definitiva.
+     */
     fun authenticate(email: String, pass: String, onSuccess: () -> Unit) {
         if (isOffline) { loginError = "Sem ligação à internet."; return }
         viewModelScope.launch {
@@ -262,6 +315,9 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Pede o envio do e-mail de recuperação de palavra-passe (a resposta é sempre genérica por segurança).
+     */
     fun requestPasswordReset(email: String) {
         if (isOffline) { appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "Precisas de internet para recuperar a palavra-passe."); return }
         viewModelScope.launch {
@@ -275,6 +331,11 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Conclui o primeiro acesso: troca a palavra-passe temporária pela definitiva e inicia sessão.
+     *
+     * Valida localmente o mínimo de [MIN_PASSWORD_LENGTH] caracteres antes de chamar o servidor.
+     */
     fun firstLoginReset(email: String, tempPass: String, newPass: String, onSuccess: () -> Unit) {
         if (isOffline) { firstLoginError = "Sem ligação à internet."; return }
         if (newPass.length < MIN_PASSWORD_LENGTH) { firstLoginError = "A palavra-passe tem de ter no mínimo $MIN_PASSWORD_LENGTH caracteres."; return }
@@ -305,6 +366,9 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Atualiza a lista de eventos a que o utilizador tem acesso (GET api/Event/my-events).
+     */
     fun fetchMyEvents() {
         val token = jwtToken ?: return
         viewModelScope.launch {
@@ -317,6 +381,35 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Envia uma mensagem ao suporte (formulário de contacto do login/perfil).
+     *
+     * @param onSuccess chamado quando o servidor aceita a mensagem.
+     * @param onError chamado com um texto pronto a mostrar ao utilizador.
+     */
+    fun sendSupportMessage(email: String, message: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
+        if (isOffline) { onError("Sem ligação à internet."); return }
+        viewModelScope.launch {
+            try {
+                val res = apiService.contactSupport(ContactRequest(email, message))
+                if (res.isSuccessful) {
+                    onSuccess()
+                    appFeedback = AppFeedback(FeedbackType.SUCCESS, "Mensagem Enviada", "A equipa de suporte vai responder para o e-mail que indicaste.")
+                } else if (res.code() == 503) {
+                    onError("O contacto está indisponível de momento. Tenta mais tarde.")
+                } else {
+                    onError("Não foi possível enviar a mensagem. Verifica os dados.")
+                }
+            } catch (e: Exception) { onError("Falha na comunicação com o servidor.") }
+        }
+    }
+
+    /**
+     * Altera a palavra-passe da pessoa autenticada.
+     *
+     * @param onSuccess chamado quando o servidor aceita a alteração.
+     * @param onError chamado com uma mensagem pronta a mostrar (inclui a regra do mínimo de caracteres).
+     */
     fun changePassword(oldPass: String, newPass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         val token = jwtToken ?: return
         if (newPass.length < MIN_PASSWORD_LENGTH) { onError("A palavra-passe tem de ter no mínimo $MIN_PASSWORD_LENGTH caracteres."); return }
@@ -331,6 +424,12 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Abre um evento a partir do conteúdo de um QR ("EVENT:{id}") ou de um id direto.
+     *
+     * Confirma que o utilizador tem acesso ao evento, descarrega os lugares para a base local e
+     * subscreve as atualizações em tempo real desse evento.
+     */
     fun processRoomCheckIn(qrContent: String) {
         if (isOffline) { appFeedback = AppFeedback(FeedbackType.ERROR, "Modo Offline", "Precisas de internet para entrar num evento."); return }
         val sanitizedQr = qrContent.replace("\\s".toRegex(), "").uppercase()
@@ -357,6 +456,12 @@ class SeatViewModel @Inject constructor(
         } else { appFeedback = AppFeedback(FeedbackType.ERROR, "Formato Inválido", "O código não pertence a uma sala.") }
     }
 
+    /**
+     * Marca ou desmarca a entrada de um convidado.
+     *
+     * Grava sempre primeiro na base local; offline fica pendente de sincronização. Online publica a alteração
+     * por MQTT (para os outros telemóveis) e envia-a para a API. Também emite alertas de lotação (50/75/90/100%).
+     */
     fun updateSeatStatus(seat: SeatEntity, newStatus: Int) {
         val safeEventId = currentEventId ?: return
         viewModelScope.launch {
@@ -426,6 +531,9 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Sincroniza manualmente: substitui os lugares locais pelos do servidor (ignorado offline).
+     */
     fun fetchSeatsFromApi() {
         if (isOffline) return
         val safeEventId = currentEventId ?: return
@@ -440,6 +548,9 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Marca ou desmarca todos os convidados do evento no servidor (apenas online).
+     */
     fun bulkUpdateStatus(novoEstado: String) {
         if (isOffline) { appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "As ações em massa requerem internet."); return }
         val safeEventId = currentEventId ?: return
@@ -471,6 +582,9 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Exporta para um ficheiro CSV o relatório de erros da última importação recusada.
+     */
     fun exportErrorsCsv(uri: Uri, context: Context) {
         viewModelScope.launch {
             try {
@@ -488,6 +602,12 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Envia um CSV de convidados para o servidor.
+     *
+     * @param mode `"replace"` apaga a lista atual; `"append"` acrescenta aos existentes.
+     * Em caso de erro de validação abre o relatório de importação.
+     */
     fun uploadCsvToServer(uri: Uri, context: Context, mode: String) {
         if (isOffline) { appFeedback = AppFeedback(FeedbackType.ERROR, "Sem Rede", "Upload requer internet."); return }
         val safeEventId = currentEventId ?: return
@@ -543,6 +663,9 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Apaga permanentemente os convidados e lugares do evento (servidor e dispositivo).
+     */
     fun clearEventData() {
         val safeEventId = currentEventId ?: return
         val token = jwtToken ?: return
@@ -558,6 +681,9 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Exporta os lugares do evento aberto, com o estado atual, para um ficheiro CSV.
+     */
     fun exportCsv(uri: Uri, context: Context) {
         viewModelScope.launch {
             try {
@@ -583,6 +709,9 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Fecha o aviso atual (chamado pelo banner ao expirar ou ao ser fechado).
+     */
     fun clearFeedback() { appFeedback = null }
 
     override fun onCleared() {

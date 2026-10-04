@@ -20,6 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 
+import com.leonardobarreiras.seatingmanagement.ui.components.FeedbackToastHost
 import com.leonardobarreiras.seatingmanagement.ui.screens.*
 import com.leonardobarreiras.seatingmanagement.ui.theme.*
 import com.leonardobarreiras.seatingmanagement.viewmodel.SeatViewModel
@@ -87,6 +88,9 @@ class MainActivity : ComponentActivity() {
                         composable("event_selection") { EventSelectionScreen(viewModel = sharedViewModel, onEventSelected = { navController.navigate("dashboard") { popUpTo("event_selection") { inclusive = true } } }) }
                         composable("dashboard") { SeatScreen(viewModel = sharedViewModel, navController = navController) }
                     }
+
+                    // Avisos (sucesso, erro, informação) em banner no topo, visíveis em qualquer ecrã
+                    FeedbackToastHost(feedback = sharedViewModel.appFeedback, onDismiss = { sharedViewModel.clearFeedback() })
                 }
             }
         }

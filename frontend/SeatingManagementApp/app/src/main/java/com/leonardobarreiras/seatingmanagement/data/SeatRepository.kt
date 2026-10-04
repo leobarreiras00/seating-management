@@ -2,6 +2,9 @@ package com.leonardobarreiras.seatingmanagement.data
 
 import kotlinx.coroutines.flow.Flow
 
+/**
+ * Acesso aos lugares guardados localmente (Room); permite trabalhar offline e sincronizar depois.
+ */
 class SeatRepository(private val seatDao: SeatDao) {
 
     val allSeats: Flow<List<SeatEntity>> = seatDao.getAllSeats()
