@@ -300,11 +300,11 @@ export default function AuditsPage() {
         return (
           <div className="grid grid-cols-2 gap-4 mt-2">
             <div className="bg-red-50/50 border border-red-100 rounded-xl p-4">
-              <h4 className="text-xs font-black text-red-600 uppercase mb-2 border-b border-red-100 pb-2">Estado Anterior</h4>
+              <h4 className="text-xs font-semibold text-red-600 mb-2 border-b border-red-100 pb-2">Estado Anterior</h4>
               <pre className="text-[11px] text-red-800 font-mono whitespace-pre-wrap">{JSON.stringify(data.Before, null, 2)}</pre>
             </div>
             <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
-              <h4 className="text-xs font-black text-emerald-600 uppercase mb-2 border-b border-emerald-100 pb-2">Novo Estado</h4>
+              <h4 className="text-xs font-semibold text-emerald-600 mb-2 border-b border-emerald-100 pb-2">Novo Estado</h4>
               <pre className="text-[11px] text-emerald-800 font-mono whitespace-pre-wrap">{JSON.stringify(data.After, null, 2)}</pre>
             </div>
           </div>
@@ -327,7 +327,7 @@ export default function AuditsPage() {
   return (
     <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 pb-10">
       <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
+        <h1 className="text-3xl font-semibold text-slate-900 flex items-center gap-3">
           <History className="w-8 h-8 text-purple-600" /> Auditoria de Eventos
         </h1>
         <p className="text-slate-500 mt-2 font-medium">Acompanha e monitoriza todas as ações executadas na base de dados de cada evento em tempo real.</p>
@@ -348,7 +348,7 @@ export default function AuditsPage() {
         {filteredEvents.length === 0 ? (
           <div className="text-center py-16">
             <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-slate-900">Nenhum evento encontrado</h3>
+            <h3 className="text-lg font-semibold text-slate-900">Nenhum evento encontrado</h3>
             <p className="text-slate-500 mt-1">Ainda não existem eventos com registos de auditoria.</p>
           </div>
         ) : (
@@ -368,7 +368,7 @@ export default function AuditsPage() {
                     <div className="flex justify-end items-start mb-2">
                       <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-purple-500 transition-colors" />
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-1 line-clamp-1">{event.name}</h3>
+                    <h3 className="text-xl font-semibold text-slate-900 mb-1 line-clamp-1">{event.name}</h3>
                     <p className="text-sm font-semibold text-purple-600 mb-4">{event.companyName}</p>
                     <div className="space-y-2">
                       <div className="flex items-center text-sm text-slate-500">
@@ -383,9 +383,9 @@ export default function AuditsPage() {
                       </div>
                     </div>
                   </div>
-                  <div className="w-full bg-slate-50/50 backdrop-blur-sm px-6 py-4 border-t border-slate-100 rounded-b-[1.5rem] flex justify-between items-center">
-                    <span className="text-sm font-bold text-slate-600">Total de Registos</span>
-                    <span className="bg-purple-100 text-purple-700 py-1 px-3 rounded-xl text-sm font-extrabold">{event.totalLogs}</span>
+                  <div className="w-full bg-slate-50/50 px-6 py-4 border-t border-slate-100 rounded-b-[1.5rem] flex justify-between items-center">
+                    <span className="text-sm font-semibold text-slate-600">Total de Registos</span>
+                    <span className="bg-purple-100 text-purple-700 py-1 px-3 rounded-xl text-sm font-semibold">{event.totalLogs}</span>
                   </div>
                 </button>
               );
@@ -395,18 +395,18 @@ export default function AuditsPage() {
       </div>
 
       {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40">
           <div className="card-nested-pop w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-200/50 flex justify-between items-center shrink-0 rounded-t-[1.5rem]">
+            <div className="p-6 border-b border-slate-200/50 flex justify-between items-center shrink-0 rounded-t-2xl">
               <div>
-                <h2 className="text-xl font-extrabold text-slate-900">Registos: {selectedEvent.name}</h2>
+                <h2 className="text-xl font-semibold text-slate-900">Registos: {selectedEvent.name}</h2>
                 <p className="text-sm font-medium text-slate-500 mt-1">{selectedEvent.companyName}</p>
               </div>
               <div className="flex items-center gap-3">
                 <button
                   onClick={exportToPDF}
                   disabled={eventLogs.length === 0 || isLoadingLogs || isExporting}
-                  className="flex items-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+                  className="flex items-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-xl font-semibold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
                 >
                   {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
                   <span className="hidden sm:inline">{isExporting ? 'A Gerar...' : 'Exportar PDF'}</span>
@@ -423,7 +423,7 @@ export default function AuditsPage() {
             <div className="bg-slate-50 border-b border-slate-200/50 p-4 flex flex-wrap gap-4 shrink-0">
               <div className="flex items-center gap-2">
                 <Filter className="w-4 h-4 text-slate-400" />
-                <span className="text-sm font-bold text-slate-600">Filtros:</span>
+                <span className="text-sm font-semibold text-slate-600">Filtros:</span>
               </div>
               <select 
                 value={filterAction} 
@@ -479,13 +479,13 @@ export default function AuditsPage() {
                           type="button"
                           onClick={() => isUpdatable ? setSelectedLogDetails(log) : null}
                           disabled={!isUpdatable}
-                          className={`text-left w-full bg-white p-5 rounded-[1.5rem] border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all ${isUpdatable ? 'cursor-pointer hover:border-purple-300 hover:shadow-md' : 'cursor-default'}`}
+                          className={`text-left w-full bg-white p-5 rounded-2xl border border-slate-300 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all ${isUpdatable ? 'cursor-pointer hover:border-purple-300 hover:shadow-md' : 'cursor-default'}`}
                         >
                           <div className="flex justify-between items-start mb-3">
-                            <span className={`text-[11px] uppercase tracking-wider font-extrabold px-3 py-1.5 rounded-xl border ${style.bg} ${style.color} ${style.border}`}>
+                            <span className={`text-[11px] font-semibold px-3 py-1.5 rounded-xl border ${style.bg} ${style.color} ${style.border}`}>
                               {log.actionType.replace("_", " ")}
                             </span>
-                            <span className="text-xs font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-xl">
+                            <span className="text-xs font-semibold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-xl">
                               {logDate.toLocaleDateString('pt-PT')} às {logDate.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
                             </span>
                           </div>
@@ -494,11 +494,11 @@ export default function AuditsPage() {
                             {log.description}
                           </p>
 
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-500 pt-3 border-t border-slate-50">
+                          <div className="flex items-center justify-between text-xs font-semibold text-slate-500 pt-3 border-t border-slate-50">
                             <div className="flex items-center">
                               <User className="w-4 h-4 mr-1.5" />
                               Por: <span className="text-slate-900 ml-1 bg-slate-100 px-2 py-0.5 rounded-lg">{log.performedBy}</span>
-                              <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider font-black border ${
+                              <span className={`ml-2 px-2 py-0.5 rounded-md text-[11px] font-semibold border ${
                                 log.performedRole === 'SuperAdmin' ? 'bg-red-500/10 text-red-600 border-red-200' :
                                 log.performedRole === 'Gestor' ? 'bg-blue-500/10 text-blue-600 border-blue-200' :
                                 log.performedRole === 'Utilizador' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' :
@@ -524,7 +524,7 @@ export default function AuditsPage() {
                         type="button"
                         onClick={loadMoreLogs}
                         disabled={isLoadingMore}
-                        className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-600 hover:text-purple-600 rounded-2xl font-bold text-sm shadow-sm transition-all"
+                        className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-600 hover:text-purple-600 rounded-2xl font-semibold text-sm shadow-sm transition-all"
                       >
                         {isLoadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowDown className="w-4 h-4" />}
                         {isLoadingMore ? 'A Carregar...' : 'Ver Registos Anteriores'}
@@ -539,10 +539,10 @@ export default function AuditsPage() {
       )}
 
       {selectedLogDetails && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 animate-in fade-in duration-200">
           <div className="card-nested-pop w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0 rounded-t-[1.5rem]">
-              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
+            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0 rounded-t-2xl">
+              <h3 className="text-lg font-semibold text-slate-900 flex items-center gap-2">
                 <FileJson className="w-5 h-5 text-purple-600" /> Detalhes da Alteração (Diff)
               </h3>
               <button

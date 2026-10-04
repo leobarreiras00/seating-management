@@ -1,48 +1,171 @@
 @import "tailwindcss";
 
+/*
+  SEATLY BACKOFFICE — sistema visual
+  Ideia: um mapa de sala. Superfícies claras e planas, linhas finas, o violeta da
+  marca usado com contenção, e o "lugar" (um ponto/quadrado) como unidade gráfica.
+  Verde = lugar validado, violeta = ação, âmbar = atenção, vermelho = erro.
+*/
+
 :root {
-  --background: #f8fafc;
-  --foreground: #171717;
+  --background: #f5f4f9;
+  --foreground: #1b1630;
+  color-scheme: light;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme {
+  /* Violeta da marca (afinado ao logótipo) */
+  --color-purple-50: #f6f2fc;
+  --color-purple-100: #ece3f8;
+  --color-purple-200: #d9c8f0;
+  --color-purple-300: #bda0e4;
+  --color-purple-400: #9c71d5;
+  --color-purple-500: #8247c9;
+  --color-purple-600: #6a2fb0;
+  --color-purple-700: #55258f;
+  --color-purple-800: #411c6e;
+  --color-purple-900: #2f1450;
+
+  /* Neutros com um fio de violeta, para combinarem com a marca */
+  --color-slate-50: #f8f7fb;
+  --color-slate-100: #f0eef5;
+  --color-slate-200: #e3e0ec;
+  --color-slate-300: #cfcbdc;
+  --color-slate-400: #9b96ad;
+  --color-slate-500: #6f6a85;
+  --color-slate-600: #565170;
+  --color-slate-700: #3e3a57;
+  --color-slate-800: #2a2641;
+  --color-slate-900: #1b1630;
+  --color-slate-950: #110d20;
+
+  /* Verde "lugar validado" e âmbar "atenção" */
+  --color-emerald-50: #eaf7f1;
+  --color-emerald-100: #d3efe2;
+  --color-emerald-500: #1f9d68;
+  --color-emerald-600: #15845a;
+  --color-emerald-700: #106947;
+  --color-amber-50: #fdf6e7;
+  --color-amber-100: #faebc7;
+  --color-amber-500: #d38b0b;
+  --color-amber-600: #b87307;
+
+  /* Raios mais contidos: nada de cápsulas gigantes */
+  --radius-lg: 0.5rem;
+  --radius-xl: 0.625rem;
+  --radius-2xl: 0.875rem;
+  --radius-3xl: 1.125rem;
 }
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  font-feature-settings: "ss01", "cv11";
+  -webkit-font-smoothing: antialiased;
 }
 
-/* NAVEGAÇÃO POR TECLADO (Acessibilidade Global) */
 @layer base {
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+  h1 { font-weight: 650; }
+  h2, h3 { font-weight: 600; }
+
+  /* Números alinhados em tabelas, métricas e relógios */
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* NAVEGAÇÃO POR TECLADO (acessibilidade global) */
   button, a, input, select, textarea, [role="button"] {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 transition-shadow;
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition-shadow;
+  }
+
+  ::selection { background: var(--color-purple-200); color: var(--color-slate-900); }
+}
+
+/* SISTEMA GLOBAL DE CARTÕES */
+@layer components {
+  /* Superfície principal de uma página: plana, com linha fina */
+  .card-main {
+    @apply bg-white border border-slate-200 rounded-2xl;
+  }
+
+  /* Cartão interior / diálogo: um pouco elevado */
+  .card-nested-pop {
+    @apply bg-white border border-slate-200 rounded-2xl transition-all;
+    box-shadow: 0 1px 2px rgba(27, 22, 48, 0.05), 0 12px 32px -18px rgba(27, 22, 48, 0.22);
+  }
+
+  /* Cartões dentro de uma superfície principal ficam planos (parecem linhas de uma lista) */
+  .card-main .card-nested-pop { box-shadow: none; }
+  .card-main .card-nested-pop:hover { border-color: var(--color-purple-200); }
+
+  /* Diálogos por cima do ecrã: elevação clara */
+  .fixed .card-nested-pop,
+  .fixed.card-nested-pop {
+    box-shadow: 0 24px 60px -20px rgba(27, 22, 48, 0.45);
+  }
+
+  /* Cartão interior sem elevação */
+  .card-nested-flat {
+    @apply bg-slate-50 border border-slate-200 rounded-2xl;
   }
 }
 
-/* SISTEMA GLOBAL DE CARTÕES (DESIGN SYSTEM) */
-@layer components {
-  .card-main {
-    @apply bg-slate-100/60 backdrop-blur-2xl border border-slate-200/70 shadow-sm rounded-[2.5rem];
-  }
+@layer utilities {
+  .scrollbar-hide { scrollbar-width: none; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
 
-  .card-nested-pop {
-    @apply bg-white border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.08)] rounded-[1.5rem] transition-all;
-  }
+  .custom-scrollbar { scrollbar-width: thin; scrollbar-color: var(--color-slate-300) transparent; }
+  .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: var(--color-slate-300); border-radius: 999px; }
+}
 
-  .card-nested-flat {
-    @apply bg-slate-200/50 border border-slate-300/50 rounded-[1.5rem];
-  }
+/*
+  Entradas de menus, diálogos e vistas: respondem a uma ação do utilizador.
+  (As classes animate-in / fade-in / zoom-in-* já estavam nos componentes.)
+*/
+@keyframes ui-pop {
+  from { opacity: 0; transform: translateY(6px) scale(0.985); }
+  to { opacity: 1; transform: none; }
+}
+
+.animate-in {
+  animation: ui-pop 0.18s cubic-bezier(0.2, 0.7, 0.2, 1) both;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .animate-in, .animate-pulse, .animate-spin { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; }
+  * { transition-duration: 0.01ms !important; scroll-behavior: auto !important; }
+}
+
+/* Mapa de lugares: a peça gráfica da marca */
+.seat {
+  width: var(--seat-size, 12px);
+  height: var(--seat-size, 12px);
+  border-radius: 4px 4px 3px 3px;
+  background: var(--seat-off, var(--color-slate-200));
+}
+.seat[data-on="true"] { background: var(--seat-on, var(--color-emerald-500)); }
+
+/* Momento único: no login os lugares acendem um a um */
+@keyframes seat-light {
+  from { background: var(--seat-off, var(--color-slate-200)); transform: scale(0.8); }
+  to { background: var(--seat-on, var(--color-emerald-500)); transform: none; }
+}
+.seat-reveal[data-on="true"] {
+  animation: seat-light 0.45s ease-out both;
+  animation-delay: calc(var(--i, 0) * 9ms + 300ms);
+}
+@media (prefers-reduced-motion: reduce) {
+  .seat-reveal[data-on="true"] { animation: none; }
 }

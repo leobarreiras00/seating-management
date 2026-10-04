@@ -69,29 +69,29 @@ export default function NewCompanyPage() {
         <ChevronLeft className="w-4 h-4 lg:w-5 lg:h-5 mr-1" /> Voltar para Empresas
       </Link>
 
-      <div className="bg-white rounded-3xl lg:rounded-[2.5rem] shadow-sm border border-slate-200 overflow-hidden">
+      <div className="bg-white rounded-3xl lg:rounded-3xl shadow-sm border border-slate-200 overflow-hidden">
         {/* 👇 Espaçamento reduzido no mobile (px-5 py-5 em vez de p-10) 👇 */}
         <div className="px-5 py-5 lg:px-10 lg:py-8 border-b border-slate-100 bg-slate-50/50">
-          <h1 className="text-xl lg:text-2xl font-extrabold text-slate-900">Adicionar Nova Empresa</h1>
+          <h1 className="text-xl lg:text-2xl font-semibold text-slate-900">Adicionar Nova Empresa</h1>
           <p className="text-slate-500 mt-1 text-xs lg:text-sm">Cria uma nova instância para um cliente.</p>
         </div>
 
         {/* 👇 Formulário também com p-5 no mobile 👇 */}
         <form onSubmit={handleSubmit} className="p-5 lg:p-10 space-y-6 lg:space-y-8">
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">
+            <label className="block text-sm font-semibold text-slate-700 mb-2">
               Nome da Empresa / Cliente <span className="text-red-500">*</span>
             </label>
             <div className="relative">
               <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none">
                 <Building2 className="h-5 w-5 text-slate-400" />
               </div>
-              <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all bg-slate-50 focus:bg-white" placeholder="Ex: Acme Corp" />
+              <input type="text" value={name} onChange={(e) => setName(e.target.value)} required className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-zinc-800 font-medium focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500 transition-all bg-slate-50 focus:bg-white" placeholder="Ex: Acme Corp" />
             </div>
           </div>
 
           <div>
-            <label className="block text-sm font-bold text-slate-700 mb-2">Logótipo da Marca</label>
+            <label className="block text-sm font-semibold text-slate-700 mb-2">Logótipo da Marca</label>
             <div onClick={() => fileInputRef.current?.click()} className="mt-1 flex justify-center px-4 py-4 lg:px-6 lg:pt-5 lg:pb-6 border-2 border-slate-200 border-dashed rounded-2xl hover:border-purple-400 hover:bg-purple-50 transition-all cursor-pointer group">
               <div className="space-y-2 text-center">
                 {preview ? (
@@ -105,7 +105,7 @@ export default function NewCompanyPage() {
                   </div>
                 )}
                 <div className="text-xs lg:text-sm text-slate-600"><span className="font-semibold text-purple-600">Clica para selecionar</span> ou arrasta</div>
-                <p className="text-[10px] lg:text-xs text-slate-500">SVG, PNG, JPG até 5MB</p>
+                <p className="text-[11px] lg:text-xs text-slate-500">SVG, PNG, JPG até 5MB</p>
               </div>
               <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/svg+xml" className="hidden" />
             </div>
@@ -114,10 +114,10 @@ export default function NewCompanyPage() {
           {error && <div className="p-3 lg:p-4 bg-red-50 text-red-600 rounded-xl border border-red-100 font-medium text-xs lg:text-sm">{error}</div>}
 
           <div className="pt-4 flex flex-col-reverse sm:flex-row justify-end gap-2 lg:gap-3 border-t border-slate-100">
-            <Link href="/companies" className="px-6 py-3 rounded-xl font-bold text-slate-600 hover:bg-slate-100 transition-colors text-center text-sm lg:text-base">
+            <Link href="/companies" className="px-6 py-3 rounded-xl font-semibold text-slate-600 hover:bg-slate-100 transition-colors text-center text-sm lg:text-base">
               Cancelar
             </Link>
-            <button type="submit" disabled={isLoading || !name} className="bg-purple-600 hover:bg-purple-700 text-white font-bold py-3 px-8 rounded-xl transition-all flex items-center justify-center text-sm lg:text-base">
+            <button type="submit" disabled={isLoading || !name} className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3 px-8 rounded-xl transition-all flex items-center justify-center text-sm lg:text-base">
               {isLoading ? <div className="animate-spin w-4 h-4 lg:w-5 lg:h-5 border-2 border-white border-t-transparent rounded-full mr-2"></div> : <Upload className="w-4 h-4 lg:w-5 lg:h-5 mr-2" />}
               {isLoading ? "A Criar..." : "Criar Empresa"}
             </button>

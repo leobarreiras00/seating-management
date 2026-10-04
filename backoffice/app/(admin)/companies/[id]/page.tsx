@@ -375,8 +375,8 @@ function CompanyDetailsContent() {
   const renderAccountList = (list: AccountUser[], title: string, roleType: "Gestor" | "Utilizador", emptyMsg: string) => (
     <div>
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-        <button type="button" onClick={() => openCreateAccountModal(roleType)} className="w-full sm:w-auto bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+        <h2 className="text-xl font-semibold text-slate-900">{title}</h2>
+        <button type="button" onClick={() => openCreateAccountModal(roleType)} className="w-full sm:w-auto bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold py-2.5 px-5 rounded-xl transition-all flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
           <UserPlus className="w-4 h-4" /> Criar {roleType}
         </button>
       </div>
@@ -387,9 +387,9 @@ function CompanyDetailsContent() {
           {list.map(account => (
             <div key={account.id} className="card-nested-pop p-4 flex items-center justify-between hover:border-purple-200 transition-colors">
               <div className="flex items-center gap-3 sm:gap-4 min-w-0 pr-2">
-                <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase shrink-0">{account.username.charAt(0)}</div>
+                <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-semibold shrink-0">{account.username.charAt(0)}</div>
                 <div className="min-w-0">
-                  <p className="font-bold text-slate-900 truncate">{account.username}</p>
+                  <p className="font-semibold text-slate-900 truncate">{account.username}</p>
                   <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-0.5 truncate"><Mail className="w-3 h-3 shrink-0"/> {account.email}</p>
                 </div>
               </div>
@@ -415,7 +415,7 @@ function CompanyDetailsContent() {
   });
 
   if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
-  if (!company) return <div className="p-10 text-center"><h2 className="text-2xl font-bold text-slate-900">Empresa não encontrada</h2><button type="button" onClick={() => router.push("/companies")} className="text-purple-600 mt-4 inline-block font-bold outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded">Voltar</button></div>;
+  if (!company) return <div className="p-10 text-center"><h2 className="text-2xl font-semibold text-slate-900">Empresa não encontrada</h2><button type="button" onClick={() => router.push("/companies")} className="text-purple-600 mt-4 inline-block font-semibold outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded">Voltar</button></div>;
 
   const groupedErrors = validationErrors ? validationErrors.reduce((acc, err) => {
     const type = err.errorType || err.ErrorType || "Erro Desconhecido";
@@ -439,28 +439,28 @@ function CompanyDetailsContent() {
       </Link>
 
       <div className="card-main p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-5 sm:gap-6 mb-8 text-center sm:text-left">
-        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-slate-50 border border-slate-100 flex items-center justify-center p-2 shrink-0 shadow-inner">
+        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-slate-50 border border-slate-100 flex items-center justify-center p-2 shrink-0">
           {company.logoUrl ? (
             <img src={company.logoUrl} alt={company.name} className="w-full h-full object-contain" />
           ) : (
-            <span className="text-slate-400 font-bold text-xl">{company.name.charAt(0)}</span>
+            <span className="text-slate-400 font-semibold text-xl">{company.name.charAt(0)}</span>
           )}
         </div>
         <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 break-words">{company.name}</h1>
+          <h1 className="text-2xl sm:text-3xl font-semibold text-slate-900 break-words">{company.name}</h1>
         </div>
       </div>
 
       <div className="flex overflow-x-auto scrollbar-hide border-b border-slate-200 mb-8 gap-6 sm:gap-8 snap-x">
-        <button type="button" onClick={() => setActiveTab("gestores")} className={`snap-start whitespace-nowrap pb-4 text-base font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "gestores" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
+        <button type="button" onClick={() => setActiveTab("gestores")} className={`snap-start whitespace-nowrap pb-4 text-base font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "gestores" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
           <div className="flex items-center gap-2"><Users className="w-5 h-5" /> Gestores ({managers.length})</div>
           {activeTab === "gestores" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
         </button>
-        <button type="button" onClick={() => setActiveTab("utilizadores")} className={`snap-start whitespace-nowrap pb-4 text-base font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "utilizadores" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
+        <button type="button" onClick={() => setActiveTab("utilizadores")} className={`snap-start whitespace-nowrap pb-4 text-base font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "utilizadores" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
           <div className="flex items-center gap-2"><User className="w-5 h-5" /> Utilizadores ({companyUsers.length})</div>
           {activeTab === "utilizadores" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
         </button>
-        <button type="button" onClick={() => setActiveTab("eventos")} className={`snap-start whitespace-nowrap pb-4 text-base font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "eventos" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
+        <button type="button" onClick={() => setActiveTab("eventos")} className={`snap-start whitespace-nowrap pb-4 text-base font-semibold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "eventos" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
           <div className="flex items-center gap-2"><CalendarDays className="w-5 h-5" /> Eventos ({events.length})</div>
           {activeTab === "eventos" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
         </button>
@@ -473,8 +473,8 @@ function CompanyDetailsContent() {
         {activeTab === "eventos" && (
           <div>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-              <h2 className="text-xl font-bold text-slate-900">Eventos da Empresa</h2>
-              <button type="button" onClick={() => setShowEventModal(true)} className="w-full sm:w-auto bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+              <h2 className="text-xl font-semibold text-slate-900">Eventos da Empresa</h2>
+              <button type="button" onClick={() => setShowEventModal(true)} className="w-full sm:w-auto bg-purple-50 hover:bg-purple-100 text-purple-700 font-semibold py-2.5 px-5 rounded-xl transition-all flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
                 <CalendarPlus className="w-4 h-4" /> Criar Evento
               </button>
             </div>
@@ -491,7 +491,7 @@ function CompanyDetailsContent() {
                       <div>
                         <div className="flex justify-between items-start mb-2">
                           <div className="min-w-0 pr-4">
-                            <h3 className="font-bold text-slate-900 text-lg mb-1 truncate" title={event.name}>{event.name}</h3>
+                            <h3 className="font-semibold text-slate-900 text-lg mb-1 truncate" title={event.name}>{event.name}</h3>
                             <div className="flex flex-col gap-0.5 mt-1 mb-4">
                               {isOneDayEvent ? (
                                 <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Data:</strong> {new Date(event.startDate).toLocaleDateString('pt-PT')}</span>
@@ -509,7 +509,7 @@ function CompanyDetailsContent() {
                           </div>
                         </div>
                         
-                        <div className="flex justify-between text-sm mb-2"><span className="font-medium text-slate-600">Progresso</span><span className="font-bold text-purple-600">{progress}%</span></div>
+                        <div className="flex justify-between text-sm mb-2"><span className="font-medium text-slate-600">Progresso</span><span className="font-semibold text-purple-600">{progress}%</span></div>
                         <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: `${progress}%` }}></div></div>
                         
                         <div className="flex justify-between mt-4 pt-4 border-t border-slate-50 text-sm">
@@ -519,7 +519,7 @@ function CompanyDetailsContent() {
                         
                         {event.assignedUsers && event.assignedUsers.length > 0 && (
                           <div className="mt-4 pt-4 border-t border-slate-50">
-                            <p className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Acessos Atribuídos</p>
+                            <p className="text-xs font-semibold text-slate-500 mb-2">Acessos Atribuídos</p>
                             <div className="flex flex-wrap gap-2">
                               {event.assignedUsers.map(au => (
                                 <span key={au.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-100 text-sm font-semibold text-purple-700 shadow-sm">
@@ -533,13 +533,13 @@ function CompanyDetailsContent() {
                       </div>
                       
                       <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <Link href={`/events/${event.id}/guests?companyId=${id}`} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-700 font-bold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
+                        <Link href={`/events/${event.id}/guests?companyId=${id}`} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-700 font-semibold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
                           <Users className="w-4 h-4" /> Convidados
                         </Link>
-                        <button type="button" onClick={() => setFilesModalEvent(event)} className="w-full flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-bold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
+                        <button type="button" onClick={() => setFilesModalEvent(event)} className="w-full flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-semibold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
                           <FileText className="w-4 h-4" /> Ficheiros
                         </button>
-                        <button type="button" onClick={() => openAssignModal(event)} className="w-full flex items-center justify-center gap-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-100 text-purple-700 font-bold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+                        <button type="button" onClick={() => openAssignModal(event)} className="w-full flex items-center justify-center gap-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-100 text-purple-700 font-semibold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
                           <KeyRound className="w-4 h-4" /> Acessos
                         </button>
                       </div>
@@ -553,10 +553,10 @@ function CompanyDetailsContent() {
       </div>
 
       {filesModalEvent && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40">
           <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><FileText className="w-5 h-5 text-emerald-600" /> Ficheiros do Evento</h3>
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+              <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2"><FileText className="w-5 h-5 text-emerald-600" /> Ficheiros do Evento</h3>
               <button type="button" onClick={() => setFilesModalEvent(null)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 sm:p-6">
@@ -569,7 +569,7 @@ function CompanyDetailsContent() {
                   className="flex flex-col items-center justify-center p-6 border border-slate-200 rounded-2xl hover:border-emerald-300 hover:bg-emerald-50 transition-colors group outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
                 >
                   <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-emerald-600 mb-3 transition-colors" />
-                  <span className="font-bold text-slate-900 group-hover:text-emerald-700">Importar CSV</span>
+                  <span className="font-semibold text-slate-900 group-hover:text-emerald-700">Importar CSV</span>
                   <span className="text-xs text-slate-500 mt-1">Carregar nova lista</span>
                 </button>
                 <button 
@@ -579,7 +579,7 @@ function CompanyDetailsContent() {
                   className="flex flex-col items-center justify-center p-6 border border-slate-200 rounded-2xl hover:border-blue-300 hover:bg-blue-50 transition-colors group outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50"
                 >
                   {isExporting ? <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-3" /> : <Download className="w-8 h-8 text-slate-400 group-hover:text-blue-600 mb-3 transition-colors" />}
-                  <span className="font-bold text-slate-900 group-hover:text-blue-700">Exportar CSV</span>
+                  <span className="font-semibold text-slate-900 group-hover:text-blue-700">Exportar CSV</span>
                   <span className="text-xs text-slate-500 mt-1">Descarregar dados</span>
                 </button>
               </div>
@@ -589,24 +589,24 @@ function CompanyDetailsContent() {
       )}
 
       {showCreateAccountModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
           <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900">Novo {newAccountRole}</h3>
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+              <h3 className="text-xl font-semibold text-slate-900">Novo {newAccountRole}</h3>
               <button onClick={() => setShowCreateAccountModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateAccount} className="p-5 sm:p-6 space-y-5">
               <p className="text-sm text-slate-500">A palavra-passe será gerada automaticamente e enviada para o e-mail inserido.</p>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome Completo</label><input type="text" required value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="Ex: João Silva" /></div>
+              <div><label className="block text-sm font-semibold text-slate-700 mb-2">Nome Completo</label><input type="text" required value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="Ex: João Silva" /></div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Endereço de E-mail</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Endereço de E-mail</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-400" /></div>
                   <input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="joao@empresa.com" />
                 </div>
               </div>
               {createAccountError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex gap-2"><AlertTriangle className="w-5 h-5 shrink-0" /> {createAccountError}</div>}
-              <button type="submit" disabled={isCreatingAccount || !newName || !newEmail} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-all mt-2 flex justify-center items-center shadow-lg shadow-purple-600/20 disabled:opacity-70">
+              <button type="submit" disabled={isCreatingAccount || !newName || !newEmail} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3.5 rounded-xl transition-all mt-2 flex justify-center items-center shadow-sm shadow-purple-600/20 disabled:opacity-70">
                 {isCreatingAccount ? <Loader2 className="w-5 h-5 animate-spin" /> : `Criar ${newAccountRole} e Enviar E-mail`}
               </button>
             </form>
@@ -615,10 +615,10 @@ function CompanyDetailsContent() {
       )}
 
       {showAssignModal && assignEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
           <div className="card-nested-pop w-full max-w-lg animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 shrink-0 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-purple-600" /> Atribuir Acessos</h3>
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 shrink-0 rounded-t-2xl">
+              <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-purple-600" /> Atribuir Acessos</h3>
               <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             
@@ -628,7 +628,7 @@ function CompanyDetailsContent() {
               </p>
               <div className="space-y-6">
                 <div>
-                  <h4 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-3">Gestores Disponíveis</h4>
+                  <h4 className="text-xs font-semibold text-blue-500 mb-3">Gestores Disponíveis</h4>
                   {availableManagers.length === 0 ? (
                     <p className="text-sm text-slate-400 bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">Todos os gestores já têm acesso.</p>
                   ) : (
@@ -642,16 +642,16 @@ function CompanyDetailsContent() {
                         >
                           <div className="flex items-center gap-2 mb-1">
                             <input type="checkbox" readOnly checked={selectedUserIds.includes(m.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 pointer-events-none" />
-                            <span className={`text-sm font-bold truncate ${selectedUserIds.includes(m.id) ? 'text-blue-700' : 'text-slate-700'}`}>{m.username}</span>
+                            <span className={`text-sm font-semibold truncate ${selectedUserIds.includes(m.id) ? 'text-blue-700' : 'text-slate-700'}`}>{m.username}</span>
                           </div>
-                          <span className="text-[10px] text-slate-400 truncate pl-6">{m.email}</span>
+                          <span className="text-[11px] text-slate-400 truncate pl-6">{m.email}</span>
                         </button>
                       ))}
                     </div>
                   )}
                 </div>
                 <div>
-                  <h4 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-3">Staff / Validadores Disponíveis</h4>
+                  <h4 className="text-xs font-semibold text-emerald-500 mb-3">Staff / Validadores Disponíveis</h4>
                   {availableUsers.length === 0 ? (
                     <p className="text-sm text-slate-400 bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">Todos os utilizadores já têm acesso.</p>
                   ) : (
@@ -665,9 +665,9 @@ function CompanyDetailsContent() {
                         >
                           <div className="flex items-center gap-2 mb-1">
                             <input type="checkbox" readOnly checked={selectedUserIds.includes(u.id)} className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 pointer-events-none" />
-                            <span className={`text-sm font-bold truncate ${selectedUserIds.includes(u.id) ? 'text-emerald-700' : 'text-slate-700'}`}>{u.username}</span>
+                            <span className={`text-sm font-semibold truncate ${selectedUserIds.includes(u.id) ? 'text-emerald-700' : 'text-slate-700'}`}>{u.username}</span>
                           </div>
-                          <span className="text-[10px] text-slate-400 truncate pl-6">{u.email}</span>
+                          <span className="text-[11px] text-slate-400 truncate pl-6">{u.email}</span>
                         </button>
                       ))}
                     </div>
@@ -681,7 +681,7 @@ function CompanyDetailsContent() {
               <button 
                 onClick={handleAssignAccess} 
                 disabled={isAssigning || selectedUserIds.length === 0} 
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-all disabled:opacity-50 flex justify-center items-center shadow-lg shadow-purple-600/20"
+                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3.5 rounded-xl transition-all disabled:opacity-50 flex justify-center items-center shadow-sm shadow-purple-600/20"
               >
                 {isAssigning ? <Loader2 className="w-5 h-5 animate-spin" /> : `Atribuir Acesso (${selectedUserIds.length} selecionados)`}
               </button>
@@ -691,80 +691,80 @@ function CompanyDetailsContent() {
       )}
 
       {showEventModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
           <div className="card-nested-pop w-full max-w-md">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900">Novo Evento</h3>
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+              <h3 className="text-xl font-semibold text-slate-900">Novo Evento</h3>
               <button onClick={() => setShowEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateEvent} className="p-5 sm:p-6 space-y-5">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nome do Evento</label>
                 <input type="text" required value={eventName} onChange={(e) => setEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Data de Início</label>
                 <input type="date" required value={eventStartDate} onChange={(e) => setEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Data de Fim</label>
                 <input type="date" required min={eventStartDate} value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
               {eventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />{eventError}</div>}
-              <button type="submit" disabled={isCreatingEvent} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingEvent ? "A Criar..." : "Criar Evento"}</button>
+              <button type="submit" disabled={isCreatingEvent} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3.5 rounded-xl transition-colors mt-2">{isCreatingEvent ? "A Criar..." : "Criar Evento"}</button>
             </form>
           </div>
         </div>
       )}
 
       {showEditEventModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
           <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Edit2 className="w-5 h-5 text-purple-600" /> Editar Evento</h3>
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+              <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2"><Edit2 className="w-5 h-5 text-purple-600" /> Editar Evento</h3>
               <button onClick={() => setShowEditEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleUpdateEvent} className="p-5 sm:p-6 space-y-5">
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nome do Evento</label>
                 <input type="text" required value={editEventName} onChange={(e) => setEditEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Data de Início</label>
                 <input type="date" required value={editEventStartDate} onChange={(e) => setEditEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Data de Fim</label>
                 <input type="date" required min={editEventStartDate} value={editEventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
               </div>
               {editEventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />{editEventError}</div>}
-              <button type="submit" disabled={isEditingEvent} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isEditingEvent ? "A Guardar..." : "Guardar Alterações"}</button>
+              <button type="submit" disabled={isEditingEvent} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3.5 rounded-xl transition-colors mt-2">{isEditingEvent ? "A Guardar..." : "Guardar Alterações"}</button>
             </form>
           </div>
         </div>
       )}
 
       {showUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
           <div className="card-nested-pop w-full max-w-lg animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><UploadCloud className="w-5 h-5 text-emerald-600" /> Importar CSV</h3>
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+              <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2"><UploadCloud className="w-5 h-5 text-emerald-600" /> Importar CSV</h3>
               <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
             </div>
             <div className="p-5 sm:p-6">
               {uploadSuccess ? (
                 <div className="bg-emerald-50 rounded-2xl flex flex-col items-center text-center p-6">
                   <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4"><FileText className="w-6 h-6 text-emerald-600" /></div>
-                  <h4 className="font-bold text-emerald-800 mb-1">Importação Concluída</h4>
+                  <h4 className="font-semibold text-emerald-800 mb-1">Importação Concluída</h4>
                   <p className="text-sm text-emerald-600 font-medium">{uploadSuccess}</p>
-                  <button type="button" onClick={() => setShowUploadModal(false)} className="mt-6 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-colors">Fechar</button>
+                  <button type="button" onClick={() => setShowUploadModal(false)} className="mt-6 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-semibold py-3 rounded-xl transition-colors">Fechar</button>
                 </div>
               ) : validationErrors && validationErrors.length > 0 ? (
                 <div className="animate-in fade-in duration-300">
                   <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3 mb-6">
                     <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
                     <div>
-                      <h4 className="font-bold text-red-800 text-base mb-1">Importação Recusada</h4>
+                      <h4 className="font-semibold text-red-800 text-base mb-1">Importação Recusada</h4>
                       <p className="text-sm text-red-600 font-medium">Foram encontrados {validationErrors.length} erros em {totalValidationRows} linhas. Corrige o ficheiro e tenta novamente.</p>
                     </div>
                   </div>
@@ -773,21 +773,21 @@ function CompanyDetailsContent() {
                       <details key={type} className="mb-2 bg-white rounded-xl border border-red-100 overflow-hidden group">
                         <summary className="bg-white px-4 py-3.5 font-semibold text-slate-800 cursor-pointer hover:bg-red-50 flex items-center justify-between transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500">
                           <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500"></span> {type}</span>
-                          <span className="bg-red-100 text-red-800 text-xs py-1 px-2.5 rounded-lg font-bold">{lines.length} ocorrências</span>
+                          <span className="bg-red-100 text-red-800 text-xs py-1 px-2.5 rounded-lg font-semibold">{lines.length} ocorrências</span>
                         </summary>
                         <div className="p-4 pt-2 text-sm text-slate-600 border-t border-red-50 bg-slate-50/50"><span className="font-semibold text-slate-700 mb-1 block">Linhas afetadas:</span><br/>{lines.map(l => l === 0 ? "Geral" : l).join(", ")}</div>
                       </details>
                     ))}
                   </div>
                   <div className="flex gap-3">
-                    <button type="button" onClick={() => setValidationErrors(null)} className="flex-1 py-3.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors">Tentar Novamente</button>
-                    <button type="button" onClick={handleExportErrors} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="w-4 h-4" /> Exportar Relatório</button>
+                    <button type="button" onClick={() => setValidationErrors(null)} className="flex-1 py-3.5 rounded-xl border border-slate-200 text-slate-600 font-semibold hover:bg-slate-50 transition-colors">Tentar Novamente</button>
+                    <button type="button" onClick={handleExportErrors} className="flex-1 bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-sm"><Download className="w-4 h-4" /> Exportar Relatório</button>
                   </div>
                 </div>
               ) : (
                 <form onSubmit={handleUploadCsv} className="space-y-5">
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Ficheiro de Convidados</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Ficheiro de Convidados</label>
                     <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl hover:bg-slate-50 transition-colors bg-white">
                       <div className="space-y-1 text-center">
                         <FileText className="mx-auto h-8 w-8 text-slate-400" />
@@ -797,17 +797,17 @@ function CompanyDetailsContent() {
                             <input id="csv-upload" name="csv-upload" type="file" accept=".csv" className="sr-only" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setUploadFile(e.target.files[0]); }} />
                           </label>
                         </div>
-                        {uploadFile ? <p className="text-xs text-emerald-600 font-bold mt-2 border border-emerald-100 bg-emerald-50 p-2 rounded-lg truncate px-4">{uploadFile.name}</p> : <p className="text-xs text-slate-500 mt-2">Colunas: MESA;LUGAR;CATEGORIA;NOME</p>}
+                        {uploadFile ? <p className="text-xs text-emerald-600 font-semibold mt-2 border border-emerald-100 bg-emerald-50 p-2 rounded-lg truncate px-4">{uploadFile.name}</p> : <p className="text-xs text-slate-500 mt-2">Colunas: MESA;LUGAR;CATEGORIA;NOME</p>}
                       </div>
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Método de Importação</label>
+                    <label className="block text-sm font-semibold text-slate-700 mb-2">Método de Importação</label>
                     <div className="grid grid-cols-2 gap-3">
-                      <button type="button" onClick={() => setUploadMode("replace")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${uploadMode === 'replace' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
+                      <button type="button" onClick={() => setUploadMode("replace")} className={`py-3 px-4 rounded-xl border text-sm font-semibold flex flex-col items-center justify-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${uploadMode === 'replace' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
                         <Trash2 className={`w-5 h-5 mb-1 ${uploadMode === 'replace' ? 'text-emerald-600' : 'text-slate-400'}`} /> Substituir Lista
                       </button>
-                      <button type="button" onClick={() => setUploadMode("append")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${uploadMode === 'append' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
+                      <button type="button" onClick={() => setUploadMode("append")} className={`py-3 px-4 rounded-xl border text-sm font-semibold flex flex-col items-center justify-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${uploadMode === 'append' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
                         <CalendarPlus className={`w-5 h-5 mb-1 ${uploadMode === 'append' ? 'text-emerald-600' : 'text-slate-400'}`} /> Adicionar à Lista
                       </button>
                     </div>
@@ -815,10 +815,10 @@ function CompanyDetailsContent() {
                   {uploadError && (
                     <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 shadow-sm">
                       <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                      <div><h4 className="font-bold text-red-800 text-sm">Falha na Leitura</h4><p className="text-sm text-red-600 font-medium mt-0.5">{uploadError}</p></div>
+                      <div><h4 className="font-semibold text-red-800 text-sm">Falha na Leitura</h4><p className="text-sm text-red-600 font-medium mt-0.5">{uploadError}</p></div>
                     </div>
                   )}
-                  <button type="submit" disabled={isUploading || !uploadFile} className={`w-full text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg ${(isUploading || !uploadFile) ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}>
+                  <button type="submit" disabled={isUploading || !uploadFile} className={`w-full text-white font-semibold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-sm ${(isUploading || !uploadFile) ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}>
                     {isUploading ? <div className="flex items-center gap-2"><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div> A Processar...</div> : "Iniciar Importação"}
                   </button>
                 </form>
@@ -830,14 +830,14 @@ function CompanyDetailsContent() {
 
       {/* MODAL GLOBAL DE CONFIRMAÇÃO (Liquid Glass) */}
       {confirmDialog && confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 animate-in fade-in duration-200">
           <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
-            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
-            <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5"><AlertTriangle className="w-8 h-8" /></div>
+            <h2 className="text-2xl font-semibold text-slate-900 mb-2">{confirmDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
             <div className="flex gap-3 w-full">
-              <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
-              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">Confirmar</button>
+              <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
+              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-sm">Confirmar</button>
             </div>
           </div>
         </div>
@@ -845,14 +845,14 @@ function CompanyDetailsContent() {
 
       {/* MODAL GLOBAL DE ALERTAS (Liquid Glass) */}
       {alertDialog && alertDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 animate-in fade-in duration-200">
           <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
-            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
-            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
-            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
-            <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
+            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5"><AlertTriangle className="w-8 h-8" /></div>}
+            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5"><CheckCircle2 className="w-8 h-8" /></div>}
+            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5"><Info className="w-8 h-8" /></div>}
+            <h2 className="text-2xl font-semibold text-slate-900 mb-2">{alertDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
-            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">OK, Entendido</button>
+            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-sm">OK, Entendido</button>
           </div>
         </div>
       )}

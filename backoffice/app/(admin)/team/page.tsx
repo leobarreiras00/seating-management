@@ -205,14 +205,14 @@ export default function TeamPage() {
     <div className="w-full max-w-7xl mx-auto pb-10 px-4 sm:px-6 lg:px-8">
       <div className="mb-10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
+          <h1 className="text-3xl font-semibold text-slate-900 flex items-center gap-3">
             <Users className="w-8 h-8 text-purple-600" /> Gestão de Equipa
           </h1>
           <p className="text-slate-500 mt-2 font-medium">Administração centralizada de acessos e contas.</p>
         </div>
         
         {currentUserRole === "SuperAdmin" && (
-          <button type="button" onClick={() => setShowCreateAdminModal(true)} className="bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 sm:py-3 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+          <button type="button" onClick={() => setShowCreateAdminModal(true)} className="bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3.5 sm:py-3 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-sm shadow-slate-900/20 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
             <Plus className="w-5 h-5" /> Nova Conta Seatly
           </button>
         )}
@@ -232,13 +232,13 @@ export default function TeamPage() {
       {superAdmins.length === 0 && Object.keys(companyGroups).length === 0 ? (
         <div className="text-center py-20 card-main">
           <Users className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-          <h3 className="text-lg font-bold text-slate-900">Nenhum utilizador encontrado</h3>
+          <h3 className="text-lg font-semibold text-slate-900">Nenhum utilizador encontrado</h3>
         </div>
       ) : (
         <div className="space-y-8 sm:space-y-12">
           {superAdmins.length > 0 && (
             <div className="card-main p-6 sm:p-8">
-              <h3 className="text-xs font-black text-red-500 uppercase tracking-widest mb-6 flex items-center gap-2">
+              <h3 className="text-xs font-semibold text-red-500 mb-6 flex items-center gap-2">
                 <Shield className="w-4 h-4" /> Administração Central
               </h3>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-6">
@@ -253,19 +253,19 @@ export default function TeamPage() {
             <div key={companyName} className="card-main p-6 sm:p-8">
               <div className="flex items-center gap-4 mb-8">
                 <SafeCompanyLogo logoUrl={data.companyLogo} companyName={companyName} className="w-12 h-12" fallbackSize="w-6 h-6" />
-                <h2 className="text-2xl font-black text-slate-900">{companyName}</h2>
+                <h2 className="text-2xl font-semibold text-slate-900">{companyName}</h2>
               </div>
 
               {Object.keys(data.gestores).length > 0 && (
                 <div className="mb-10">
-                  <h3 className="text-sm font-black text-blue-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-blue-600 mb-4 flex items-center gap-2">
                     <User className="w-4 h-4" /> Gestores da Empresa
                   </h3>
                   <div className="pl-4 sm:pl-6 border-l-2 border-blue-100 ml-2 space-y-6">
                     {Object.entries(data.gestores).map(([eventName, usersList]) => (
                       <div key={eventName} className="relative">
                         <div className="absolute -left-[21px] sm:-left-[29px] top-1.5 w-2 h-2 bg-blue-400 rounded-full"></div>
-                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <h4 className="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1.5">
                           <CalendarDays className="w-3.5 h-3.5 text-blue-400" /> {eventName}
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -279,14 +279,14 @@ export default function TeamPage() {
 
               {Object.keys(data.utilizadores).length > 0 && (
                 <div className="mb-10">
-                  <h3 className="text-sm font-black text-emerald-600 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <h3 className="text-sm font-semibold text-emerald-600 mb-4 flex items-center gap-2">
                     <Users className="w-4 h-4" /> Validadores (Staff)
                   </h3>
                   <div className="pl-4 sm:pl-6 border-l-2 border-emerald-100 ml-2 space-y-6">
                     {Object.entries(data.utilizadores).map(([eventName, usersList]) => (
                       <div key={eventName} className="relative">
                         <div className="absolute -left-[21px] sm:-left-[29px] top-1.5 w-2 h-2 bg-emerald-400 rounded-full"></div>
-                        <h4 className="text-xs font-bold text-slate-500 uppercase tracking-wider mb-3 flex items-center gap-1.5">
+                        <h4 className="text-xs font-semibold text-slate-500 mb-3 flex items-center gap-1.5">
                           <CalendarDays className="w-3.5 h-3.5 text-emerald-400" /> {eventName}
                         </h4>
                         <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -300,7 +300,7 @@ export default function TeamPage() {
 
               {data.unassigned.length > 0 && (
                 <div className="pt-6 border-t border-slate-200/60 mt-4">
-                  <h3 className="text-xs font-black text-slate-400 uppercase tracking-widest mb-4 flex items-center gap-2">
+                  <h3 className="text-xs font-semibold text-slate-400 mb-4 flex items-center gap-2">
                     Sem Evento Atribuído
                   </h3>
                   <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
@@ -314,20 +314,20 @@ export default function TeamPage() {
       )}
 
       {showCreateAdminModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
           <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Shield className="w-5 h-5 text-red-500" /> Nova Conta Seatly</h3>
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+              <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2"><Shield className="w-5 h-5 text-red-500" /> Nova Conta Seatly</h3>
               <button type="button" onClick={() => setShowCreateAdminModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleCreateSuperAdmin} className="p-5 sm:p-6 space-y-5">
               <p className="text-sm text-slate-500">A palavra-passe será gerada automaticamente e enviada para o e-mail inserido.</p>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Nome Completo</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Nome Completo</label>
                 <input type="text" required value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="Ex: Maria Santos" />
               </div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Endereço de E-mail</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Endereço de E-mail</label>
                 <div className="relative">
                   <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-400" /></div>
                   <input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-red-500 outline-none transition-all" placeholder="maria@seatly.com" />
@@ -335,7 +335,7 @@ export default function TeamPage() {
               </div>
               {createError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex gap-2"><AlertTriangle className="w-5 h-5 shrink-0" /> {createError}</div>}
               
-              <button type="submit" disabled={isCreating || !newName || !newEmail} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-all mt-2 flex justify-center items-center shadow-lg shadow-slate-900/20 disabled:opacity-70">
+              <button type="submit" disabled={isCreating || !newName || !newEmail} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3.5 rounded-xl transition-all mt-2 flex justify-center items-center shadow-sm shadow-slate-900/20 disabled:opacity-70">
                 {isCreating ? <Loader2 className="w-5 h-5 animate-spin" /> : "Criar Administrador"}
               </button>
             </form>
@@ -344,13 +344,13 @@ export default function TeamPage() {
       )}
 
       {detailsModalOpen && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
           <div className="card-nested-pop p-6 sm:p-8 w-full max-w-md animate-in zoom-in-95 relative">
             <button type="button" onClick={() => setDetailsModalOpen(null)} className="absolute top-6 right-6 p-2 text-slate-400 hover:text-slate-600 bg-slate-100 hover:bg-slate-200 rounded-xl transition-colors outline-none focus-visible:ring-2 focus-visible:ring-slate-400">
               <X className="w-5 h-5" />
             </button>
             <div className="flex flex-col items-center mb-6 mt-4">
-              <div className="relative group cursor-pointer w-24 h-24 rounded-[1.5rem] overflow-hidden mb-4 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-4 border-white transition-transform hover:scale-105">
+              <div className="relative group cursor-pointer w-24 h-24 rounded-2xl overflow-hidden mb-4 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-4 border-white transition-transform hover:scale-105">
                 <input type="file" accept="image/*" className="hidden" id="avatarUpload" onChange={handleImageUpload} disabled={isUploadingAvatar} />
                 <label htmlFor="avatarUpload" className="w-full h-full flex items-center justify-center cursor-pointer relative outline-none focus-within:ring-2 focus-within:ring-purple-500">
                   <div className={`w-full h-full flex items-center justify-center ${
@@ -359,28 +359,28 @@ export default function TeamPage() {
                   }`}>
                     <SafeAvatar user={detailsModalOpen} iconSize="w-10 h-10" />
                   </div>
-                  <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
+                  <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     {isUploadingAvatar ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white mb-1" />}
-                    {!isUploadingAvatar && <span className="text-[9px] font-bold text-white uppercase tracking-wider">Alterar</span>}
+                    {!isUploadingAvatar && <span className="text-[11px] font-semibold text-white">Alterar</span>}
                   </div>
                 </label>
               </div>
 
-              <h2 className="text-2xl font-black text-slate-900 text-center mb-1">{detailsModalOpen.username}</h2>
+              <h2 className="text-2xl font-semibold text-slate-900 text-center mb-1">{detailsModalOpen.username}</h2>
               <p className="text-slate-500 text-sm flex items-center gap-1 mb-2 font-medium"><Mail className="w-3.5 h-3.5" /> {detailsModalOpen.email}</p>
-              <p className="text-slate-400 font-bold uppercase tracking-wider text-xs mb-3">{detailsModalOpen.role}</p>
+              <p className="text-slate-400 font-semibold text-xs mb-3">{detailsModalOpen.role}</p>
               
               {detailsModalOpen.role !== "SuperAdmin" && (
                 <div className="flex items-center gap-2 bg-slate-100 px-3 py-1.5 rounded-xl border border-slate-200">
                   <SafeCompanyLogo logoUrl={detailsModalOpen.companyLogo} companyName={detailsModalOpen.companyName} className="w-5 h-5 bg-transparent border-none shadow-none" fallbackSize="w-3.5 h-3.5" />
-                  <span className="text-slate-600 text-xs font-bold">{detailsModalOpen.companyName}</span>
+                  <span className="text-slate-600 text-xs font-semibold">{detailsModalOpen.companyName}</span>
                 </div>
               )}
             </div>
 
             {detailsModalOpen.role !== "SuperAdmin" && (
               <div className="card-nested-flat p-5">
-                <h3 className="text-sm font-black text-slate-800 mb-4 flex items-center gap-2">
+                <h3 className="text-sm font-semibold text-slate-800 mb-4 flex items-center gap-2">
                   <CalendarDays className="w-4 h-4 text-purple-500" /> Eventos Atribuídos
                 </h3>
                 {detailsModalOpen.events.length === 0 ? (
@@ -390,7 +390,7 @@ export default function TeamPage() {
                     {detailsModalOpen.events.map(ev => (
                       <div key={ev.id} className="bg-white border border-slate-200 px-4 py-2.5 rounded-xl shadow-sm flex items-center gap-3">
                         <div className="w-2 h-2 rounded-full bg-purple-500 shrink-0"></div>
-                        <span className="font-bold text-slate-700 text-sm truncate">{ev.name}</span>
+                        <span className="font-semibold text-slate-700 text-sm truncate">{ev.name}</span>
                       </div>
                     ))}
                   </div>
@@ -402,28 +402,28 @@ export default function TeamPage() {
       )}
 
       {confirmDialog && confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 animate-in fade-in duration-200">
           <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
-            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
-            <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5"><AlertTriangle className="w-8 h-8" /></div>
+            <h2 className="text-2xl font-semibold text-slate-900 mb-2">{confirmDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
             <div className="flex gap-3 w-full">
-              <button type="button" onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
-              <button type="button" onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">Confirmar</button>
+              <button type="button" onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
+              <button type="button" onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-sm">Confirmar</button>
             </div>
           </div>
         </div>
       )}
 
       {alertDialog && alertDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 animate-in fade-in duration-200">
           <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
-            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
-            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
-            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
-            <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
+            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5"><AlertTriangle className="w-8 h-8" /></div>}
+            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5"><CheckCircle2 className="w-8 h-8" /></div>}
+            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5"><Info className="w-8 h-8" /></div>}
+            <h2 className="text-2xl font-semibold text-slate-900 mb-2">{alertDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
-            <button type="button" onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">OK, Entendido</button>
+            <button type="button" onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-sm">OK, Entendido</button>
           </div>
         </div>
       )}
@@ -472,12 +472,12 @@ function UserCard({ user, currentUserRole, onClick, onDelete, onReset }: any) {
       className="card-nested-pop p-4 hover:border-purple-200 hover:-translate-y-1 transition-all group flex items-center justify-between cursor-pointer outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
     >
       <div className="flex items-center gap-3 sm:gap-4 min-w-0 pr-2">
-        <div className={`w-12 h-12 rounded-[1rem] flex items-center justify-center shrink-0 border overflow-hidden relative shadow-sm ${colorClass}`}>
+        <div className={`w-12 h-12 rounded-xl flex items-center justify-center shrink-0 border overflow-hidden relative shadow-sm ${colorClass}`}>
           <SafeAvatar user={user} iconSize="w-6 h-6" />
         </div>
         <div className="flex flex-col min-w-0">
-          <h4 className="font-extrabold text-slate-900 truncate" title={user.username}>{user.username}</h4>
-          <span className="text-[10px] font-medium text-slate-500 truncate mt-0.5">{user.email}</span>
+          <h4 className="font-semibold text-slate-900 truncate" title={user.username}>{user.username}</h4>
+          <span className="text-[11px] font-medium text-slate-500 truncate mt-0.5">{user.email}</span>
         </div>
       </div>
       
