@@ -38,24 +38,24 @@ export default function ContactModal({ isOpen, onClose }: { isOpen: boolean; onC
   };
 
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm animate-in fade-in duration-200">
-      <div className="bg-white/90 backdrop-blur-xl w-full max-w-[400px] rounded-[2rem] shadow-2xl border border-white/60 p-6 sm:p-8 relative">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 animate-in fade-in duration-200">
+      <div className="bg-white w-full max-w-[400px] rounded-3xl shadow-xl border border-slate-200 p-6 sm:p-8 relative">
         <button onClick={onClose} className="absolute top-4 right-4 p-2 bg-slate-100 hover:bg-slate-200 text-slate-500 rounded-full transition-colors">
           <X className="w-5 h-5" />
         </button>
 
-        <h3 className="text-xl font-extrabold text-slate-900 mb-1 mt-2">Contactar Suporte</h3>
+        <h3 className="text-xl font-semibold text-slate-900 mb-1 mt-2">Contactar Suporte</h3>
         <p className="text-slate-500 text-sm font-medium mb-6">Envia uma mensagem direta para a equipa técnica.</p>
 
         {status === "success" ? (
           <div className="flex flex-col items-center justify-center py-6 animate-in zoom-in-95">
             <CheckCircle2 className="w-12 h-12 text-emerald-500 mb-3" />
-            <p className="text-emerald-800 font-bold text-center">Mensagem enviada com sucesso!</p>
+            <p className="text-emerald-800 font-semibold text-center">Mensagem enviada com sucesso!</p>
           </div>
         ) : (
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">O teu E-mail</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">O teu E-mail</label>
               <div className="relative">
                 <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-400" /></div>
                 <input type="email" value={email} onChange={(e) => setEmail(e.target.value)} required className="w-full pl-11 pr-5 py-3 bg-slate-50 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-purple-500 outline-none" placeholder="nome@empresa.com" />
@@ -63,7 +63,7 @@ export default function ContactModal({ isOpen, onClose }: { isOpen: boolean; onC
             </div>
 
             <div>
-              <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Mensagem</label>
+              <label className="block text-sm font-semibold text-slate-700 mb-1.5 ml-1">Mensagem</label>
               <div className="relative">
                 <div className="absolute top-3 left-0 pl-4 pointer-events-none"><MessageSquare className="h-5 w-5 text-slate-400" /></div>
                 <textarea value={message} onChange={(e) => setMessage(e.target.value)} required rows={4} className="w-full pl-11 pr-5 py-3 bg-slate-50 rounded-xl border border-slate-200 text-sm focus:ring-2 focus:ring-purple-500 outline-none resize-none" placeholder="Descreve o teu problema..." />
@@ -76,7 +76,7 @@ export default function ContactModal({ isOpen, onClose }: { isOpen: boolean; onC
               </div>
             )}
 
-            <button type="submit" disabled={status === "loading" || !email || !message} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-all shadow-md flex justify-center items-center gap-2 disabled:opacity-50">
+            <button type="submit" disabled={status === "loading" || !email || !message} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3.5 rounded-xl transition-all shadow-md flex justify-center items-center gap-2 disabled:opacity-50">
               {status === "loading" ? <Loader2 className="animate-spin h-5 w-5" /> : <><Send className="w-4 h-4" /> Enviar Mensagem</>}
             </button>
           </form>

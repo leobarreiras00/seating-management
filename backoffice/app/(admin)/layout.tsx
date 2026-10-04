@@ -195,10 +195,10 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   if (!isAuthorized) return null;
 
   return (
-    <div className="flex flex-col lg:flex-row h-[100dvh] bg-slate-100 p-2 lg:p-4 gap-2 lg:gap-4 overflow-hidden relative">
+    <div className="flex flex-col lg:flex-row h-[100dvh] bg-background overflow-hidden relative">
       <Sidebar />
-      <main className="flex-1 bg-white rounded-3xl lg:rounded-[2.5rem] shadow-sm border border-slate-200 overflow-y-auto flex flex-col relative">
-        <header className="sticky top-0 z-30 bg-white/80 backdrop-blur-xl border-b border-slate-100 px-6 py-4 flex justify-end items-center shrink-0">
+      <main className="flex-1 min-w-0 overflow-y-auto flex flex-col relative">
+        <header className="sticky top-0 z-30 bg-background border-b border-slate-200 px-6 py-3 flex justify-end items-center shrink-0">
           <div className="flex items-center gap-4 sm:gap-6">
             <div className="relative">
               <button onClick={() => { setShowNotifMenu(!showNotifMenu); setShowProfileMenu(false); }} className={`p-2 rounded-xl transition-all relative ${showNotifMenu ? 'bg-purple-50 text-purple-600' : 'text-slate-400 hover:text-purple-600 hover:bg-slate-50'}`}>
@@ -206,15 +206,15 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                 {unreadCount > 0 && <span className="absolute top-1.5 right-1.5 w-2.5 h-2.5 bg-red-500 rounded-full border-2 border-white animate-pulse"></span>}
               </button>
               {showNotifMenu && (
-                <div className="absolute right-0 mt-3 w-80 bg-white rounded-[1.5rem] shadow-[0_10px_40px_rgb(0,0,0,0.1)] border border-slate-100 p-4 z-50 animate-in slide-in-from-top-2">
+                <div className="absolute right-0 mt-3 w-80 bg-white rounded-2xl shadow-[0_12px_32px_-12px_rgba(27,22,48,0.25)] border border-slate-100 p-4 z-50 animate-in slide-in-from-top-2">
                   <div className="flex justify-between items-center mb-4 px-1">
-                    <h4 className="font-extrabold text-slate-900">Notificações</h4>
-                    {unreadCount > 0 && <button onClick={markAllAsRead} className="text-[10px] font-bold text-purple-600 hover:text-purple-800 transition-colors">Marcar lidas</button>}
+                    <h4 className="font-semibold text-slate-900">Notificações</h4>
+                    {unreadCount > 0 && <button onClick={markAllAsRead} className="text-[11px] font-semibold text-purple-600 hover:text-purple-800 transition-colors">Marcar lidas</button>}
                   </div>
                   {notifications.length === 0 ? (
                     <div className="bg-slate-50 rounded-2xl p-6 text-center border border-slate-100 flex flex-col items-center">
                       <CheckCircle2 className="w-10 h-10 text-emerald-500 mb-3" />
-                      <p className="text-sm font-bold text-slate-700">Tudo calmo e tranquilo!</p>
+                      <p className="text-sm font-semibold text-slate-700">Tudo calmo e tranquilo!</p>
                       <p className="text-xs text-slate-500 mt-1 font-medium leading-relaxed">Não recebeste novos alertas das portas ou do sistema.</p>
                     </div>
                   ) : (
@@ -223,9 +223,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                         <div key={n.id} className={`p-3 rounded-xl border flex gap-3 transition-colors ${n.read ? 'bg-white border-slate-100' : 'bg-purple-50/50 border-purple-100 shadow-sm'}`}>
                           <div className="shrink-0 mt-0.5">{getNotificationIcon(n.type)}</div>
                           <div>
-                            <h5 className="text-xs font-bold text-slate-900 mb-0.5">{n.title}</h5>
+                            <h5 className="text-xs font-semibold text-slate-900 mb-0.5">{n.title}</h5>
                             <p className="text-[11px] text-slate-600 leading-tight mb-1">{n.message}</p>
-                            <span className="text-[9px] font-bold text-slate-400 uppercase">{n.time.toLocaleTimeString('pt-PT')}</span>
+                            <span className="text-[11px] font-semibold text-slate-400">{n.time.toLocaleTimeString('pt-PT')}</span>
                           </div>
                         </div>
                       ))}
@@ -240,8 +240,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
             <div className="relative">
               <button onClick={() => { setShowProfileMenu(!showProfileMenu); setShowNotifMenu(false); }} className="flex items-center gap-3 cursor-pointer group p-1.5 pr-3 rounded-2xl hover:bg-slate-50 transition-all border border-transparent hover:border-slate-100">
                 <div className="text-right hidden sm:block">
-                  <p className="text-sm font-bold text-slate-900 leading-tight group-hover:text-purple-600 transition-colors break-words w-max max-w-[150px]">{userInfo?.username}</p>
-                  <p className="text-[10px] font-black uppercase tracking-wider text-slate-400">{userInfo?.role}</p>
+                  <p className="text-sm font-semibold text-slate-900 leading-tight group-hover:text-purple-600 transition-colors break-words w-max max-w-[150px]">{userInfo?.username}</p>
+                  <p className="text-[11px] font-semibold text-slate-400">{userInfo?.role}</p>
                 </div>
                 <div className={`w-10 h-10 rounded-xl flex items-center justify-center border shadow-sm transition-transform group-hover:scale-105 overflow-hidden ${userInfo?.role === 'SuperAdmin' ? 'bg-red-50 text-red-600 border-red-100' : 'bg-blue-50 text-blue-600 border-blue-100'}`}>
                   {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : userInfo?.role === 'SuperAdmin' ? <img src="/superadmin_default.png" alt="SuperAdmin" className="w-full h-full object-cover" /> : <UserIcon className="w-5 h-5" />}
@@ -250,16 +250,16 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               </button>
 
               {showProfileMenu && (
-                <div className="absolute right-0 mt-3 w-56 bg-white rounded-[1.5rem] shadow-[0_10px_40px_rgb(0,0,0,0.1)] border border-slate-100 p-2 z-50 animate-in slide-in-from-top-2">
+                <div className="absolute right-0 mt-3 w-56 bg-white rounded-2xl shadow-[0_12px_32px_-12px_rgba(27,22,48,0.25)] border border-slate-100 p-2 z-50 animate-in slide-in-from-top-2">
                   <div className="px-4 py-3 border-b border-slate-100 mb-2">
-                    <p className="text-sm font-bold text-slate-900 truncate">{userInfo?.username}</p>
-                    {currentUser?.email && <p className="text-[10px] text-slate-500 font-medium truncate mb-1">{currentUser.email}</p>}
-                    <p className="text-[10px] font-black uppercase tracking-wider text-slate-400 sm:hidden">{userInfo?.role}</p>
+                    <p className="text-sm font-semibold text-slate-900 truncate">{userInfo?.username}</p>
+                    {currentUser?.email && <p className="text-[11px] text-slate-500 font-medium truncate mb-1">{currentUser.email}</p>}
+                    <p className="text-[11px] font-semibold text-slate-400 sm:hidden">{userInfo?.role}</p>
                   </div>
-                  <button onClick={() => { setShowMyAccountModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-purple-600 rounded-xl flex items-center gap-3 font-bold transition-colors mb-1">
+                  <button onClick={() => { setShowMyAccountModal(true); setShowProfileMenu(false); }} className="w-full text-left px-4 py-2.5 text-sm text-slate-700 hover:bg-slate-50 hover:text-purple-600 rounded-xl flex items-center gap-3 font-semibold transition-colors mb-1">
                     <Settings className="w-4 h-4 text-slate-400" /> A Minha Conta
                   </button>
-                  <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-3 font-bold transition-colors">
+                  <button onClick={handleLogout} className="w-full text-left px-4 py-2.5 text-sm text-red-600 hover:bg-red-50 rounded-xl flex items-center gap-3 font-semibold transition-colors">
                     <LogOut className="w-4 h-4" /> Terminar Sessão
                   </button>
                 </div>
@@ -275,9 +275,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* MODAL: A MINHA CONTA */}
       {showMyAccountModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
           {/* Ajuste de formatação e quebra de texto para evitar cortes */}
-          <div className="bg-white rounded-[2.5rem] p-8 w-full max-w-2xl shadow-2xl animate-in zoom-in-95 relative border border-white/50 flex flex-col md:flex-row gap-10">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-2xl shadow-xl animate-in zoom-in-95 relative border border-slate-200 flex flex-col md:flex-row gap-10">
             <button 
               onClick={() => {
                 setShowMyAccountModal(false);
@@ -290,41 +290,41 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <X className="w-5 h-5" />
             </button>
             <div className="flex flex-col items-center md:w-5/12 pt-4">
-              <div className="relative group cursor-pointer w-32 h-32 rounded-[1.5rem] overflow-hidden mb-5 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-4 border-white transition-transform hover:scale-105">
+              <div className="relative group cursor-pointer w-32 h-32 rounded-2xl overflow-hidden mb-5 shadow-[0_8px_30px_rgb(0,0,0,0.08)] border-4 border-white transition-transform hover:scale-105">
                 <input type="file" accept="image/*" className="hidden" id="myAvatarUpload" onChange={handleImageUpload} disabled={isUploadingAvatar || !currentUser} />
                 <label htmlFor="myAvatarUpload" className="w-full h-full flex items-center justify-center cursor-pointer relative">
                   {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : userInfo?.role === 'SuperAdmin' ? <img src="/superadmin_default.png" alt="SuperAdmin" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-blue-50 text-blue-600"><UserIcon className="w-10 h-10" /></div>}
-                  <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity backdrop-blur-sm">
+                  <div className="absolute inset-0 bg-slate-900/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     {isUploadingAvatar ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white mb-1" />}
-                    {!isUploadingAvatar && <span className="text-[9px] font-bold text-white uppercase tracking-wider">Alterar</span>}
+                    {!isUploadingAvatar && <span className="text-[11px] font-semibold text-white">Alterar</span>}
                   </div>
                 </label>
               </div>
-              <h3 className="text-xl font-black text-slate-900 text-center mb-1 break-words w-full px-2 leading-tight">{userInfo?.username}</h3>
+              <h3 className="text-xl font-semibold text-slate-900 text-center mb-1 break-words w-full px-2 leading-tight">{userInfo?.username}</h3>
               {currentUser?.email && <p className="text-slate-500 text-[12px] font-medium flex items-center justify-center gap-1.5 mb-3 break-words text-center w-full px-2"><Mail className="w-3.5 h-3.5 shrink-0" /> {currentUser.email}</p>}
-              <p className="text-slate-400 font-bold uppercase tracking-wider text-[11px]">{userInfo?.role}</p>
+              <p className="text-slate-400 font-semibold text-[11px]">{userInfo?.role}</p>
             </div>
             <div className="md:w-7/12 border-t md:border-t-0 md:border-l border-slate-100 pt-6 md:pt-0 md:pl-10">
-              <div className="flex items-center gap-2 mb-6 text-slate-800"><Lock className="w-5 h-5 text-purple-500" /><h3 className="text-lg font-black">Alterar Palavra-passe</h3></div>
+              <div className="flex items-center gap-2 mb-6 text-slate-800"><Lock className="w-5 h-5 text-purple-500" /><h3 className="text-lg font-semibold">Alterar Palavra-passe</h3></div>
               {successMessage ? (
-                <div className="flex flex-col items-center justify-center py-10 text-emerald-500 animate-in fade-in"><CheckCircle2 className="w-12 h-12 mb-3" /><p className="font-bold text-center">{successMessage}</p></div>
+                <div className="flex flex-col items-center justify-center py-10 text-emerald-500 animate-in fade-in"><CheckCircle2 className="w-12 h-12 mb-3" /><p className="font-semibold text-center">{successMessage}</p></div>
               ) : (
                 <div className="space-y-4">
-                  <input type="password" placeholder="Palavra-passe Atual" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 font-bold text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none text-sm transition-all" />
+                  <input type="password" placeholder="Palavra-passe Atual" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} className="w-full bg-slate-50 border border-slate-200 rounded-xl px-4 py-3.5 font-semibold text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none text-sm transition-all" />
                   
                   <div>
-                    <input type="password" placeholder="Nova Palavra-passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 font-bold text-slate-900 outline-none text-sm transition-all ${newPassword.length > 0 && newPassword.length < 6 ? 'border-red-400 focus:ring-2 focus:ring-red-500 text-red-600' : 'border-slate-200 focus:ring-2 focus:ring-purple-500'}`} />
+                    <input type="password" placeholder="Nova Palavra-passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 font-semibold text-slate-900 outline-none text-sm transition-all ${newPassword.length > 0 && newPassword.length < 6 ? 'border-red-400 focus:ring-2 focus:ring-red-500 text-red-600' : 'border-slate-200 focus:ring-2 focus:ring-purple-500'}`} />
                     {newPassword.length > 0 && newPassword.length < 6 && (
-                      <p className="text-red-500 text-[11px] font-bold mt-1.5 ml-1 animate-in fade-in">A palavra-passe deve ter pelo menos 6 caracteres.</p>
+                      <p className="text-red-500 text-[11px] font-semibold mt-1.5 ml-1 animate-in fade-in">A palavra-passe deve ter pelo menos 6 caracteres.</p>
                     )}
                   </div>
 
-                  <input type="password" placeholder="Confirme a Nova Palavra-passe" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 font-bold text-slate-900 outline-none text-sm transition-all ${confirmPassword && newPassword !== confirmPassword ? 'border-red-400 focus:ring-2 focus:ring-red-500 text-red-600' : 'border-slate-200 focus:ring-2 focus:ring-purple-500'}`} />
+                  <input type="password" placeholder="Confirme a Nova Palavra-passe" value={confirmPassword} onChange={(e) => setConfirmPassword(e.target.value)} className={`w-full bg-slate-50 border rounded-xl px-4 py-3.5 font-semibold text-slate-900 outline-none text-sm transition-all ${confirmPassword && newPassword !== confirmPassword ? 'border-red-400 focus:ring-2 focus:ring-red-500 text-red-600' : 'border-slate-200 focus:ring-2 focus:ring-purple-500'}`} />
                   
                   <button 
                     onClick={handleChangePassword} 
                     disabled={isProcessing || !oldPassword || newPassword.length < 6 || newPassword !== confirmPassword} 
-                    className="w-full py-3.5 mt-2 rounded-xl font-bold text-white bg-slate-900 hover:bg-purple-600 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"> 
+                    className="w-full py-3.5 mt-2 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors disabled:opacity-50 flex items-center justify-center gap-2"> 
                     {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Atualizar Segurança'}
                   </button>
                 </div>
@@ -336,14 +336,14 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
       {/* MODAL GLOBAL DE ALERTAS (Liquid Glass) */}
       {alertDialog && alertDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="bg-white/90 backdrop-blur-2xl rounded-[2.5rem] p-8 w-full max-w-sm shadow-2xl border border-white/50 zoom-in-95 animate-in flex flex-col items-center text-center">
-            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
-            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
-            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
-            <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 animate-in fade-in duration-200">
+          <div className="bg-white rounded-3xl p-8 w-full max-w-sm shadow-xl border border-slate-200 zoom-in-95 animate-in flex flex-col items-center text-center">
+            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mb-5"><AlertTriangle className="w-8 h-8" /></div>}
+            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mb-5"><CheckCircle2 className="w-8 h-8" /></div>}
+            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mb-5"><Info className="w-8 h-8" /></div>}
+            <h2 className="text-2xl font-semibold text-slate-900 mb-2">{alertDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
-            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">OK, Entendido</button>
+            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-sm">OK, Entendido</button>
           </div>
         </div>
       )}

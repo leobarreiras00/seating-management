@@ -6,6 +6,7 @@ import Image from "next/image";
 import Link from "next/link";
 import { Loader2, AlertTriangle, Mail, Lock, CheckCircle2, ChevronLeft } from "lucide-react";
 import ContactModal from "@/components/ContactModal";
+import SeatMap from "@/components/SeatMap";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -148,187 +149,192 @@ export default function LoginScreen() {
     }
   };
 
+  // Só visual: quais lugares da ilustração aparecem acesos (mais à frente, menos atrás)
+  const isSeatLit = (row: number, col: number) =>
+    ((row * 131 + col * 71 + row * col * 17) % 97) / 97 < 0.8 - row * 0.05;
+
+  const inputBase =
+    "w-full h-12 rounded-xl border bg-white text-slate-900 text-[15px] placeholder-slate-400 transition-colors focus:outline-none focus:ring-2 focus:ring-purple-500 focus:ring-offset-0";
+  const inputOk = "border-slate-300 hover:border-slate-400 focus:border-purple-500";
+  const inputBad = "border-red-300 focus:ring-red-500 focus:border-red-500";
+  const labelCls = "block text-sm font-semibold text-slate-700 mb-1.5";
+  const primaryBtn =
+    "w-full h-12 bg-purple-600 hover:bg-purple-700 text-white font-semibold rounded-xl transition-colors flex justify-center items-center active:translate-y-px disabled:opacity-50 disabled:hover:bg-purple-600";
+
+  const errorLine = error && (
+    <p className="text-red-600 text-sm font-medium mt-2 flex items-start gap-1.5 animate-in">
+      <AlertTriangle className="w-4 h-4 shrink-0 mt-[2px]" /> <span>{error}</span>
+    </p>
+  );
+
   return (
-    <div className="flex flex-col min-h-screen items-center justify-center bg-gradient-to-br from-slate-300 via-slate-100 to-slate-200 p-4 sm:p-6 md:p-8 text-slate-900 relative overflow-hidden">
-      
-      {/* Background Decorativo Suave */}
-      <div className="absolute top-[-10%] left-[-10%] w-96 h-96 bg-purple-400/20 rounded-full blur-[100px] pointer-events-none"></div>
-      <div className="absolute bottom-[-10%] right-[-10%] w-96 h-96 bg-emerald-400/10 rounded-full blur-[100px] pointer-events-none"></div>
+    <div className="min-h-screen bg-white lg:grid lg:grid-cols-[1.05fr_0.95fr]">
 
-      <div className="flex-1"></div>
+      {/* --- PAINEL VISUAL: a sala, com os lugares a acender --- */}
+      <aside className="hidden lg:flex relative flex-col justify-between overflow-hidden bg-purple-900 text-white px-14 py-14">
+        <p className="font-display text-lg text-purple-200">Administração central</p>
 
-      {/* --- CARTÃO PRINCIPAL (SQUIRCLE) --- */}
-      <div className="w-full max-w-[440px] bg-white/70 backdrop-blur-2xl p-6 sm:p-10 rounded-[2rem] sm:rounded-[2.5rem] shadow-[0_20px_60px_-15px_rgba(168,85,247,0.25)] border border-white/60 transition-all z-10 relative overflow-hidden">
-        
-        {/* --- VISTA: LOGIN NORMAL --- */}
-        {currentView === "login" && (
-          <div className="animate-in fade-in slide-in-from-bottom-4 duration-500">
-            <div className="flex flex-col items-center mb-8 text-center">
-              <div className="mb-6 flex justify-center">
-                <Image src="/seatly_wrt.png" alt="Seatly Logo" width={160} height={55} className="object-contain w-32 sm:w-40 h-auto" priority />
-              </div>
-              <h2 className="text-xl sm:text-2xl font-extrabold text-slate-900 tracking-tight mb-1">Bem-vindo de volta</h2>
-              <p className="text-slate-500 text-xs sm:text-sm font-medium">Insere o teu e-mail para aceder ao sistema.</p>
-            </div>
+        <div className="flex flex-col items-center my-auto py-10">
+          <div className="w-72 h-1.5 rounded-full bg-white/35 mb-2" />
+          <p className="text-xs text-purple-300 mb-8">Palco</p>
+          <SeatMap
+            rows={10}
+            cols={18}
+            aisleEvery={9}
+            size={15}
+            gap={5}
+            reveal
+            filled={isSeatLit}
+            style={{ ["--seat-off" as string]: "rgba(255,255,255,0.13)", ["--seat-on" as string]: "#3ecf9a" }}
+          />
+        </div>
 
-            <form onSubmit={handleLogin} className="space-y-4 sm:space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">E-mail</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-400" /></div>
-                  <input 
-                    type="email" 
-                    value={email} 
-                    onChange={(e) => setEmail((e.target.value || "").toLowerCase())} 
-                    className="w-full pl-11 pr-5 py-3.5 bg-slate-50/80 backdrop-blur-sm rounded-2xl border border-slate-200/80 text-slate-800 text-sm font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 focus:ring-purple-500 focus:border-transparent transition-all duration-300" 
-                    placeholder="admin@seatly.com" 
-                    required 
-                  />
-                </div>
-              </div>
+        <div>
+          <h2 className="font-display text-4xl xl:text-5xl font-semibold leading-[1.05] max-w-md">
+            Cada convidado no seu lugar.
+          </h2>
+          <p className="mt-4 text-purple-200 text-base max-w-sm leading-relaxed">
+            Empresas, eventos e entradas validadas, num só painel.
+          </p>
+        </div>
+      </aside>
 
-              <div>
-                <div className="flex justify-between items-center mb-1.5 ml-1 mr-1">
-                  <label className="block text-sm font-bold text-slate-700">Palavra-passe</label>
-                  <button type="button" onClick={() => { setCurrentView("forgotPassword"); setError(""); }} className="text-xs font-bold text-purple-600 hover:text-purple-800 transition-colors">Esqueceu-se?</button>
-                </div>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Lock className="h-5 w-5 text-slate-400" /></div>
-                  <input type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`w-full pl-11 pr-5 py-3.5 bg-slate-50/80 backdrop-blur-sm rounded-2xl border text-slate-800 text-sm font-medium placeholder-slate-400 focus:bg-white focus:outline-none focus:ring-2 transition-all duration-300 ${error ? 'border-red-300 focus:ring-red-500' : 'border-slate-200/80 focus:ring-purple-500 focus:border-transparent'}`} placeholder="••••••••" required />
-                </div>
-                {/* NOVO DESIGN DO ERRO: Discreto, sem caixa, diretamente debaixo do input */}
-                {error && (
-                  <p className="text-red-500 text-xs font-bold mt-2 ml-1 flex items-start gap-1.5 animate-in fade-in">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-[1px]" /> <span>{error}</span>
-                  </p>
-                )}
-              </div>
+      {/* --- FORMULÁRIO --- */}
+      <div className="flex flex-col min-h-screen px-6 sm:px-12 py-8">
+        <div className="flex-1 flex items-center justify-center">
+          <div className="w-full max-w-[400px]">
 
-              <button type="submit" disabled={isLoading || !email || !password} className="w-full bg-[#8B5CF6] hover:bg-[#7C3AED] text-white font-bold py-4 rounded-2xl transition-all duration-300 shadow-lg shadow-purple-500/30 hover:shadow-purple-500/50 mt-2 flex justify-center items-center active:scale-[0.98] disabled:opacity-70">
-                {isLoading ? <span className="flex items-center gap-2"><Loader2 className="animate-spin h-5 w-5" /> A verificar...</span> : "ENTRAR NO SISTEMA"}
-              </button>
-            </form>
-          </div>
-        )}
+            <Image src="/seatly_wrt.png" alt="Seatly" width={160} height={55} className="object-contain w-28 h-auto -ml-2 mb-8" priority />
 
-        {/* --- VISTA: PRIMEIRO LOGIN (OPÇÃO B) --- */}
-        {currentView === "firstLoginReset" && (
-          <div className="animate-in slide-in-from-right-8 fade-in duration-500">
-            <div className="flex flex-col items-center mb-6 text-center">
-              <div className="w-16 h-16 bg-purple-100 rounded-full flex items-center justify-center mb-4 shadow-inner">
-                <Lock className="w-8 h-8 text-purple-600" />
-              </div>
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-2">Segurança em 1º Lugar</h2>
-              <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                Bem-vindo ao Seatly! Estás a usar uma palavra-passe temporária. Para tua segurança, define agora a tua palavra-passe definitiva.
-              </p>
-            </div>
+            {/* --- VISTA: LOGIN NORMAL --- */}
+            {currentView === "login" && (
+              <div className="animate-in">
+                <h1 className="text-3xl text-slate-900 mb-2">Entrar</h1>
+                <p className="text-slate-500 text-[15px] mb-8">Acede ao painel de administração do Seatly.</p>
 
-            <form onSubmit={handleFirstLoginReset} className="space-y-4">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Nova Palavra-passe</label>
-                <input type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="w-full px-5 py-3.5 bg-slate-50/80 rounded-2xl border border-slate-200/80 text-slate-800 font-bold placeholder-slate-400 focus:bg-white focus:ring-2 focus:ring-purple-500 outline-none" placeholder="Mínimo 6 caracteres" required />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">Confirmar Nova Palavra-passe</label>
-                <input type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className={`w-full px-5 py-3.5 bg-slate-50/80 rounded-2xl border font-bold placeholder-slate-400 focus:bg-white outline-none transition-all ${confirmNewPassword && newPassword !== confirmNewPassword ? 'border-red-400 focus:ring-2 focus:ring-red-500 text-red-600' : 'border-slate-200/80 text-slate-800 focus:ring-2 focus:ring-purple-500'}`} placeholder="Repete a palavra-passe" required />
-                
-                {/* DESIGN DO ERRO SUBTIL AQUI TAMBÉM */}
-                {error && (
-                  <p className="text-red-500 text-xs font-bold mt-2 ml-1 flex items-start gap-1.5 animate-in fade-in">
-                    <AlertTriangle className="w-4 h-4 shrink-0 mt-[1px]" /> <span>{error}</span>
-                  </p>
-                )}
-              </div>
-
-              <button type="submit" disabled={isLoading || newPassword.length < 6 || newPassword !== confirmNewPassword} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl transition-all shadow-lg mt-4 flex justify-center items-center disabled:opacity-50">
-                {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : "Guardar e Entrar no Dashboard"}
-              </button>
-            </form>
-          </div>
-        )}
-
-        {/* --- VISTA: ESQUECI-ME DA PALAVRA-PASSE --- */}
-        {currentView === "forgotPassword" && (
-          <div className="animate-in slide-in-from-left-8 fade-in duration-500">
-            <button onClick={() => { setCurrentView("login"); setError(""); setResetSuccessMessage(""); }} className="flex items-center text-sm font-bold text-slate-400 hover:text-slate-600 transition-colors mb-6">
-              <ChevronLeft className="w-4 h-4 mr-1" /> Voltar ao Login
-            </button>
-            
-            <div className="flex flex-col mb-6 text-left">
-              <h2 className="text-2xl font-black text-slate-900 tracking-tight mb-2">Recuperar Acesso</h2>
-              <p className="text-slate-500 text-sm font-medium leading-relaxed">
-                Insere o e-mail associado à tua conta. Iremos enviar-te um link seguro para redefinir a tua palavra-passe.
-              </p>
-            </div>
-
-            {resetSuccessMessage ? (
-              <div className="bg-emerald-50 border border-emerald-100 p-6 rounded-2xl flex flex-col items-center text-center animate-in zoom-in-95">
-                <CheckCircle2 className="w-12 h-12 text-emerald-500 mb-3" />
-                <p className="text-emerald-800 font-bold text-sm leading-relaxed">{resetSuccessMessage}</p>
-              </div>
-            ) : (
-              <form onSubmit={handleForgotPassword} className="space-y-4">
-                <div>
-                  <label className="block text-sm font-bold text-slate-700 mb-1.5 ml-1">O teu E-mail</label>
-                  <div className="relative">
-                    <div className="absolute inset-y-0 left-0 pl-4 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-400" /></div>
-                    <input 
-                      type="email" 
-                      value={resetEmail} 
-                      onChange={(e) => setResetEmail((e.target.value || "").toLowerCase())} 
-                      className={`w-full pl-11 pr-5 py-3.5 bg-slate-50/80 rounded-2xl border font-medium focus:bg-white focus:outline-none focus:ring-2 transition-all ${error ? 'border-red-300 focus:ring-red-500 text-slate-800' : 'border-slate-200/80 text-slate-800 focus:ring-purple-500'}`} 
-                      placeholder="exemplo@empresa.com" 
-                      required 
-                    />
+                <form onSubmit={handleLogin} className="space-y-5">
+                  <div>
+                    <label htmlFor="login-email" className={labelCls}>E-mail</label>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Mail className="h-[18px] w-[18px] text-slate-400" /></div>
+                      <input
+                        id="login-email"
+                        type="email"
+                        value={email}
+                        onChange={(e) => setEmail((e.target.value || "").toLowerCase())}
+                        className={`${inputBase} ${inputOk} pl-11 pr-4`}
+                        placeholder="admin@seatly.com"
+                        required
+                      />
+                    </div>
                   </div>
-                  
-                  {/* DESIGN DO ERRO SUBTIL AQUI TAMBÉM */}
-                  {error && (
-                    <p className="text-red-500 text-xs font-bold mt-2 ml-1 flex items-start gap-1.5 animate-in fade-in">
-                      <AlertTriangle className="w-4 h-4 shrink-0 mt-[1px]" /> <span>{error}</span>
-                    </p>
-                  )}
-                </div>
 
-                <button type="submit" disabled={isLoading || !resetEmail} className="w-full bg-slate-900 hover:bg-slate-800 text-white font-bold py-4 rounded-2xl transition-all shadow-lg mt-4 flex justify-center items-center disabled:opacity-50">
-                  {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : "Enviar Link de Recuperação"}
+                  <div>
+                    <div className="flex justify-between items-center mb-1.5">
+                      <label htmlFor="login-password" className="block text-sm font-semibold text-slate-700">Palavra-passe</label>
+                      <button type="button" onClick={() => { setCurrentView("forgotPassword"); setError(""); }} className="text-sm font-semibold text-purple-600 hover:text-purple-800 transition-colors rounded">Esqueceu-se?</button>
+                    </div>
+                    <div className="relative">
+                      <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Lock className="h-[18px] w-[18px] text-slate-400" /></div>
+                      <input id="login-password" type="password" value={password} onChange={(e) => setPassword(e.target.value)} className={`${inputBase} ${error ? inputBad : inputOk} pl-11 pr-4`} placeholder="••••••••" required />
+                    </div>
+                    {errorLine}
+                  </div>
+
+                  <button type="submit" disabled={isLoading || !email || !password} className={`${primaryBtn} mt-1`}>
+                    {isLoading ? <span className="flex items-center gap-2"><Loader2 className="animate-spin h-5 w-5" /> A verificar...</span> : "Entrar"}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* --- VISTA: PRIMEIRO LOGIN (OPÇÃO B) --- */}
+            {currentView === "firstLoginReset" && (
+              <div className="animate-in">
+                <h1 className="text-3xl text-slate-900 mb-2">Define a tua palavra-passe</h1>
+                <p className="text-slate-500 text-[15px] leading-relaxed mb-8">
+                  Bem-vindo ao Seatly! Estás a usar uma palavra-passe temporária. Para tua segurança, define agora a tua palavra-passe definitiva.
+                </p>
+
+                <form onSubmit={handleFirstLoginReset} className="space-y-5">
+                  <div>
+                    <label htmlFor="new-password" className={labelCls}>Nova palavra-passe</label>
+                    <input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`${inputBase} ${inputOk} px-4`} placeholder="Mínimo 6 caracteres" required />
+                  </div>
+                  <div>
+                    <label htmlFor="confirm-new-password" className={labelCls}>Confirmar nova palavra-passe</label>
+                    <input id="confirm-new-password" type="password" value={confirmNewPassword} onChange={(e) => setConfirmNewPassword(e.target.value)} className={`${inputBase} px-4 ${confirmNewPassword && newPassword !== confirmNewPassword ? inputBad + " text-red-600" : inputOk}`} placeholder="Repete a palavra-passe" required />
+                    {errorLine}
+                  </div>
+
+                  <button type="submit" disabled={isLoading || newPassword.length < 6 || newPassword !== confirmNewPassword} className={`${primaryBtn} mt-1`}>
+                    {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : "Guardar e entrar no dashboard"}
+                  </button>
+                </form>
+              </div>
+            )}
+
+            {/* --- VISTA: ESQUECI-ME DA PALAVRA-PASSE --- */}
+            {currentView === "forgotPassword" && (
+              <div className="animate-in">
+                <button onClick={() => { setCurrentView("login"); setError(""); setResetSuccessMessage(""); }} className="flex items-center text-sm font-semibold text-slate-500 hover:text-slate-800 transition-colors mb-6 -ml-1 rounded">
+                  <ChevronLeft className="w-4 h-4 mr-0.5" /> Voltar ao login
                 </button>
-              </form>
+
+                <h1 className="text-3xl text-slate-900 mb-2">Recuperar acesso</h1>
+                <p className="text-slate-500 text-[15px] leading-relaxed mb-8">
+                  Insere o e-mail associado à tua conta. Iremos enviar-te um link seguro para redefinir a tua palavra-passe.
+                </p>
+
+                {resetSuccessMessage ? (
+                  <div className="bg-emerald-50 border border-emerald-100 p-5 rounded-xl flex items-start gap-3 animate-in" role="status">
+                    <CheckCircle2 className="w-6 h-6 text-emerald-600 shrink-0" />
+                    <p className="text-emerald-800 font-medium text-sm leading-relaxed">{resetSuccessMessage}</p>
+                  </div>
+                ) : (
+                  <form onSubmit={handleForgotPassword} className="space-y-5">
+                    <div>
+                      <label htmlFor="reset-email" className={labelCls}>O teu e-mail</label>
+                      <div className="relative">
+                        <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Mail className="h-[18px] w-[18px] text-slate-400" /></div>
+                        <input
+                          id="reset-email"
+                          type="email"
+                          value={resetEmail}
+                          onChange={(e) => setResetEmail((e.target.value || "").toLowerCase())}
+                          className={`${inputBase} ${error ? inputBad : inputOk} pl-11 pr-4`}
+                          placeholder="exemplo@empresa.com"
+                          required
+                        />
+                      </div>
+                      {errorLine}
+                    </div>
+
+                    <button type="submit" disabled={isLoading || !resetEmail} className={`${primaryBtn} mt-1`}>
+                      {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : "Enviar link de recuperação"}
+                    </button>
+                  </form>
+                )}
+              </div>
             )}
           </div>
-        )}
+        </div>
 
-        {/* --- LINKS LEGAIS MOVIDOS PARA DENTRO DO SQUIRCLE --- */}
-        <div className="mt-8 pt-6 border-t border-slate-200/60">
-          <div className="flex flex-wrap justify-center items-center gap-x-3 gap-y-2 text-xs font-bold text-slate-500">
-            <button onClick={() => setIsContactModalOpen(true)} className="hover:text-purple-600 transition-colors">
-              Contactar Suporte
+        {/* --- RODAPÉ: links legais e direitos --- */}
+        <footer className="w-full max-w-[400px] mx-auto pt-8 text-sm text-slate-500">
+          <div className="flex flex-wrap items-center gap-x-5 gap-y-2 font-medium">
+            <button onClick={() => setIsContactModalOpen(true)} className="hover:text-purple-700 transition-colors rounded">
+              Contactar suporte
             </button>
-            <span className="text-slate-300">•</span>
-            <Link href="/privacy" className="hover:text-purple-600 transition-colors">
-              Política de Privacidade
+            <Link href="/privacy" className="hover:text-purple-700 transition-colors rounded">
+              Política de privacidade
             </Link>
-            <span className="text-slate-300">•</span>
-            <Link href="/terms" className="hover:text-purple-600 transition-colors">
-              Termos de Serviço
+            <Link href="/terms" className="hover:text-purple-700 transition-colors rounded">
+              Termos de serviço
             </Link>
           </div>
-        </div>
-
-      </div>
-
-      {/* --- FOOTER DE SEGURANÇA E COPYRIGHT (FORA DO CARTÃO) --- */}
-      <div className="flex-1 flex flex-col items-center justify-end pb-4 sm:pb-6 mt-6 z-10 w-full max-w-[440px]">
-        <div className="flex flex-col items-center gap-1.5">
-          <div className="flex items-center gap-2 text-slate-500 text-xs font-semibold uppercase tracking-wider">
-            <Lock className="w-3.5 h-3.5 text-purple-500" />
-            <span>Acesso Restrito · Encriptação E2E</span>
-          </div>
-          <div className="text-slate-400 text-xs font-medium">
-            Copyright © Seatly {new Date().getFullYear()}.
-          </div>
-        </div>
+          <p className="mt-4 text-slate-400">Acesso restrito à administração central. © Seatly {new Date().getFullYear()}</p>
+        </footer>
       </div>
 
       <ContactModal isOpen={isContactModalOpen} onClose={() => setIsContactModalOpen(false)} />

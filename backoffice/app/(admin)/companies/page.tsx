@@ -125,10 +125,10 @@ export default function CompaniesPage() {
     <div className="w-full max-w-7xl mx-auto pb-10 px-4 sm:px-6 lg:px-8">
       <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
         <div>
-          <h1 className="text-3xl font-extrabold text-slate-900">Empresas Clientes</h1>
+          <h1 className="text-3xl font-semibold text-slate-900">Empresas Clientes</h1>
           <p className="text-slate-500 mt-1 font-medium">Gere as instâncias e acessos dos teus clientes.</p>
         </div>
-        <Link href="/companies/new" className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 sm:py-3 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+        <Link href="/companies/new" className="w-full sm:w-auto bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3.5 sm:py-3 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-sm shadow-slate-900/20 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
           <Plus className="w-5 h-5" /> Nova Empresa
         </Link>
       </header>
@@ -140,7 +140,7 @@ export default function CompaniesPage() {
         {!isLoading && !error && filteredCompanies.length === 0 ? (
           <div className="flex flex-col items-center text-center py-16">
             <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-4 shadow-sm border border-slate-100"><Building2 className="w-10 h-10 text-slate-300" /></div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Sem empresas ativas</h3>
+            <h3 className="text-xl font-semibold text-slate-900 mb-2">Sem empresas ativas</h3>
             <p className="text-slate-500 max-w-sm mb-6">Ainda não tens nenhum cliente registado na plataforma. Cria a tua primeira empresa para começar.</p>
           </div>
         ) : (
@@ -149,12 +149,12 @@ export default function CompaniesPage() {
               <div key={company.id} className="relative group">
                 <Link 
                   href={`/companies/${company.id}`} 
-                  className="block card-nested-pop p-6 h-full flex flex-col hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/10 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
+                  className="block card-nested-pop p-6 h-full flex flex-col hover:border-purple-200 hover:shadow-md outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
                 >
                   <div className="flex items-center gap-4 mb-6">
                     <SafeCompanyLogo logoUrl={company.logoUrl} companyName={company.name} className="w-16 h-16" fallbackSize="w-6 h-6" />
                     <div className="flex-1 min-w-0 pr-8">
-                      <h3 className="text-lg font-bold text-slate-900 truncate" title={company.name}>{company.name}</h3>
+                      <h3 className="text-lg font-semibold text-slate-900 truncate" title={company.name}>{company.name}</h3>
                     </div>
                   </div>
                   <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between text-sm font-semibold text-purple-600 group-hover:text-purple-700">
@@ -173,16 +173,16 @@ export default function CompaniesPage() {
       </div>
 
       {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40">
           <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Edit2 className="w-5 h-5 text-purple-600" /> Editar Empresa</h3>
+            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-2xl">
+              <h3 className="text-xl font-semibold text-slate-900 flex items-center gap-2"><Edit2 className="w-5 h-5 text-purple-600" /> Editar Empresa</h3>
               <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"><X className="w-5 h-5" /></button>
             </div>
             <form onSubmit={handleEditSubmit} className="p-5 sm:p-6 space-y-5">
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome da Empresa</label><input type="text" required value={editCompanyName} onChange={(e) => setEditCompanyName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
+              <div><label className="block text-sm font-semibold text-slate-700 mb-2">Nome da Empresa</label><input type="text" required value={editCompanyName} onChange={(e) => setEditCompanyName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
               <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Novo Logótipo (Opcional)</label>
+                <label className="block text-sm font-semibold text-slate-700 mb-2">Novo Logótipo (Opcional)</label>
                 <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl hover:bg-slate-50 transition-colors">
                   <div className="space-y-1 text-center">
                     <Upload className="mx-auto h-8 w-8 text-slate-400" />
@@ -192,40 +192,40 @@ export default function CompaniesPage() {
                         <input id="file-upload-edit" name="file-upload-edit" type="file" className="sr-only" accept="image/png, image/jpeg, image/svg+xml" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setEditCompanyLogo(e.target.files[0]); }} />
                       </label>
                     </div>
-                    {editCompanyLogo ? <p className="text-xs text-emerald-600 font-bold mt-2">{editCompanyLogo.name}</p> : <p className="text-xs text-slate-500">PNG, JPG, SVG até 5MB</p>}
+                    {editCompanyLogo ? <p className="text-xs text-emerald-600 font-semibold mt-2">{editCompanyLogo.name}</p> : <p className="text-xs text-slate-500">PNG, JPG, SVG até 5MB</p>}
                   </div>
                 </div>
               </div>
               {editError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{editError}</div>}
-              <button type="submit" disabled={isEditing} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">{isEditing ? "A Guardar..." : "Guardar Alterações"}</button>
+              <button type="submit" disabled={isEditing} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-semibold py-3.5 rounded-xl transition-colors mt-2 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">{isEditing ? "A Guardar..." : "Guardar Alterações"}</button>
             </form>
           </div>
         </div>
       )}
 
       {confirmDialog && confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 animate-in fade-in duration-200">
           <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
-            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
-            <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
+            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5"><AlertTriangle className="w-8 h-8" /></div>
+            <h2 className="text-2xl font-semibold text-slate-900 mb-2">{confirmDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
             <div className="flex gap-3 w-full">
-              <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-slate-400">Cancelar</button>
-              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-slate-900">Confirmar</button>
+              <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-semibold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-slate-400">Cancelar</button>
+              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-900">Confirmar</button>
             </div>
           </div>
         </div>
       )}
 
       {alertDialog && alertDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
+        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 animate-in fade-in duration-200">
           <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
-            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
-            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
-            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
-            <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
+            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5"><AlertTriangle className="w-8 h-8" /></div>}
+            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5"><CheckCircle2 className="w-8 h-8" /></div>}
+            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5"><Info className="w-8 h-8" /></div>}
+            <h2 className="text-2xl font-semibold text-slate-900 mb-2">{alertDialog.title}</h2>
             <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
-            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-slate-900">OK, Entendido</button>
+            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-semibold text-white bg-purple-600 hover:bg-purple-700 transition-colors shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-900">OK, Entendido</button>
           </div>
         </div>
       )}
