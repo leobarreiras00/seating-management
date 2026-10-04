@@ -21,6 +21,16 @@ import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.platform.LocalContext
+import androidx.compose.animation.core.animateFloatAsState
+import androidx.compose.ui.draw.alpha
+import androidx.compose.ui.draw.shadow
+import androidx.compose.ui.layout.ContentScale
+import android.util.Base64
+import coil.ImageLoader
+import coil.compose.AsyncImage
+import coil.decode.SvgDecoder
+import com.leonardobarreiras.seatingmanagement.viewmodel.MIN_PASSWORD_LENGTH
 import com.leonardobarreiras.seatingmanagement.data.SeatEntity
 import com.leonardobarreiras.seatingmanagement.ui.theme.*
 import com.leonardobarreiras.seatingmanagement.ui.utils.getMesaFromSeat
@@ -36,11 +46,11 @@ fun ModernAlertDialog(
     Dialog(onDismissRequest = onDismiss) {
         Card(
             shape = RoundedCornerShape(32.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
-            elevation = CardDefaults.cardElevation(defaultElevation = 8.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
+            elevation = CardDefaults.cardElevation(defaultElevation = 12.dp), modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp)
         ) {
             Column(modifier = Modifier.padding(24.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-                Box(modifier = Modifier.size(64.dp).background(iconBg, RoundedCornerShape(20.dp)), contentAlignment = Alignment.Center) {
-                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(32.dp))
+                Box(modifier = Modifier.size(72.dp).background(iconBg, RoundedCornerShape(24.dp)).border(1.dp, iconTint.copy(alpha = 0.15f), RoundedCornerShape(24.dp)), contentAlignment = Alignment.Center) {
+                    Icon(icon, contentDescription = null, tint = iconTint, modifier = Modifier.size(34.dp))
                 }
                 Spacer(modifier = Modifier.height(20.dp))
                 Text(title, fontSize = 20.sp, fontWeight = FontWeight.ExtraBold, color = CorporateBlue, textAlign = TextAlign.Center)
@@ -64,6 +74,7 @@ fun ModernAlertDialog(
                     Button(
                         onClick = onConfirm, enabled = !isConfirmLoading, modifier = Modifier.weight(1f).height(48.dp),
                         shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = confirmColor),
+                        elevation = ButtonDefaults.buttonElevation(defaultElevation = 0.dp, pressedElevation = 0.dp),
                         contentPadding = PaddingValues(horizontal = 4.dp)
                     ) {
                         if (isConfirmLoading) CircularProgressIndicator(color = Color.White, modifier = Modifier.size(20.dp), strokeWidth = 2.dp)
@@ -200,14 +211,15 @@ fun GuestListItem(seat: SeatEntity, onAssignClick: () -> Unit) {
     val initials = name.split(" ").take(2).mapNotNull { it.firstOrNull()?.uppercase() }.joinToString("")
 
     val avatarColor = remember(name) {
-        val colors = listOf(Color(0xFF3B82F6), Color(0xFFF59E0B), Color(0xFFEC4899), Color(0xFF8B5CF6), Color(0xFF14B8A6))
+        val colors = listOf(Color(0xFF6366F1), Color(0xFFF59E0B), Color(0xFFEC4899), Color(0xFF8B5CF6), Color(0xFF14B8A6))
         colors[name.length % colors.size]
     }
 
     Card(
         modifier = Modifier.fillMaxWidth().clickable { onAssignClick() },
         colors = CardDefaults.cardColors(containerColor = Color.White),
-        elevation = CardDefaults.cardElevation(2.dp),
+        elevation = CardDefaults.cardElevation(0.dp),
+        border = BorderStroke(1.dp, BorderSoft),
         shape = RoundedCornerShape(24.dp)
     ) {
         Row(
@@ -239,7 +251,7 @@ fun GuestListItem(seat: SeatEntity, onAssignClick: () -> Unit) {
                 Spacer(modifier = Modifier.height(8.dp))
                 Row(verticalAlignment = Alignment.CenterVertically) {
                     Row(
-                        modifier = Modifier.background(Color(0xFFF1F5F9), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 4.dp),
+                        modifier = Modifier.background(AccentPurpleLight.copy(alpha = 0.6f), RoundedCornerShape(8.dp)).padding(horizontal = 6.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(Icons.Rounded.GridView, contentDescription = null, tint = TextGray, modifier = Modifier.size(12.dp))
@@ -249,7 +261,7 @@ fun GuestListItem(seat: SeatEntity, onAssignClick: () -> Unit) {
                     }
                     Spacer(modifier = Modifier.width(8.dp))
                     Row(
-                        modifier = Modifier.background(Color(0xFFF1F5F9), RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 4.dp),
+                        modifier = Modifier.background(AccentPurpleLight.copy(alpha = 0.6f), RoundedCornerShape(8.dp)).padding(horizontal = 6.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
                         Icon(Icons.Rounded.Place, contentDescription = null, tint = TextGray, modifier = Modifier.size(12.dp))
@@ -293,12 +305,112 @@ fun GuestListItem(seat: SeatEntity, onAssignClick: () -> Unit) {
 
 @Composable
 fun StatCard(modifier: Modifier = Modifier, title: String, count: Int, iconColor: Color, bgTint: Color, icon: ImageVector) {
-    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(0.dp), border = BorderStroke(1.dp, Color(0xFFF1F5F9)), shape = RoundedCornerShape(20.dp)) {
-        Column(modifier = Modifier.padding(16.dp), horizontalAlignment = Alignment.CenterHorizontally) {
-            Box(modifier = Modifier.size(40.dp).background(bgTint, RoundedCornerShape(12.dp)), contentAlignment = Alignment.Center) { Icon(icon, contentDescription = title, tint = iconColor, modifier = Modifier.size(20.dp)) }
-            Spacer(modifier = Modifier.height(12.dp))
-            Text(text = count.toString(), fontWeight = FontWeight.Bold, fontSize = 22.sp, color = CorporateBlue)
-            Text(text = title, fontSize = 12.sp, color = iconColor, fontWeight = FontWeight.Bold)
+    Card(modifier = modifier, colors = CardDefaults.cardColors(containerColor = Color.White), elevation = CardDefaults.cardElevation(0.dp), border = BorderStroke(1.dp, BorderSoft), shape = RoundedCornerShape(22.dp)) {
+        // fillMaxWidth + CenterHorizontally: o conteúdo fica sempre centrado dentro do cartão
+        Column(
+            modifier = Modifier.fillMaxWidth().padding(vertical = 16.dp, horizontal = 8.dp),
+            horizontalAlignment = Alignment.CenterHorizontally,
+            verticalArrangement = Arrangement.Center
+        ) {
+            Box(modifier = Modifier.size(40.dp).background(bgTint, RoundedCornerShape(13.dp)), contentAlignment = Alignment.Center) { Icon(icon, contentDescription = title, tint = iconColor, modifier = Modifier.size(20.dp)) }
+            Spacer(modifier = Modifier.height(10.dp))
+            Text(text = count.toString(), fontWeight = FontWeight.ExtraBold, fontSize = 24.sp, color = CorporateBlue, textAlign = TextAlign.Center, modifier = Modifier.fillMaxWidth())
+            Text(text = title, fontSize = 12.sp, color = iconColor, fontWeight = FontWeight.Bold, textAlign = TextAlign.Center, maxLines = 1, modifier = Modifier.fillMaxWidth())
+        }
+    }
+}
+
+/** Base do servidor (igual ao Retrofit) para logos que venham como caminho relativo. */
+private const val LOGO_BASE_URL = "https://api-seatly.onrender.com/"
+
+/** Converte o valor guardado em Company.LogoUrl (data URI base64, URL http ou caminho relativo) num modelo que o Coil entende. */
+private fun resolveLogoModel(logo: String): Any? {
+    val value = logo.trim()
+    if (value.isEmpty()) return null
+    return when {
+        value.startsWith("data:", ignoreCase = true) -> try {
+            // data:image/png;base64,AAAA... → bytes
+            Base64.decode(value.substringAfter("base64,"), Base64.DEFAULT)
+        } catch (e: Exception) { null }
+        value.startsWith("http://", true) || value.startsWith("https://", true) -> value
+        else -> LOGO_BASE_URL + value.trimStart('/')
+    }
+}
+
+/** Logo da empresa (sempre o atual), com fallback para as iniciais/ícone. */
+@Composable
+fun CompanyLogo(logo: String, companyName: String, modifier: Modifier = Modifier, size: androidx.compose.ui.unit.Dp = 96.dp) {
+    val context = LocalContext.current
+    val imageLoader = remember { ImageLoader.Builder(context).components { add(SvgDecoder.Factory()) }.build() }
+    val model = remember(logo) { resolveLogoModel(logo) }
+    val shape = RoundedCornerShape(size / 3.2f)
+
+    Box(
+        modifier = modifier
+            .size(size)
+            .shadow(14.dp, shape, ambientColor = AccentPurple.copy(alpha = 0.25f), spotColor = AccentPurple.copy(alpha = 0.35f))
+            .clip(shape)
+            .background(Color.White)
+            .border(1.dp, BorderSoft, shape),
+        contentAlignment = Alignment.Center
+    ) {
+        if (model != null) {
+            AsyncImage(
+                model = model,
+                imageLoader = imageLoader,
+                contentDescription = "Logo de $companyName",
+                contentScale = ContentScale.Fit,
+                modifier = Modifier.fillMaxSize().padding(size / 8)
+            )
+        } else {
+            Box(modifier = Modifier.fillMaxSize().background(BrandGradient), contentAlignment = Alignment.Center) {
+                Text(
+                    text = companyName.trim().firstOrNull()?.uppercase() ?: "S",
+                    color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = (size.value / 2.2f).sp
+                )
+            }
+        }
+    }
+}
+
+/** Aviso permanente das regras da palavra-passe (mínimo de caracteres). Fica vermelho se o valor for curto. */
+@Composable
+fun PasswordRulesHint(currentValue: String = "", modifier: Modifier = Modifier) {
+    val ok = currentValue.length >= MIN_PASSWORD_LENGTH
+    val tooShort = currentValue.isNotEmpty() && !ok
+    val tint = when { ok -> SuccessGreen; tooShort -> ErrorRed; else -> TextGray }
+    Row(
+        modifier = modifier.fillMaxWidth().background(tint.copy(alpha = 0.08f), RoundedCornerShape(12.dp)).padding(horizontal = 12.dp, vertical = 10.dp),
+        verticalAlignment = Alignment.CenterVertically
+    ) {
+        Icon(if (ok) Icons.Rounded.CheckCircle else Icons.Rounded.Info, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
+        Spacer(Modifier.width(8.dp))
+        Text("A palavra-passe tem de ter no mínimo $MIN_PASSWORD_LENGTH caracteres.", fontSize = 12.sp, color = tint, fontWeight = FontWeight.Medium, lineHeight = 16.sp)
+    }
+}
+
+/** Botão principal com o gradiente da marca. */
+@Composable
+fun GradientButton(text: String, onClick: () -> Unit, modifier: Modifier = Modifier, enabled: Boolean = true, loading: Boolean = false, icon: ImageVector? = null) {
+    val alpha by animateFloatAsState(if (enabled && !loading) 1f else 0.55f, label = "btnAlpha")
+    Box(
+        modifier = modifier
+            .fillMaxWidth()
+            .height(56.dp)
+            .alpha(alpha)
+            .shadow(if (enabled) 10.dp else 0.dp, RoundedCornerShape(18.dp), ambientColor = AccentPurple.copy(alpha = 0.3f), spotColor = AccentPurple.copy(alpha = 0.4f))
+            .clip(RoundedCornerShape(18.dp))
+            .background(BrandGradient, RoundedCornerShape(18.dp))
+            .clickable(enabled = enabled && !loading) { onClick() },
+        contentAlignment = Alignment.Center
+    ) {
+        if (loading) {
+            CircularProgressIndicator(color = Color.White, modifier = Modifier.size(22.dp), strokeWidth = 2.5.dp)
+        } else {
+            Row(verticalAlignment = Alignment.CenterVertically, horizontalArrangement = Arrangement.Center) {
+                if (icon != null) { Icon(icon, contentDescription = null, tint = Color.White, modifier = Modifier.size(20.dp)); Spacer(Modifier.width(8.dp)) }
+                Text(text, color = Color.White, fontWeight = FontWeight.ExtraBold, fontSize = 16.sp)
+            }
         }
     }
 }

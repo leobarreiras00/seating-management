@@ -6,6 +6,9 @@ import androidx.compose.animation.AnimatedVisibility
 import androidx.compose.animation.expandVertically
 import androidx.compose.animation.shrinkVertically
 import androidx.compose.foundation.BorderStroke
+import androidx.compose.ui.text.style.TextOverflow
+import androidx.compose.ui.draw.shadow
+import androidx.compose.foundation.border
 import androidx.compose.foundation.background
 import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
@@ -112,9 +115,9 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                 ) {
                     Card(
                         shape = RoundedCornerShape(24.dp),
-                        colors = CardDefaults.cardColors(containerColor = CorporateBlue),
-                        elevation = CardDefaults.cardElevation(defaultElevation = 8.dp),
-                        modifier = Modifier.fillMaxWidth()
+                        colors = CardDefaults.cardColors(containerColor = Color.Transparent),
+                        elevation = CardDefaults.cardElevation(defaultElevation = 0.dp),
+                        modifier = Modifier.fillMaxWidth().shadow(12.dp, RoundedCornerShape(24.dp), ambientColor = AccentPurple.copy(alpha = 0.3f), spotColor = AccentPurple.copy(alpha = 0.4f)).background(DarkHeroGradient, RoundedCornerShape(24.dp))
                     ) {
                         Row(
                             modifier = Modifier.fillMaxWidth().padding(horizontal = 8.dp, vertical = 8.dp),
@@ -126,9 +129,10 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                                 modifier = Modifier.size(48.dp).clip(CircleShape).background(Color.White.copy(alpha = 0.1f))
                             ) { Icon(imageVector = Icons.Rounded.Menu, contentDescription = "Menu", tint = Color.White, modifier = Modifier.size(22.dp)) }
 
-                            Column(modifier = Modifier.weight(1f), horizontalAlignment = Alignment.CenterHorizontally) {
-                                Row(verticalAlignment = Alignment.CenterVertically) {
-                                    Text(text = viewModel.companyName, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.Bold, letterSpacing = 0.5.sp, maxLines = 1)
+                            // Alinhado à esquerda, com margem face ao menu hambúrguer e reticências se o texto for longo
+                            Column(modifier = Modifier.weight(1f).padding(start = 14.dp, end = 8.dp), horizontalAlignment = Alignment.Start) {
+                                Row(verticalAlignment = Alignment.CenterVertically, modifier = Modifier.fillMaxWidth()) {
+                                    Text(text = viewModel.companyName, color = Color.White, fontSize = 16.sp, fontWeight = FontWeight.ExtraBold, letterSpacing = 0.3.sp, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Start, modifier = Modifier.weight(1f, fill = false))
                                     if (viewModel.isOffline) {
                                         Spacer(modifier = Modifier.width(6.dp))
                                         Box(modifier = Modifier.background(ErrorRed, RoundedCornerShape(6.dp)).padding(horizontal = 6.dp, vertical = 2.dp)) {
@@ -137,7 +141,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                                     }
                                 }
                                 Spacer(modifier = Modifier.height(2.dp))
-                                Text(text = currentEventName, color = Color(0xFF94A3B8), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1)
+                                Text(text = currentEventName, color = Color.White.copy(alpha = 0.7f), fontSize = 12.sp, fontWeight = FontWeight.Medium, maxLines = 1, overflow = TextOverflow.Ellipsis, textAlign = TextAlign.Start, modifier = Modifier.fillMaxWidth())
                             }
 
                             val syncAlpha = if (viewModel.isOffline) 0.05f else 0.15f
@@ -169,8 +173,8 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                     exit = shrinkVertically(shrinkTowards = Alignment.Top)
                 ) {
                     Card(
-                        shape = RoundedCornerShape(24.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
-                        elevation = CardDefaults.cardElevation(2.dp), modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
+                        shape = RoundedCornerShape(28.dp), colors = CardDefaults.cardColors(containerColor = Color.White),
+                        elevation = CardDefaults.cardElevation(0.dp), border = BorderStroke(1.dp, BorderSoft), modifier = Modifier.fillMaxWidth().padding(bottom = 16.dp)
                     ) {
                         Column(modifier = Modifier.padding(16.dp)) {
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
@@ -178,7 +182,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                                 Text("${(progress * 100).toInt()}%", fontWeight = FontWeight.Bold, color = CorporateBlue, fontSize = 14.sp)
                             }
                             Spacer(modifier = Modifier.height(8.dp))
-                            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), color = SuccessGreen, trackColor = Color(0xFFF1F5F9))
+                            LinearProgressIndicator(progress = { progress }, modifier = Modifier.fillMaxWidth().height(8.dp).clip(RoundedCornerShape(4.dp)), color = SuccessGreen, trackColor = AccentPurpleLight)
                             Spacer(modifier = Modifier.height(20.dp))
                             Row(modifier = Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(12.dp)) {
                                 StatCard(modifier = Modifier.weight(1f), title = "Total", count = totalSeats, iconColor = AccentPurple, bgTint = AccentPurpleLight, icon = Icons.Rounded.Groups)
@@ -195,6 +199,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                             .weight(1f)
                             .height(48.dp)
                             .background(Color.White, RoundedCornerShape(16.dp))
+                            .border(1.dp, BorderSoft, RoundedCornerShape(16.dp))
                             .padding(horizontal = 16.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
@@ -215,16 +220,23 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
 
                     Spacer(modifier = Modifier.width(8.dp))
 
+                    // Box sem recorte: o contador pode sobressair do botão sem ficar cortado
                     Box(modifier = Modifier.size(48.dp)) {
                         IconButton(
                             onClick = { showFilters = !showFilters },
-                            modifier = Modifier.fillMaxSize().background(if (showFilters) AccentPurple else Color.White, RoundedCornerShape(16.dp))
+                            modifier = Modifier.fillMaxSize().background(if (showFilters) AccentPurple else Color.White, RoundedCornerShape(16.dp)).border(1.dp, if (showFilters) AccentPurple else BorderSoft, RoundedCornerShape(16.dp))
                         ) { Icon(Icons.Rounded.Tune, contentDescription = "Filtros", tint = if (showFilters) Color.White else TextGray) }
                         if (activeFiltersCount > 0) {
                             Box(
-                                modifier = Modifier.align(Alignment.BottomEnd).padding(bottom = 6.dp, end = 6.dp).size(16.dp).background(ErrorRed, CircleShape),
+                                modifier = Modifier
+                                    .align(Alignment.TopEnd)
+                                    .offset(x = 6.dp, y = (-6).dp)
+                                    .defaultMinSize(minWidth = 20.dp, minHeight = 20.dp)
+                                    .background(ErrorRed, CircleShape)
+                                    .border(2.dp, LightBg, CircleShape)
+                                    .padding(horizontal = 5.dp),
                                 contentAlignment = Alignment.Center
-                            ) { Text(text = activeFiltersCount.toString(), color = Color.White, fontSize = 9.sp, fontWeight = FontWeight.Black, textAlign = TextAlign.Center) }
+                            ) { Text(text = if (activeFiltersCount > 9) "9+" else activeFiltersCount.toString(), color = Color.White, fontSize = 11.sp, lineHeight = 11.sp, fontWeight = FontWeight.ExtraBold, textAlign = TextAlign.Center, maxLines = 1, softWrap = false) }
                         }
                     }
                 }
@@ -321,7 +333,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
             val acao = if (novoEstado == 1) "ATRIBUIR entrada a" else "REMOVER entrada de"
             val nomeConvidado = seatToConfirmClick!!.assignedTo ?: "Convite Sem Nome"
             ModernAlertDialog(
-                title = "Confirmação", message = "Queres $acao $nomeConvidado?", icon = Icons.AutoMirrored.Rounded.HelpOutline, iconTint = CorporateBlue, iconBg = Color(0xFFF1F5F9),
+                title = "Confirmação", message = "Queres $acao $nomeConvidado?", icon = Icons.AutoMirrored.Rounded.HelpOutline, iconTint = AccentPurple, iconBg = AccentPurpleLight,
                 onConfirm = { viewModel.updateSeatStatus(seatToConfirmClick!!, novoEstado); seatToConfirmClick = null }, onDismiss = { seatToConfirmClick = null }
             )
         }
@@ -402,7 +414,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                         Box(modifier = Modifier.fillMaxWidth().background(Color.White).padding(16.dp)) {
                             Button(
                                 onClick = { exportErrorsLauncher.launch("Relatorio_Erros_Importacao.csv") },
-                                modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = CorporateBlue)
+                                modifier = Modifier.fillMaxWidth().height(52.dp), shape = RoundedCornerShape(16.dp), colors = ButtonDefaults.buttonColors(containerColor = AccentPurple)
                             ) {
                                 Icon(Icons.Rounded.Download, contentDescription = null, tint = Color.White)
                                 Spacer(modifier = Modifier.width(8.dp))
@@ -419,7 +431,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp)) {
                     Text("Menu de Ações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
 
-                    BottomSheetItem(icon = Icons.Rounded.SwapHoriz, title = "Mudar de Evento", subtitle = "Voltar à lista de eventos atribuídos", iconColor = PrimaryBlue, iconBg = Color(0xFFEFF6FF)) {
+                    BottomSheetItem(icon = Icons.Rounded.SwapHoriz, title = "Mudar de Evento", subtitle = "Voltar à lista de eventos atribuídos", iconColor = PrimaryBlue, iconBg = Color(0xFFE0E7FF)) {
                         showActionsSheet = false; viewModel.clearCurrentEvent(); navController.navigate("event_selection") { popUpTo("event_selection") { inclusive = true } }
                     }
 
@@ -438,7 +450,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                     }
 
                     Spacer(modifier = Modifier.height(24.dp))
-                    OutlinedButton(onClick = { showActionsSheet = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) { Text("Cancelar", color = TextGray, fontWeight = FontWeight.Bold) }
+                    OutlinedButton(onClick = { showActionsSheet = false }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, BorderSoft)) { Text("Cancelar", color = TextGray, fontWeight = FontWeight.Bold) }
                 }
             }
         }
@@ -448,7 +460,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp)) {
                     Text("Ações", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
 
-                    BottomSheetItem(icon = Icons.Rounded.Download, title = "Exportar CSV", subtitle = "$totalSeats registos com estado atual", iconColor = PrimaryBlue, iconBg = Color(0xFFEFF6FF)) { showDataActionsSheet = false; exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
+                    BottomSheetItem(icon = Icons.Rounded.Download, title = "Exportar CSV", subtitle = "$totalSeats registos com estado atual", iconColor = PrimaryBlue, iconBg = Color(0xFFE0E7FF)) { showDataActionsSheet = false; exportCsvLauncher.launch("Export_Evento_${viewModel.currentEventId ?: "0"}.csv") }
                     BottomSheetItem(icon = Icons.Rounded.Upload, title = "Importar Novo Ficheiro", subtitle = "Substituir ou adicionar dados", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { showDataActionsSheet = false; csvLauncher.launch("*/*") }
                     BottomSheetItem(icon = Icons.Rounded.CheckCircle, title = "Marcar Todos como Tratados", subtitle = "$pendingSeats registos pendentes", iconColor = SuccessGreen, iconBg = SuccessGreenLight) { showDataActionsSheet = false; confirmActionType = "MARK_ALL" }
                     BottomSheetItem(icon = Icons.Rounded.Cancel, title = "Desmarcar Todos", subtitle = "$treatedSeats registos tratados", iconColor = TextGray, iconBg = Color(0xFFF1F5F9)) { showDataActionsSheet = false; confirmActionType = "UNMARK_ALL" }
@@ -456,7 +468,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
                     BottomSheetItem(icon = Icons.Rounded.Settings, title = "Configurações Marcação", subtitle = "Preferências da aplicação", iconColor = AccentPurple, iconBg = AccentPurpleLight) { showDataActionsSheet = false; showSettingsSheet = true }
 
                     Spacer(modifier = Modifier.height(24.dp))
-                    OutlinedButton(onClick = { showDataActionsSheet = false; showActionsSheet = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, Color(0xFFE2E8F0))) { Text("Voltar", color = TextGray, fontWeight = FontWeight.Bold) }
+                    OutlinedButton(onClick = { showDataActionsSheet = false; showActionsSheet = true }, modifier = Modifier.fillMaxWidth().height(48.dp), shape = RoundedCornerShape(16.dp), border = BorderStroke(1.dp, BorderSoft)) { Text("Voltar", color = TextGray, fontWeight = FontWeight.Bold) }
                 }
             }
         }
@@ -465,7 +477,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
             ModalBottomSheet(onDismissRequest = { showSettingsSheet = false }, containerColor = Color.White) {
                 Column(modifier = Modifier.fillMaxWidth().padding(horizontal = 24.dp).verticalScroll(rememberScrollState()).navigationBarsPadding().padding(bottom = 24.dp)) {
                     Text("Configurações Marcação", fontSize = 24.sp, fontWeight = FontWeight.Bold, color = CorporateBlue, modifier = Modifier.padding(bottom = 24.dp))
-                    Card(colors = CardDefaults.cardColors(containerColor = LightBg), border = BorderStroke(1.dp, Color(0xFFE2E8F0)), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
+                    Card(colors = CardDefaults.cardColors(containerColor = LightBg), border = BorderStroke(1.dp, BorderSoft), modifier = Modifier.fillMaxWidth(), shape = RoundedCornerShape(16.dp)) {
                         Row(modifier = Modifier.padding(16.dp).fillMaxWidth(), horizontalArrangement = Arrangement.SpaceBetween, verticalAlignment = Alignment.CenterVertically) {
                             Column(modifier = Modifier.weight(1f)) {
                                 Text("Confirmar ao atribuir", fontWeight = FontWeight.Bold, color = CorporateBlue)
