@@ -279,35 +279,8 @@ namespace SeatingManagement.API.Controllers
             if (string.IsNullOrWhiteSpace(contactRecipient))
                 return StatusCode(503, new { message = "O formulário de contacto não está disponível de momento." });
 
-            var safeEmail = System.Net.WebUtility.HtmlEncode(request.Email);
-            var safeMessage = System.Net.WebUtility.HtmlEncode(request.Message);
-
             string subject = $"[Seatly Support] Novo contacto de {request.Email}";
-    
-            string body = $@"
-            <div style='font-family: Arial, sans-serif; max-width: 600px; margin: 0 auto; background-color: #f8fafc; padding: 40px; border-radius: 20px;'>
-                <div style='text-align: center; margin-bottom: 30px;'>
-                    <h1 style='color: #7c3aed; font-size: 32px; font-weight: 900; margin: 0;'>Seatly<span style='color: #a855f7;'>✔</span></h1>
-            </div>
-            <div style='background-color: white; padding: 30px; border-radius: 15px; box-shadow: 0 4px 6px -1px rgba(0, 0, 0, 0.1);'>
-                    <h2 style='color: #0f172a; margin-top: 0;'>Novo Pedido de Suporte</h2>
-                    <p style='color: #475569; font-size: 16px; line-height: 1.6;'>Recebeste uma nova mensagem através do formulário de contacto do Backoffice.</p>
-            
-                    <div style='background-color: #f1f5f9; padding: 20px; border-radius: 10px; margin: 25px 0; border: 1px solid #e2e8f0;'>
-                        <p style='margin: 0; color: #64748b; font-size: 12px; font-weight: bold; letter-spacing: 1px;'>REMETENTE</p>
-                        <p style='margin: 5px 0 20px 0; color: #0f172a; font-size: 16px; font-weight: bold;'>
-                            <a href='mailto:{safeEmail}' style='color: #7c3aed; text-decoration: none;'>{safeEmail}</a>
-                        </p>
-                
-                        <p style='margin: 0; color: #64748b; font-size: 12px; font-weight: bold; letter-spacing: 1px;'>MENSAGEM</p>
-                        <p style='margin: 5px 0 0 0; color: #0f172a; font-size: 15px; line-height: 1.6; white-space: pre-wrap;'>{safeMessage}</p>
-                    </div>
-            
-                    <p style='color: #94a3b8; font-size: 13px; margin-top: 30px; text-align: center;'>
-                        Para responder a este utilizador, basta clicares em ""Responder"" no teu cliente de e-mail.
-                    </p>
-                </div>
-            </div>";
+            string body = EmailTemplates.SupportContact(request.Email, request.Message);
 
             await _emailService.SendEmailAsync(contactRecipient, subject, body);
 

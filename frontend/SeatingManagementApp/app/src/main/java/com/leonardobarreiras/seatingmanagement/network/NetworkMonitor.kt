@@ -9,6 +9,9 @@ import kotlinx.coroutines.channels.awaitClose
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.callbackFlow
 
+/**
+ * Observa a ligação à internet e emite `true`/`false` sempre que ela muda (usado para o modo offline).
+ */
 class NetworkMonitor(context: Context) {
     private val connectivityManager = context.getSystemService(Context.CONNECTIVITY_SERVICE) as ConnectivityManager
 

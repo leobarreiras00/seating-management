@@ -1,0 +1,19 @@
+<?xml version="1.0" encoding="utf-8"?>
+<!-- Versão monocromática (ícones temáticos do Android 13+): apenas o "S". -->
+<vector xmlns:android="http://schemas.android.com/apk/res/android"
+    android:width="108dp"
+    android:height="108dp"
+    android:viewportWidth="108"
+    android:viewportHeight="108">
+    <group
+        android:scaleX="0.14"
+        android:scaleY="0.14"
+        android:translateX="13.5"
+        android:translateY="18.7">
+        <path
+            android:pathData="M352,196C352,154 312,130 258,130C200,130 160,158 160,200C160,244 200,258 256,268C312,278 352,292 352,336C352,380 312,408 252,408C196,408 156,384 154,342"
+            android:strokeColor="#FFFFFFFF"
+            android:strokeWidth="52"
+            android:strokeLineCap="round" />
+    </group>
+</vector>

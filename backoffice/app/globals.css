@@ -1,48 +1,719 @@
 @import "tailwindcss";
 
+/*
+ ╔══════════════════════════════════════════════════════════════════════════╗
+ ║  SEATLY BACKOFFICE — SISTEMA DE DESIGN                                   ║
+ ║                                                                          ║
+ ║  Este ficheiro é o ÚNICO sítio onde a identidade visual deve ser mexida. ║
+ ║  As páginas usam as classes definidas aqui (.btn, .input, .card-main,    ║
+ ║  .modal-panel, .badge …) e os componentes de `components/ui`.            ║
+ ║                                                                          ║
+ ║  ÍNDICE                                                                  ║
+ ║   1. Tokens (cores, raios, sombras, tipografia)                          ║
+ ║   2. Base (body, títulos, foco, seleção)                                 ║
+ ║   3. Fundo "aurora" animado                                              ║
+ ║   4. Superfícies (cartões de vidro)                                      ║
+ ║   5. Botões                                                              ║
+ ║   6. Formulários                                                         ║
+ ║   7. Feedback (avisos, etiquetas, loading)                               ║
+ ║   8. Modais e diálogos                                                   ║
+ ║   9. Navegação (itens da sidebar, separadores)                           ║
+ ║  10. Movimento (keyframes e utilitários de animação)                     ║
+ ║  11. Mapa de lugares (peça gráfica da marca)                             ║
+ ║  12. Squircles (cantos "iOS", progressive enhancement)                   ║
+ ║  13. Acessibilidade: movimento reduzido                                  ║
+ ║                                                                          ║
+ ║  COMO MUDAR A COR DA MARCA: altera --brand-* na secção 1.                ║
+ ║  COMO DESLIGAR ANIMAÇÕES: apaga o bloco da secção 10 (nada quebra).      ║
+ ╚══════════════════════════════════════════════════════════════════════════╝
+*/
+
+/* ═══════════════════════════ 1. TOKENS ═══════════════════════════ */
+
 :root {
-  --background: #f8fafc;
-  --foreground: #171717;
+  /* Marca: violeta Seatly. O degradê é usado em botões, item ativo e destaques. */
+  --brand-300: #c4b5fd;
+  --brand-400: #a78bfa;
+  --brand-500: #8b5cf6;
+  --brand-600: #7c3aed;
+  --brand-700: #6d28d9;
+  --brand-900: #2e1065;
+  --grad-brand: linear-gradient(135deg, #9d7bff 0%, #7c3aed 55%, #6428d8 100%);
+  --grad-brand-soft: linear-gradient(135deg, #f5f0ff 0%, #ede4ff 100%);
+  --grad-emerald: linear-gradient(135deg, #34d399 0%, #10b981 55%, #059669 100%);
+  --grad-blue: linear-gradient(135deg, #60a5fa 0%, #3b82f6 55%, #2563eb 100%);
+  --grad-amber: linear-gradient(135deg, #fbbf24 0%, #f59e0b 55%, #d97706 100%);
+  --grad-red: linear-gradient(135deg, #fb7185 0%, #ef4444 55%, #dc2626 100%);
+
+  /* Superfícies */
+  --background: #f1eefb;
+  --foreground: #1e1b32;
+  --glass-bg: rgba(255, 255, 255, 0.66);
+  --glass-bg-strong: rgba(255, 255, 255, 0.86);
+  --glass-border: rgba(255, 255, 255, 0.75);
+  --line: rgba(100, 85, 150, 0.16);
+
+  /* Raios (squircle: ver secção 12) */
+  --r-card: 2rem;
+  --r-tile: 1.5rem;
+  --r-control: 1rem;
+
+  /* Sombras: tingidas de violeta para parecerem "luz", não cinzento */
+  --shadow-card: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 18px 50px -22px rgba(76, 29, 149, 0.28);
+  --shadow-tile: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 10px 30px -18px rgba(76, 29, 149, 0.3);
+  --shadow-lift: 0 1px 0 rgba(255, 255, 255, 0.9) inset, 0 22px 44px -18px rgba(76, 29, 149, 0.42);
+  --shadow-modal: 0 40px 100px -24px rgba(30, 10, 80, 0.55);
+  --glow-brand: 0 10px 28px -8px rgba(124, 58, 237, 0.65);
+
+  /* Camadas */
+  --z-header: 30;
+  --z-menu: 50;
+  --z-modal: 60;
+  --z-dialog: 100;
+
+  color-scheme: light;
 }
 
 @theme inline {
   --color-background: var(--background);
   --color-foreground: var(--foreground);
-  --font-sans: var(--font-geist-sans);
-  --font-mono: var(--font-geist-mono);
+  --font-sans: var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-display: var(--font-bricolage), var(--font-hanken), ui-sans-serif, system-ui, sans-serif;
+  --font-mono: var(--font-geist-mono), ui-monospace, monospace;
 }
 
-@media (prefers-color-scheme: dark) {
-  :root {
-    --background: #0a0a0a;
-    --foreground: #ededed;
-  }
+@theme {
+  /* Escala de raios do Tailwind (rounded-xl, rounded-2xl …) mais generosa */
+  --radius-xl: 0.9rem;
+  --radius-2xl: 1.25rem;
+  --radius-3xl: 1.75rem;
 }
+
+/* ═══════════════════════════ 2. BASE ═══════════════════════════ */
 
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: var(--font-sans);
+  -webkit-font-smoothing: antialiased;
+  text-rendering: optimizeLegibility;
 }
 
-/* NAVEGAÇÃO POR TECLADO (Acessibilidade Global) */
 @layer base {
-  button, a, input, select, textarea, [role="button"] {
-    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-slate-50 transition-shadow;
+  /* Títulos usam a fonte de display. Peso e espaçamento afinados para ecrã. */
+  h1, h2, h3 {
+    font-family: var(--font-display);
+    letter-spacing: -0.02em;
+  }
+
+  /* Números alinhados (métricas, tabelas) */
+  .tabular { font-variant-numeric: tabular-nums; }
+
+  /* Foco por teclado: anel suave violeta em tudo o que é interativo */
+  button, a, input, select, textarea, [role="button"], summary {
+    @apply focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2 focus-visible:ring-offset-white transition-shadow;
+  }
+
+  ::selection { background: #ddd0ff; color: #2e1065; }
+
+  /* Calendário e <select> nativos herdam o esquema claro */
+  input[type="date"] { min-height: 3rem; }
+}
+
+/* ═══════════════════════════ 3. FUNDO AURORA ═══════════════════════════
+   Quatro manchas de cor desfocadas a derivar devagar atrás de tudo.
+   É só decoração: fica fixo, não apanha cliques e abranda em "movimento reduzido". */
+
+body::before {
+  content: "";
+  position: fixed;
+  inset: -25%;
+  z-index: -1;
+  pointer-events: none;
+  background:
+    radial-gradient(38% 34% at 14% 12%, rgba(139, 92, 246, 0.34), transparent 70%),
+    radial-gradient(34% 34% at 88% 14%, rgba(59, 130, 246, 0.22), transparent 70%),
+    radial-gradient(40% 40% at 74% 92%, rgba(16, 185, 129, 0.2), transparent 70%),
+    radial-gradient(34% 34% at 8% 88%, rgba(236, 72, 153, 0.15), transparent 70%);
+  filter: blur(36px);
+  animation: aurora 32s ease-in-out infinite alternate;
+}
+
+/* ═══════════════════════════ 4. SUPERFÍCIES ═══════════════════════════ */
+
+@layer components {
+  /* Vidro: base partilhada pelos cartões, sidebar, cabeçalho e menus */
+  .glass {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    backdrop-filter: blur(22px) saturate(170%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-card);
+  }
+
+  /* Superfície principal de uma secção/página */
+  .card-main {
+    background: var(--glass-bg);
+    -webkit-backdrop-filter: blur(22px) saturate(170%);
+    backdrop-filter: blur(22px) saturate(170%);
+    border: 1px solid var(--glass-border);
+    box-shadow: var(--shadow-card);
+    border-radius: var(--r-card);
+  }
+
+  /* Cartão interior (listas, métricas). Dentro de um .card-main fica mais leve. */
+  .card-nested-pop {
+    background: var(--glass-bg-strong);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    outline: 1px solid var(--line);
+    outline-offset: -1px;
+    box-shadow: var(--shadow-tile);
+    border-radius: var(--r-tile);
+    transition: transform 0.35s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.35s ease, outline-color 0.25s ease;
+  }
+
+  /* Cartão que reage ao rato: sobe e acende o contorno. Juntar a .card-nested-pop */
+  .card-lift:hover,
+  .card-lift:focus-visible {
+    transform: translateY(-4px);
+    box-shadow: var(--shadow-lift);
+    outline-color: rgba(139, 92, 246, 0.55);
+  }
+
+  /* Cartão interior sem elevação (blocos de informação) */
+  .card-nested-flat {
+    background: rgba(255, 255, 255, 0.5);
+    border: 1px solid var(--line);
+    border-radius: var(--r-tile);
+  }
+
+  /* Bilhete: cartão com "dentes" nas laterais e linha picotada (evento, registo).
+     Uso: <div class="card-nested-pop ticket"> … <div class="ticket-cut"/> … </div> */
+  .ticket { position: relative; }
+  .ticket::before,
+  .ticket::after {
+    content: "";
+    position: absolute;
+    top: var(--ticket-cut, 62%);
+    width: 18px;
+    height: 18px;
+    border-radius: 999px;
+    background: var(--background);
+    box-shadow: inset 0 0 0 1px var(--line);
+    transform: translateY(-50%);
+    pointer-events: none;
+  }
+  .ticket::before { left: -9px; }
+  .ticket::after { right: -9px; }
+  .ticket-cut { border-top: 2px dashed rgba(139, 92, 246, 0.28); margin: 0 0.5rem; }
+
+  /* Título com degradê da marca */
+  .text-gradient {
+    background: var(--grad-brand);
+    -webkit-background-clip: text;
+    background-clip: text;
+    color: transparent;
   }
 }
 
-/* SISTEMA GLOBAL DE CARTÕES (DESIGN SYSTEM) */
+/* ═══════════════════════════ 5. BOTÕES ═══════════════════════════
+   Uso: <button class="btn btn-primary">Guardar</button>
+   Variantes: btn-primary | btn-soft | btn-white | btn-ghost | btn-danger | btn-success | btn-info
+   Tamanhos:  btn-sm | (normal) | btn-lg      Largura: btn-block                          */
+
 @layer components {
-  .card-main {
-    @apply bg-slate-100/60 backdrop-blur-2xl border border-slate-200/70 shadow-sm rounded-[2.5rem];
+  .btn {
+    position: relative;
+    isolation: isolate;
+    overflow: hidden;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.5rem;
+    padding: 0.8rem 1.35rem;
+    border-radius: var(--r-control);
+    font-weight: 650;
+    font-size: 0.95rem;
+    line-height: 1.2;
+    white-space: nowrap;
+    cursor: pointer;
+    border: 1px solid transparent;
+    transition: transform 0.2s cubic-bezier(0.2, 0.8, 0.2, 1), box-shadow 0.25s ease, background-color 0.2s ease, color 0.2s ease, filter 0.2s ease;
+  }
+  .btn:hover:not(:disabled) { transform: translateY(-2px); }
+  .btn:active:not(:disabled) { transform: translateY(0) scale(0.97); }
+  .btn:disabled { opacity: 0.5; cursor: not-allowed; filter: saturate(0.7); }
+  .btn-sm { padding: 0.55rem 0.95rem; font-size: 0.85rem; border-radius: 0.85rem; }
+  .btn-lg { padding: 1rem 1.6rem; font-size: 1rem; }
+  .btn-block { width: 100%; }
+
+  /* Brilho que atravessa os botões de cor ao passar o rato */
+  .btn-primary::after,
+  .btn-danger::after,
+  .btn-success::after,
+  .btn-info::after {
+    content: "";
+    position: absolute;
+    inset: 0;
+    z-index: -1;
+    background: linear-gradient(105deg, transparent 35%, rgba(255, 255, 255, 0.38) 50%, transparent 65%);
+    transform: translateX(-120%);
+  }
+  .btn-primary:hover:not(:disabled)::after,
+  .btn-danger:hover:not(:disabled)::after,
+  .btn-success:hover:not(:disabled)::after,
+  .btn-info:hover:not(:disabled)::after {
+    transform: translateX(120%);
+    transition: transform 0.75s ease;
   }
 
-  .card-nested-pop {
-    @apply bg-white border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.08)] rounded-[1.5rem] transition-all;
+  .btn-primary { color: #fff; background: var(--grad-brand); box-shadow: var(--glow-brand), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+  .btn-primary:hover:not(:disabled) { box-shadow: 0 16px 34px -10px rgba(124, 58, 237, 0.75), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+  .btn-danger { color: #fff; background: var(--grad-red); box-shadow: 0 10px 26px -8px rgba(239, 68, 68, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+  .btn-success { color: #fff; background: var(--grad-emerald); box-shadow: 0 10px 26px -8px rgba(16, 185, 129, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+  .btn-info { color: #fff; background: var(--grad-blue); box-shadow: 0 10px 26px -8px rgba(59, 130, 246, 0.6), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+
+  .btn-soft { color: #6d28d9; background: var(--grad-brand-soft); border-color: rgba(139, 92, 246, 0.2); }
+  .btn-soft:hover:not(:disabled) { background: #e9ddff; box-shadow: 0 10px 24px -14px rgba(124, 58, 237, 0.6); }
+  .btn-white { color: #3b3556; background: rgba(255, 255, 255, 0.9); border-color: var(--line); box-shadow: 0 6px 18px -12px rgba(76, 29, 149, 0.4); }
+  .btn-white:hover:not(:disabled) { background: #fff; border-color: rgba(139, 92, 246, 0.4); color: #6d28d9; }
+  .btn-ghost { color: #5b5478; background: transparent; }
+  .btn-ghost:hover:not(:disabled) { background: rgba(139, 92, 246, 0.1); color: #6d28d9; }
+
+  /* Botão quadrado só com ícone (editar, apagar, fechar). Cor no hover via classe extra. */
+  .icon-btn {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.5rem;
+    height: 2.5rem;
+    border-radius: 0.9rem;
+    color: #8a84a6;
+    background: rgba(255, 255, 255, 0.7);
+    border: 1px solid var(--line);
+    transition: transform 0.2s ease, background-color 0.2s ease, color 0.2s ease, border-color 0.2s ease;
+  }
+  .icon-btn:hover { transform: translateY(-2px); background: #fff; }
+  .icon-btn:active { transform: scale(0.93); }
+  .icon-btn-blue:hover { color: #2563eb; border-color: #bfdbfe; background: #eff6ff; }
+  .icon-btn-red:hover { color: #dc2626; border-color: #fecaca; background: #fef2f2; }
+  .icon-btn-amber:hover { color: #d97706; border-color: #fde68a; background: #fffbeb; }
+  .icon-btn-purple:hover { color: #7c3aed; border-color: #ddd0ff; background: #f5f0ff; }
+}
+
+/* ═══════════════════════════ 6. FORMULÁRIOS ═══════════════════════════
+   <label class="field-label">Nome</label>
+   <input class="input" />
+   Com ícone:  <div class="input-wrap"><Icon class="input-icon"/><input class="input input-with-icon"/></div> */
+
+@layer components {
+  .field-label {
+    display: block;
+    margin-bottom: 0.45rem;
+    font-size: 0.85rem;
+    font-weight: 650;
+    color: #3b3556;
   }
 
-  .card-nested-flat {
-    @apply bg-slate-200/50 border border-slate-300/50 rounded-[1.5rem];
+  .input {
+    width: 100%;
+    padding: 0.85rem 1rem;
+    border-radius: var(--r-control);
+    border: 1.5px solid rgba(110, 95, 160, 0.22);
+    background: rgba(255, 255, 255, 0.82);
+    color: #1e1b32;
+    font-size: 0.95rem;
+    font-weight: 500;
+    transition: border-color 0.2s ease, box-shadow 0.25s ease, background-color 0.2s ease;
   }
+  .input::placeholder { color: #a39dbd; font-weight: 450; }
+  .input:hover { border-color: rgba(139, 92, 246, 0.45); }
+  .input:focus { outline: none; background: #fff; border-color: var(--brand-500); box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.2); }
+  .input:disabled { opacity: 0.6; cursor: not-allowed; }
+  .input-invalid, .input-invalid:focus { border-color: #f87171; box-shadow: 0 0 0 4px rgba(248, 113, 113, 0.18); }
+  .input-with-icon { padding-left: 2.9rem; }
+
+  .input-wrap { position: relative; }
+  .input-icon {
+    position: absolute;
+    left: 1rem;
+    top: 50%;
+    width: 1.15rem;
+    height: 1.15rem;
+    transform: translateY(-50%);
+    color: #a39dbd;
+    pointer-events: none;
+    transition: color 0.2s ease;
+  }
+  .input-wrap:focus-within .input-icon { color: var(--brand-600); }
+
+  /* Campo de pesquisa grande das listagens */
+  .search-bar {
+    display: flex;
+    align-items: center;
+    gap: 0.75rem;
+    padding: 0.35rem 0.5rem 0.35rem 1.1rem;
+    border-radius: var(--r-tile);
+    background: var(--glass-bg-strong);
+    border: 1.5px solid rgba(110, 95, 160, 0.18);
+    box-shadow: var(--shadow-tile);
+    transition: border-color 0.2s ease, box-shadow 0.25s ease;
+  }
+  .search-bar:focus-within { border-color: var(--brand-500); box-shadow: 0 0 0 4px rgba(139, 92, 246, 0.18), var(--shadow-tile); }
+  .search-bar input { flex: 1; min-width: 0; background: transparent; border: 0; padding: 0.8rem 0; font-weight: 500; color: #1e1b32; box-shadow: none !important; }
+  .search-bar input:focus { outline: none; }
+}
+
+/* ═══════════════════════════ 7. FEEDBACK ═══════════════════════════ */
+
+@layer components {
+  /* Aviso dentro de formulários/páginas: .notice + .notice-error|success|info|warning */
+  .notice {
+    display: flex;
+    align-items: flex-start;
+    gap: 0.7rem;
+    padding: 0.85rem 1rem;
+    border-radius: var(--r-control);
+    border: 1px solid;
+    font-size: 0.88rem;
+    font-weight: 600;
+    line-height: 1.45;
+    animation: rise-in 0.35s cubic-bezier(0.2, 0.8, 0.2, 1) both;
+  }
+  .notice > svg { flex-shrink: 0; margin-top: 0.1rem; }
+  .notice-error { background: #fff1f2; border-color: #fecdd3; color: #be123c; animation: shake 0.45s ease both; }
+  .notice-success { background: #ecfdf5; border-color: #a7f3d0; color: #047857; }
+  .notice-info { background: #eff6ff; border-color: #bfdbfe; color: #1d4ed8; }
+  .notice-warning { background: #fffbeb; border-color: #fde68a; color: #b45309; }
+
+  /* Etiquetas (estado, papel, contagem): .badge + .badge-<cor> */
+  .badge {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.35rem;
+    padding: 0.3rem 0.7rem;
+    border-radius: 999px;
+    font-size: 0.75rem;
+    font-weight: 700;
+    border: 1px solid transparent;
+    white-space: nowrap;
+  }
+  .badge-purple { background: #f3edff; color: #6d28d9; border-color: #e0d4ff; }
+  .badge-blue { background: #eaf2ff; color: #1d4ed8; border-color: #cfe0ff; }
+  .badge-green { background: #e8faf2; color: #047857; border-color: #b7efd6; }
+  .badge-amber { background: #fff6dd; color: #b45309; border-color: #fbe3a0; }
+  .badge-red { background: #ffecee; color: #be123c; border-color: #ffcdd3; }
+  .badge-slate { background: #f1f0f7; color: #55507a; border-color: #e3e0f0; }
+
+  /* Loading */
+  .spinner {
+    width: 2.25rem;
+    height: 2.25rem;
+    border-radius: 999px;
+    border: 3px solid rgba(139, 92, 246, 0.2);
+    border-top-color: var(--brand-600);
+    animation: spin 0.8s linear infinite;
+  }
+
+  /* Bloco de "esqueleto" enquanto carrega */
+  .skeleton {
+    border-radius: var(--r-tile);
+    background: linear-gradient(100deg, rgba(139, 92, 246, 0.07) 30%, rgba(139, 92, 246, 0.16) 50%, rgba(139, 92, 246, 0.07) 70%);
+    background-size: 200% 100%;
+    animation: shimmer 1.4s linear infinite;
+  }
+
+  /* Barra de progresso com preenchimento animado. Largura vai em style={{width:"42%"}} */
+  .bar { height: 0.55rem; border-radius: 999px; background: rgba(139, 92, 246, 0.12); overflow: hidden; }
+  .bar-fill { height: 100%; border-radius: 999px; background: var(--grad-brand); transform-origin: left; animation: grow-x 1.1s cubic-bezier(0.2, 0.8, 0.2, 1) 0.2s both; }
+  .bar-fill-green { background: var(--grad-emerald); }
+}
+
+/* ═══════════════════════════ 8. MODAIS E DIÁLOGOS ═══════════════════════════
+   Estrutura gerada por components/ui/Modal.tsx:
+     .modal-backdrop > .modal-panel > (.modal-head) + .modal-body + (.modal-foot)
+   Em telemóvel o painel sobe do fundo como uma "folha" (bottom sheet).                    */
+
+@layer components {
+  .modal-backdrop {
+    position: fixed;
+    inset: 0;
+    z-index: var(--z-modal);
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    padding: 1rem;
+    background: rgba(26, 14, 66, 0.46);
+    -webkit-backdrop-filter: blur(10px) saturate(140%);
+    backdrop-filter: blur(10px) saturate(140%);
+    animation: fade-in 0.25s ease both;
+  }
+  .modal-backdrop[data-layer="dialog"] { z-index: var(--z-dialog); }
+
+  .modal-panel {
+    position: relative;
+    display: flex;
+    flex-direction: column;
+    width: 100%;
+    max-height: 90dvh;
+    overflow: hidden;
+    background: rgba(255, 255, 255, 0.94);
+    -webkit-backdrop-filter: blur(24px);
+    backdrop-filter: blur(24px);
+    border: 1px solid rgba(255, 255, 255, 0.9);
+    border-radius: 2rem;
+    box-shadow: var(--shadow-modal);
+    outline: none;
+    animation: modal-pop 0.42s cubic-bezier(0.2, 1.15, 0.3, 1) both;
+  }
+  .modal-sm { max-width: 24rem; }
+  .modal-md { max-width: 28rem; }
+  .modal-lg { max-width: 34rem; }
+  .modal-xl { max-width: 44rem; }
+  .modal-2xl { max-width: 56rem; }
+
+  /* Faixa de cor no topo do painel (muda com a "tone" do Modal) */
+  .modal-panel::before {
+    content: "";
+    position: absolute;
+    inset: 0 0 auto 0;
+    height: 4px;
+    z-index: 2;
+    background: var(--modal-accent, var(--grad-brand));
+  }
+  .modal-tone-emerald { --modal-accent: var(--grad-emerald); }
+  .modal-tone-blue { --modal-accent: var(--grad-blue); }
+  .modal-tone-red { --modal-accent: var(--grad-red); }
+  .modal-tone-amber { --modal-accent: var(--grad-amber); }
+
+  .modal-head {
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+    gap: 1rem;
+    padding: 1.35rem 1.5rem 1.1rem;
+    border-bottom: 1px solid var(--line);
+    flex-shrink: 0;
+  }
+  .modal-title-icon {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.6rem;
+    height: 2.6rem;
+    border-radius: 0.95rem;
+    color: #fff;
+    background: var(--modal-accent, var(--grad-brand));
+    box-shadow: 0 8px 20px -8px rgba(76, 29, 149, 0.55);
+    flex-shrink: 0;
+  }
+  .modal-body { padding: 1.5rem; overflow-y: auto; flex: 1; }
+  .modal-foot { padding: 1.1rem 1.5rem 1.4rem; border-top: 1px solid var(--line); flex-shrink: 0; background: rgba(255, 255, 255, 0.6); }
+
+  .modal-close {
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    width: 2.4rem;
+    height: 2.4rem;
+    border-radius: 999px;
+    color: #8a84a6;
+    background: rgba(139, 92, 246, 0.08);
+    transition: transform 0.3s cubic-bezier(0.2, 1.2, 0.3, 1), background-color 0.2s ease, color 0.2s ease;
+  }
+  .modal-close:hover { transform: rotate(90deg); background: rgba(239, 68, 68, 0.12); color: #dc2626; }
+
+  /* Diálogos curtos (aviso / confirmação): ícone grande animado e texto centrado */
+  .dialog-icon {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 5rem;
+    height: 5rem;
+    margin: 0 auto 1.25rem;
+    border-radius: 999px;
+    animation: pop-in 0.55s cubic-bezier(0.2, 1.3, 0.3, 1) 0.1s both;
+  }
+  .dialog-icon::before {
+    content: "";
+    position: absolute;
+    inset: -8px;
+    border-radius: 999px;
+    border: 2px solid currentColor;
+    opacity: 0;
+    animation: ring-out 1.6s ease-out 0.35s infinite;
+  }
+  .dialog-icon-success { background: #dcfce7; color: #059669; }
+  .dialog-icon-error { background: #ffe4e6; color: #e11d48; animation-name: pop-in, shake; animation-duration: 0.55s, 0.5s; animation-delay: 0.1s, 0.6s; }
+  .dialog-icon-warning { background: #fef3c7; color: #d97706; }
+  .dialog-icon-info { background: #dbeafe; color: #2563eb; }
+
+  /* "Visto" que se desenha sozinho no diálogo de sucesso */
+  .draw-check path {
+    stroke-dasharray: 32;
+    stroke-dashoffset: 32;
+    animation: draw 0.6s ease-out 0.45s forwards;
+  }
+
+  @media (max-width: 639px) {
+    .modal-backdrop { align-items: flex-end; padding: 0; }
+    .modal-panel { max-width: none; border-radius: 2rem 2rem 0 0; max-height: 92dvh; animation-name: sheet-up; animation-duration: 0.4s; }
+  }
+}
+
+/* ═══════════════════════════ 9. NAVEGAÇÃO ═══════════════════════════ */
+
+@layer components {
+  /* Item da sidebar. Ativo = degradê da marca com brilho. */
+  .nav-item {
+    position: relative;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    gap: 0.85rem;
+    padding: 0.8rem 0.9rem;
+    border-radius: 1.1rem;
+    font-weight: 650;
+    font-size: 0.95rem;
+    color: #5b5478;
+    white-space: nowrap;
+    transition: background-color 0.25s ease, color 0.25s ease, transform 0.25s ease, box-shadow 0.25s ease;
+  }
+  .nav-item svg { transition: transform 0.35s cubic-bezier(0.2, 1.3, 0.3, 1); }
+  .nav-item:hover { background: rgba(139, 92, 246, 0.1); color: #6d28d9; }
+  .nav-item:hover svg { transform: scale(1.18) rotate(-6deg); }
+  .nav-item[aria-current="page"] { color: #fff; background: var(--grad-brand); box-shadow: var(--glow-brand), inset 0 1px 0 rgba(255, 255, 255, 0.3); }
+  .nav-item[aria-current="page"]:hover svg { transform: scale(1.1); }
+  @media (min-width: 1024px) { .nav-item { justify-content: flex-start; padding: 0.85rem 1.1rem; } }
+
+  /* Separadores (tabs) em "pílula" */
+  .tab-bar {
+    display: inline-flex;
+    gap: 0.25rem;
+    padding: 0.3rem;
+    border-radius: 1.3rem;
+    background: rgba(255, 255, 255, 0.6);
+    border: 1px solid var(--line);
+    max-width: 100%;
+    overflow-x: auto;
+  }
+  .tab {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.65rem 1.1rem;
+    border-radius: 1rem;
+    font-weight: 650;
+    font-size: 0.92rem;
+    color: #6f6990;
+    white-space: nowrap;
+    transition: background-color 0.25s ease, color 0.25s ease, box-shadow 0.25s ease;
+  }
+  .tab:hover { color: #6d28d9; background: rgba(139, 92, 246, 0.08); }
+  .tab[aria-selected="true"] { color: #fff; background: var(--grad-brand); box-shadow: var(--glow-brand); }
+}
+
+/* ═══════════════════════════ 10. MOVIMENTO ═══════════════════════════
+   Utilitários prontos a usar nas páginas:
+     .reveal            entrada de um elemento (usar style={{"--i": 2}} para atrasar 2 passos)
+     .stagger           filhos diretos entram em cascata
+     .page-enter        transição ao mudar de página (aplicada no layout)
+     .animate-in        entrada curta de menus e modais antigos
+     .bell-ring         sino a abanar quando há notificações
+     .float-slow        flutuação suave (ilustrações)                                      */
+
+@keyframes fade-in { from { opacity: 0; } to { opacity: 1; } }
+@keyframes rise-in { from { opacity: 0; transform: translateY(16px) scale(0.985); } to { opacity: 1; transform: none; } }
+@keyframes page-in { from { opacity: 0; transform: translateY(10px); } to { opacity: 1; transform: none; } }
+@keyframes modal-pop { from { opacity: 0; transform: translateY(18px) scale(0.92); } to { opacity: 1; transform: none; } }
+@keyframes sheet-up { from { transform: translateY(100%); } to { transform: none; } }
+@keyframes pop-in { 0% { opacity: 0; transform: scale(0.4); } 100% { opacity: 1; transform: scale(1); } }
+@keyframes ring-out { 0% { opacity: 0.55; transform: scale(0.85); } 100% { opacity: 0; transform: scale(1.35); } }
+@keyframes shake { 0%, 100% { transform: translateX(0); } 20% { transform: translateX(-6px); } 40% { transform: translateX(5px); } 60% { transform: translateX(-4px); } 80% { transform: translateX(3px); } }
+@keyframes shimmer { from { background-position: 200% 0; } to { background-position: -200% 0; } }
+@keyframes grow-x { from { transform: scaleX(0); } to { transform: scaleX(1); } }
+@keyframes draw { to { stroke-dashoffset: 0; } }
+@keyframes aurora { 0% { transform: translate3d(0, 0, 0) scale(1); } 100% { transform: translate3d(3%, -2%, 0) scale(1.08) rotate(4deg); } }
+@keyframes bell { 0%, 100% { transform: rotate(0); } 10%, 30%, 50% { transform: rotate(14deg); } 20%, 40% { transform: rotate(-14deg); } 60% { transform: rotate(0); } }
+@keyframes float { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-8px); } }
+@keyframes seat-light {
+  from { background: var(--seat-off, #e3e0ec); transform: scale(0.8); }
+  to { background: var(--seat-on, #10b981); transform: none; }
+}
+
+.reveal { animation: rise-in 0.7s cubic-bezier(0.2, 0.8, 0.2, 1) both; animation-delay: calc(var(--i, 0) * 80ms); }
+.page-enter { animation: page-in 0.5s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.animate-in { animation: rise-in 0.3s cubic-bezier(0.2, 0.9, 0.3, 1) both; }
+.bell-ring { transform-origin: 50% 0; animation: bell 1.4s ease 0.3s 2; }
+.float-slow { animation: float 6s ease-in-out infinite; }
+
+/* Cascata: cada filho direto entra 70ms depois do anterior (até 12) */
+.stagger > * { animation: rise-in 0.65s cubic-bezier(0.2, 0.8, 0.2, 1) both; }
+.stagger > *:nth-child(1) { animation-delay: 0ms; }
+.stagger > *:nth-child(2) { animation-delay: 70ms; }
+.stagger > *:nth-child(3) { animation-delay: 140ms; }
+.stagger > *:nth-child(4) { animation-delay: 210ms; }
+.stagger > *:nth-child(5) { animation-delay: 280ms; }
+.stagger > *:nth-child(6) { animation-delay: 350ms; }
+.stagger > *:nth-child(7) { animation-delay: 420ms; }
+.stagger > *:nth-child(8) { animation-delay: 490ms; }
+.stagger > *:nth-child(9) { animation-delay: 560ms; }
+.stagger > *:nth-child(10) { animation-delay: 630ms; }
+.stagger > *:nth-child(11) { animation-delay: 700ms; }
+.stagger > *:nth-child(n + 12) { animation-delay: 770ms; }
+
+@layer utilities {
+  .scrollbar-hide { scrollbar-width: none; }
+  .scrollbar-hide::-webkit-scrollbar { display: none; }
+
+  .custom-scrollbar { scrollbar-width: thin; scrollbar-color: rgba(139, 92, 246, 0.35) transparent; }
+  .custom-scrollbar::-webkit-scrollbar { width: 6px; }
+  .custom-scrollbar::-webkit-scrollbar-thumb { background: rgba(139, 92, 246, 0.35); border-radius: 999px; }
+}
+
+/* ═══════════════════════════ 11. MAPA DE LUGARES ═══════════════════════════
+   Usado por components/SeatMap.tsx (login e dashboard).
+   Cores por CSS variables: --seat-off, --seat-on, --seat-size. */
+
+.seat {
+  width: var(--seat-size, 12px);
+  height: var(--seat-size, 12px);
+  border-radius: 4px 4px 3px 3px;
+  background: var(--seat-off, #e3e0ec);
+}
+.seat[data-on="true"] { background: var(--seat-on, #10b981); }
+
+/* No login os lugares acendem um a um (momento único de entrada) */
+.seat-reveal[data-on="true"] {
+  animation: seat-light 0.45s ease-out both;
+  animation-delay: calc(var(--i, 0) * 9ms + 300ms);
+}
+
+/* ═══════════════════════════ 12. SQUIRCLES ═══════════════════════════
+   `corner-shape: squircle` dá os cantos contínuos do iOS. Só os browsers que
+   suportam (Chrome/Edge recentes) o aplicam; os outros ficam com cantos redondos normais.
+   Excluímos círculos perfeitos (rounded-full). */
+
+@supports (corner-shape: squircle) {
+  [class*="rounded-"]:not([class*="rounded-full"]),
+  .card-main, .card-nested-pop, .card-nested-flat, .glass,
+  .btn, .icon-btn, .input, .search-bar, .notice, .modal-panel,
+  .nav-item, .tab, .tab-bar, .bar, .skeleton {
+    corner-shape: squircle;
+  }
+}
+
+/* ═══════════════════════════ 13. MOVIMENTO REDUZIDO ═══════════════════════════
+   Quem pede menos movimento ao sistema operativo não vê animações. */
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    animation-delay: 0ms !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+  .seat-reveal[data-on="true"] { animation: none; }
 }

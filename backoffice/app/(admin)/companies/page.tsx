@@ -1,15 +1,40 @@
 "use client";
 
+/**
+ * Empresas Clientes — listagem (/companies).
+ *
+ *   - Dados: GET /api/Company, atualizado em tempo real por MQTT
+ *     (`seating/backoffice/companies`). Esconde a empresa interna "Seatly Admin".
+ *   - Ações: editar nome/logótipo (modal), apagar (confirmação) e ir para o detalhe.
+ *   - Visual: cabeçalho com ação principal, grelha de cartões com faixa de cor,
+ *     skeletons enquanto carrega e EmptyState quando não há empresas.
+ *   - Lógica (estado, fetch, MQTT, handlers) intocada: só o JSX foi redesenhado.
+ */
+
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
-import { Building2, Plus, ChevronRight, Edit2, Trash2, X, Upload, AlertTriangle, CheckCircle2, Info } from "lucide-react";
+import { Building2, Plus, ChevronRight, Edit2, Trash2, Upload, FileImage } from "lucide-react";
 import mqtt from "mqtt";
+import Modal from "@/components/ui/Modal";
+import AlertDialog from "@/components/ui/AlertDialog";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import PageHeader from "@/components/ui/PageHeader";
+import EmptyState from "@/components/ui/EmptyState";
 
 interface Company {
   id: number;
   name: string;
   logoUrl: string | null;
 }
+
+// Só apresentação: cada cartão ganha uma faixa de cor (rotação pelo id da empresa).
+const CARD_BANNERS = [
+  "bg-[linear-gradient(135deg,#a78bfa,#7c3aed)]",
+  "bg-[linear-gradient(135deg,#60a5fa,#2563eb)]",
+  "bg-[linear-gradient(135deg,#34d399,#059669)]",
+  "bg-[linear-gradient(135deg,#fbbf24,#f97316)]",
+];
+
 
 export default function CompaniesPage() {
   const [companies, setCompanies] = useState<Company[]>([]);
@@ -122,49 +147,71 @@ export default function CompaniesPage() {
   const filteredCompanies = companies.filter(c => c.name.toLowerCase() !== "seatly admin");
 
   return (
-    <div className="w-full max-w-7xl mx-auto pb-10 px-4 sm:px-6 lg:px-8">
-      <header className="flex flex-col sm:flex-row sm:items-center justify-between mb-8 gap-4">
-        <div>
-          <h1 className="text-3xl font-extrabold text-slate-900">Empresas Clientes</h1>
-          <p className="text-slate-500 mt-1 font-medium">Gere as instâncias e acessos dos teus clientes.</p>
-        </div>
-        <Link href="/companies/new" className="w-full sm:w-auto bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 sm:py-3 px-6 rounded-2xl transition-all flex items-center justify-center gap-2 shadow-lg shadow-slate-900/20 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
-          <Plus className="w-5 h-5" /> Nova Empresa
-        </Link>
-      </header>
+    <div className="w-full max-w-7xl mx-auto pb-10">
+      {/* CABEÇALHO: título + ação principal */}
+      <PageHeader
+        title="Empresas Clientes"
+        description="Gere as instâncias e acessos dos teus clientes."
+        icon={<Building2 className="w-6 h-6" />}
+        actions={
+          <Link href="/companies/new" className="btn btn-primary btn-lg w-full sm:w-auto">
+            <Plus className="w-5 h-5" /> Nova Empresa
+          </Link>
+        }
+      />
 
-      <div className="card-main p-5 sm:p-6 lg:p-8 min-h-[60vh]">
-        {isLoading && <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>}
-        {error && <div className="p-4 bg-red-50 text-red-600 rounded-2xl border border-red-100 font-medium">{error}</div>}
+      <div className="min-h-[50vh]">
+        {/* ESTADO: A CARREGAR (esqueletos com o formato dos cartões) */}
+        {isLoading && (
+          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6" role="status" aria-label="A carregar">
+            {[0, 1, 2].map((n) => (
+              <div key={n} className="skeleton h-44" />
+            ))}
+          </div>
+        )}
+
+        {/* ESTADO: ERRO */}
+        {error && <div className="notice notice-error mb-5">{error}</div>}
 
         {!isLoading && !error && filteredCompanies.length === 0 ? (
-          <div className="flex flex-col items-center text-center py-16">
-            <div className="w-20 h-20 bg-white rounded-3xl flex items-center justify-center mb-4 shadow-sm border border-slate-100"><Building2 className="w-10 h-10 text-slate-300" /></div>
-            <h3 className="text-xl font-bold text-slate-900 mb-2">Sem empresas ativas</h3>
-            <p className="text-slate-500 max-w-sm mb-6">Ainda não tens nenhum cliente registado na plataforma. Cria a tua primeira empresa para começar.</p>
-          </div>
+          /* ESTADO: SEM EMPRESAS */
+          <EmptyState
+            title="Sem empresas ativas"
+            description="Ainda não tens nenhum cliente registado na plataforma. Cria a tua primeira empresa para começar."
+            action={
+              <Link href="/companies/new" className="btn btn-primary">
+                <Plus className="w-4 h-4" /> Criar primeira empresa
+              </Link>
+            }
+          />
         ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
+          /* GRELHA DE EMPRESAS */
+          <div className="stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 sm:gap-6">
             {filteredCompanies.map((company) => (
               <div key={company.id} className="relative group">
-                <Link 
-                  href={`/companies/${company.id}`} 
-                  className="block card-nested-pop p-6 h-full flex flex-col hover:border-purple-200 hover:shadow-xl hover:shadow-purple-500/10 outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-2"
+                <Link
+                  href={`/companies/${company.id}`}
+                  className="block card-nested-pop card-lift h-full flex flex-col overflow-hidden outline-none"
                 >
-                  <div className="flex items-center gap-4 mb-6">
-                    <SafeCompanyLogo logoUrl={company.logoUrl} companyName={company.name} className="w-16 h-16" fallbackSize="w-6 h-6" />
-                    <div className="flex-1 min-w-0 pr-8">
-                      <h3 className="text-lg font-bold text-slate-900 truncate" title={company.name}>{company.name}</h3>
+                  {/* Faixa de cor decorativa */}
+                  <div aria-hidden className={`h-16 relative overflow-hidden ${CARD_BANNERS[company.id % CARD_BANNERS.length]}`}>
+                    <div className="absolute -right-6 -top-8 w-28 h-28 rounded-full bg-white/25 blur-xl" />
+                  </div>
+                  <div className="px-6 pb-5 flex flex-col flex-1">
+                    <div className="relative z-10 -mt-9 mb-4">
+                      <SafeCompanyLogo logoUrl={company.logoUrl} companyName={company.name} className="w-[4.5rem] h-[4.5rem] !border-4 !border-white shadow-lg" fallbackSize="w-7 h-7" />
+                    </div>
+                    <h3 className="text-lg font-bold text-slate-900 truncate" title={company.name}>{company.name}</h3>
+                    <div className="mt-auto pt-5 flex items-center justify-between text-sm font-bold text-purple-600 group-hover:text-purple-700">
+                      Gerir Empresa <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
                     </div>
                   </div>
-                  <div className="mt-auto pt-4 border-t border-slate-50 flex items-center justify-between text-sm font-semibold text-purple-600 group-hover:text-purple-700">
-                    Gerir Empresa <ChevronRight className="w-4 h-4 transition-transform group-hover:translate-x-1" />
-                  </div>
                 </Link>
-                
-                <div className="absolute top-4 right-4 flex gap-1 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
-                  <button type="button" onClick={(e) => { e.preventDefault(); openEditModal(company); }} className="p-2 text-slate-400 hover:text-blue-600 hover:bg-blue-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><Edit2 className="w-4 h-4" /></button>
-                  <button type="button" onClick={(e) => { e.preventDefault(); promptDeleteCompany(company.id, company.name); }} className="p-2 text-slate-400 hover:text-red-600 hover:bg-red-50 bg-white shadow-sm border border-slate-100 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500"><Trash2 className="w-4 h-4" /></button>
+
+                {/* Ações rápidas (sempre visíveis em toque; no hover em desktop) */}
+                <div className="absolute top-3 right-3 flex gap-2 opacity-100 sm:opacity-0 sm:group-hover:opacity-100 focus-within:opacity-100 transition-opacity">
+                  <button type="button" aria-label={`Editar ${company.name}`} title="Editar" onClick={(e) => { e.preventDefault(); openEditModal(company); }} className="icon-btn icon-btn-blue !w-9 !h-9 shadow-md"><Edit2 className="w-4 h-4" /></button>
+                  <button type="button" aria-label={`Apagar ${company.name}`} title="Apagar" onClick={(e) => { e.preventDefault(); promptDeleteCompany(company.id, company.name); }} className="icon-btn icon-btn-red !w-9 !h-9 shadow-md"><Trash2 className="w-4 h-4" /></button>
                 </div>
               </div>
             ))}
@@ -172,77 +219,90 @@ export default function CompaniesPage() {
         )}
       </div>
 
+      {/* MODAL: EDITAR EMPRESA (nome + novo logótipo opcional) */}
       {showEditModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Edit2 className="w-5 h-5 text-purple-600" /> Editar Empresa</h3>
-              <button onClick={() => setShowEditModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"><X className="w-5 h-5" /></button>
+        <Modal
+          onClose={() => setShowEditModal(false)}
+          title="Editar Empresa"
+          subtitle="Altera o nome ou substitui o logótipo"
+          icon={<Edit2 className="w-5 h-5" />}
+          size="md"
+          closeOnBackdrop={false}
+          footer={
+            <div className="grid grid-cols-2 gap-3">
+              <button type="button" onClick={() => setShowEditModal(false)} className="btn btn-white">Cancelar</button>
+              <button type="submit" form="edit-company-form" disabled={isEditing} className="btn btn-primary">{isEditing ? "A Guardar..." : "Guardar Alterações"}</button>
             </div>
-            <form onSubmit={handleEditSubmit} className="p-5 sm:p-6 space-y-5">
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome da Empresa</label><input type="text" required value={editCompanyName} onChange={(e) => setEditCompanyName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" /></div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Novo Logótipo (Opcional)</label>
-                <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl hover:bg-slate-50 transition-colors">
-                  <div className="space-y-1 text-center">
-                    <Upload className="mx-auto h-8 w-8 text-slate-400" />
-                    <div className="flex text-sm text-slate-600 justify-center">
-                      <label htmlFor="file-upload-edit" className="relative cursor-pointer bg-white rounded-md font-medium text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 focus-within:ring-offset-2">
-                        <span>Carregar novo ficheiro</span>
-                        <input id="file-upload-edit" name="file-upload-edit" type="file" className="sr-only" accept="image/png, image/jpeg, image/svg+xml" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setEditCompanyLogo(e.target.files[0]); }} />
-                      </label>
-                    </div>
-                    {editCompanyLogo ? <p className="text-xs text-emerald-600 font-bold mt-2">{editCompanyLogo.name}</p> : <p className="text-xs text-slate-500">PNG, JPG, SVG até 5MB</p>}
+          }
+        >
+          <form id="edit-company-form" onSubmit={handleEditSubmit} className="space-y-5">
+            <div>
+              <label className="field-label">Nome da Empresa</label>
+              <div className="input-wrap">
+                <Building2 className="input-icon" />
+                <input type="text" required value={editCompanyName} onChange={(e) => setEditCompanyName(e.target.value)} className="input input-with-icon" />
+              </div>
+            </div>
+            <div>
+              <label className="field-label">Novo Logótipo (Opcional)</label>
+              <div className="flex justify-center px-6 py-6 border-2 border-dashed border-purple-200 rounded-3xl bg-purple-50/40 hover:bg-purple-50 hover:border-purple-400 transition-colors">
+                <div className="space-y-1.5 text-center min-w-0">
+                  <div className="mx-auto w-12 h-12 rounded-2xl bg-[linear-gradient(135deg,#a78bfa,#7c3aed)] text-white flex items-center justify-center shadow-lg shadow-purple-500/30">
+                    <Upload className="h-6 w-6" />
                   </div>
+                  <div className="flex text-sm text-slate-600 justify-center">
+                    <label htmlFor="file-upload-edit" className="relative cursor-pointer rounded-md font-bold text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 focus-within:ring-offset-2">
+                      <span>Carregar novo ficheiro</span>
+                      <input id="file-upload-edit" name="file-upload-edit" type="file" className="sr-only" accept="image/png, image/jpeg, image/svg+xml" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setEditCompanyLogo(e.target.files[0]); }} />
+                    </label>
+                  </div>
+                  {editCompanyLogo ? <p className="badge badge-green max-w-full truncate"><FileImage className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{editCompanyLogo.name}</span></p> : <p className="text-xs text-slate-500">PNG, JPG, SVG até 5MB</p>}
                 </div>
               </div>
-              {editError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{editError}</div>}
-              <button type="submit" disabled={isEditing} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2 outline-none focus-visible:ring-2 focus-visible:ring-blue-500 focus-visible:ring-offset-2">{isEditing ? "A Guardar..." : "Guardar Alterações"}</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {confirmDialog && confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
-            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
-            <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
-            <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
-            <div className="flex gap-3 w-full">
-              <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-slate-400">Cancelar</button>
-              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-slate-900">Confirmar</button>
             </div>
-          </div>
-        </div>
+            {editError && <div className="notice notice-error">{editError}</div>}
+          </form>
+        </Modal>
       )}
 
+      {/* CONFIRMAÇÃO (apagar empresa) */}
+      {confirmDialog && confirmDialog.isOpen && (
+        <ConfirmDialog
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          confirmLabel="Eliminar"
+          onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
+
+      {/* AVISO (erro de exclusão) */}
       {alertDialog && alertDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
-            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
-            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
-            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
-            <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
-            <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
-            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg outline-none focus-visible:ring-2 focus-visible:ring-slate-900">OK, Entendido</button>
-          </div>
-        </div>
+        <AlertDialog
+          title={alertDialog.title}
+          message={alertDialog.message}
+          type={alertDialog.type}
+          onClose={() => setAlertDialog(null)}
+        />
       )}
     </div>
   );
 }
 
+/**
+ * Logótipo da empresa com fallback: imagem (URL ou base64) -> ícone Seatly -> ícone genérico.
+ * Se a imagem falhar a carregar (onError) cai para o fallback.
+ */
 function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: any) {
   const [error, setError] = useState(false);
   useEffect(() => { setError(false); }, [logoUrl]);
   if (logoUrl && !error) {
     // Permite renderizar strings em base64 diretamente (data:image) além de URLs completos
     const src = logoUrl.startsWith('http') || logoUrl.startsWith('data:image') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
-    return <div className={`relative bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
+    return <div className={`relative bg-white border border-purple-100 rounded-3xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
   }
   if (companyName?.toLowerCase().includes("seatly admin") || companyName?.toLowerCase().includes("seatly")) {
-    return <div className={`relative bg-white border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center shadow-sm ${className}`}><img src="/seatly_icon.png" alt="Seatly" className="w-full h-full object-cover" /></div>;
+    return <div className={`relative bg-white border border-purple-100 rounded-3xl overflow-hidden shrink-0 flex items-center justify-center shadow-sm ${className}`}><img src="/seatly_icon.png" alt="Seatly" className="w-full h-full object-cover" /></div>;
   }
-  return <div className={`flex items-center justify-center bg-white border border-slate-100 rounded-2xl shadow-sm shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-slate-300`} /></div>;
+  return <div className={`flex items-center justify-center bg-white border border-purple-100 rounded-3xl shadow-sm shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-purple-300`} /></div>;
 }

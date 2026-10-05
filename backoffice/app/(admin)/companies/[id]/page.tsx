@@ -1,10 +1,30 @@
 "use client";
 
+/**
+ * Detalhe da Empresa (/companies/[id]).
+ *
+ *   - Dados: empresa, gestores, utilizadores e eventos (GET /api/Company/...),
+ *     atualizados em tempo real por MQTT (`seating/events/#` e `seating/backoffice/companies`).
+ *   - Separadores (query `?tab=`): gestores | utilizadores | eventos.
+ *   - Ações: criar contas (Gestor/Utilizador), recuperar palavra-passe, apagar acesso,
+ *     criar/editar/apagar eventos, atribuir/remover acessos a eventos e
+ *     importar/exportar a lista de convidados em CSV (com relatório de erros de validação).
+ *   - Visual: herói da empresa com métricas, separadores em pílula, cartões de evento
+ *     em estilo "bilhete" com anel de progresso, modais via <Modal>/<AlertDialog>/<ConfirmDialog>.
+ *   - Lógica (estado, fetch, MQTT, validações, ordenação) intocada: só o JSX foi redesenhado.
+ */
+
 import { useEffect, useState, useCallback, Suspense } from "react";
 import { useParams, useSearchParams, useRouter } from "next/navigation";
 import Link from "next/link";
-import { ChevronLeft, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock, AlertTriangle, Download, CheckCircle2, Info, Loader2, Mail, Building2 } from "lucide-react";
+import { ChevronLeft, ChevronRight, Users, User, CalendarDays, UserPlus, CalendarPlus, X, KeyRound, Trash2, Edit2, UploadCloud, FileText, Lock, AlertTriangle, Download, Loader2, Mail, Building2, Ticket, Check } from "lucide-react";
 import mqtt from "mqtt";
+import Modal from "@/components/ui/Modal";
+import AlertDialog from "@/components/ui/AlertDialog";
+import ConfirmDialog from "@/components/ui/ConfirmDialog";
+import EmptyState from "@/components/ui/EmptyState";
+import ProgressRing from "@/components/ui/ProgressRing";
+import CountUp from "@/components/ui/CountUp";
 
 interface Company { id: number; name: string; logoUrl: string | null; }
 interface AccountUser { id: number; email: string; username: string; role: string; }
@@ -372,34 +392,45 @@ function CompanyDetailsContent() {
     document.body.appendChild(link); link.click(); document.body.removeChild(link);
   };
 
+  // Lista de contas (gestores ou utilizadores) com cabeçalho, botão de criar e estado vazio.
   const renderAccountList = (list: AccountUser[], title: string, roleType: "Gestor" | "Utilizador", emptyMsg: string) => (
     <div>
+      {/* Cabeçalho da secção */}
       <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-        <h2 className="text-xl font-bold text-slate-900">{title}</h2>
-        <button type="button" onClick={() => openCreateAccountModal(roleType)} className="w-full sm:w-auto bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+        <div className="flex items-center gap-3">
+          <h2 className="text-xl font-bold text-slate-900">{title}</h2>
+          <span className={`badge ${roleType === "Gestor" ? "badge-blue" : "badge-green"}`}>{list.length}</span>
+        </div>
+        <button type="button" onClick={() => openCreateAccountModal(roleType)} className="btn btn-primary w-full sm:w-auto">
           <UserPlus className="w-4 h-4" /> Criar {roleType}
         </button>
       </div>
       {list.length === 0 ? (
-        <div className="text-center py-12 text-slate-500">{emptyMsg}</div>
+        <EmptyState title={emptyMsg} description="Usa o botão acima para criar a primeira conta." />
       ) : (
-        <div className="space-y-3">
+        <div className="stagger grid grid-cols-1 md:grid-cols-2 gap-3 sm:gap-4">
           {list.map(account => (
-            <div key={account.id} className="card-nested-pop p-4 flex items-center justify-between hover:border-purple-200 transition-colors">
-              <div className="flex items-center gap-3 sm:gap-4 min-w-0 pr-2">
-                <div className="w-10 h-10 bg-purple-50 rounded-full flex items-center justify-center text-purple-600 font-bold uppercase shrink-0">{account.username.charAt(0)}</div>
-                <div className="min-w-0">
-                  <p className="font-bold text-slate-900 truncate">{account.username}</p>
-                  <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-0.5 truncate"><Mail className="w-3 h-3 shrink-0"/> {account.email}</p>
+            <div key={account.id}>
+              <div className="card-nested-pop card-lift p-4 flex items-center justify-between gap-2 h-full">
+                <div className="flex items-center gap-3 sm:gap-4 min-w-0 pr-2">
+                  <div className={`w-12 h-12 rounded-2xl flex items-center justify-center text-white font-bold text-lg uppercase shrink-0 shadow-lg ${roleType === "Gestor" ? "bg-[linear-gradient(135deg,#60a5fa,#2563eb)] shadow-blue-500/30" : "bg-[linear-gradient(135deg,#34d399,#059669)] shadow-emerald-500/30"}`}>{account.username.charAt(0)}</div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-2 min-w-0">
+                      <p className="font-bold text-slate-900 truncate">{account.username}</p>
+                      <span className={`badge hidden sm:inline-flex ${roleType === "Gestor" ? "badge-blue" : "badge-green"}`}>{account.role}</span>
+                    </div>
+                    <p className="text-xs font-medium text-slate-500 flex items-center gap-1 mt-0.5 truncate"><Mail className="w-3 h-3 shrink-0"/> <span className="truncate">{account.email}</span></p>
+                  </div>
                 </div>
-              </div>
-              <div className="flex gap-1 sm:gap-2 shrink-0">
-                <button type="button" onClick={() => promptSendResetEmail(account.email, account.username)} className="p-2 text-slate-400 hover:text-amber-500 hover:bg-amber-50 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-amber-500" title="Enviar Link de Recuperação">
-                  <Lock className="w-5 h-5" />
-                </button>
-                <button type="button" onClick={() => promptDeleteUser(account.id, account.username, account.role)} className="p-2 text-slate-400 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500" title={`Apagar ${account.role}`}>
-                  <Trash2 className="w-5 h-5" />
-                </button>
+                {/* Ações da linha */}
+                <div className="flex gap-2 shrink-0">
+                  <button type="button" onClick={() => promptSendResetEmail(account.email, account.username)} className="icon-btn icon-btn-amber" title="Enviar Link de Recuperação" aria-label="Enviar Link de Recuperação">
+                    <Lock className="w-[18px] h-[18px]" />
+                  </button>
+                  <button type="button" onClick={() => promptDeleteUser(account.id, account.username, account.role)} className="icon-btn icon-btn-red" title={`Apagar ${account.role}`} aria-label={`Apagar ${account.role}`}>
+                    <Trash2 className="w-[18px] h-[18px]" />
+                  </button>
+                </div>
               </div>
             </div>
           ))}
@@ -414,8 +445,8 @@ function CompanyDetailsContent() {
     return dateB - dateA;
   });
 
-  if (isLoading) return <div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>;
-  if (!company) return <div className="p-10 text-center"><h2 className="text-2xl font-bold text-slate-900">Empresa não encontrada</h2><button type="button" onClick={() => router.push("/companies")} className="text-purple-600 mt-4 inline-block font-bold outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded">Voltar</button></div>;
+  if (isLoading) return <div className="flex justify-center p-20" role="status" aria-label="A carregar"><div className="spinner" /></div>;
+  if (!company) return <div className="max-w-xl mx-auto pt-10"><EmptyState title="Empresa não encontrada" description="Esta empresa não existe ou já foi removida." action={<button type="button" onClick={() => router.push("/companies")} className="btn btn-primary">Voltar</button>} /></div>;
 
   const groupedErrors = validationErrors ? validationErrors.reduce((acc, err) => {
     const type = err.errorType || err.ErrorType || "Erro Desconhecido";
@@ -433,115 +464,179 @@ function CompanyDetailsContent() {
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto relative px-4 sm:px-6 lg:px-8 pb-10">
-      <Link href="/companies" className="inline-flex items-center text-slate-500 hover:text-purple-600 font-medium mb-8 transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-md">
-        <ChevronLeft className="w-5 h-5 mr-1" /> Voltar para Empresas
+    <div className="w-full max-w-7xl mx-auto relative pb-10">
+      {/* VOLTAR */}
+      <Link href="/companies" className="btn btn-ghost btn-sm mb-4 -ml-2">
+        <ChevronLeft className="w-4 h-4" /> Voltar para Empresas
       </Link>
 
-      <div className="card-main p-6 sm:p-8 flex flex-col sm:flex-row items-center sm:items-start md:items-center gap-5 sm:gap-6 mb-8 text-center sm:text-left">
-        <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-3xl bg-slate-50 border border-slate-100 flex items-center justify-center p-2 shrink-0 shadow-inner">
-          {company.logoUrl ? (
-            <img src={company.logoUrl} alt={company.name} className="w-full h-full object-contain" />
-          ) : (
-            <span className="text-slate-400 font-bold text-xl">{company.name.charAt(0)}</span>
-          )}
+      {/* HERÓI DA EMPRESA: faixa em degradê, logótipo sobreposto e métricas */}
+      <section className="reveal card-main overflow-hidden mb-6 lg:mb-8" style={{ ["--i" as string]: 1 }}>
+        <div className="h-28 sm:h-32 relative overflow-hidden bg-[linear-gradient(145deg,#6d28d9_0%,#7c3aed_45%,#2563eb_100%)]">
+          <div aria-hidden className="absolute -right-10 -top-12 w-56 h-56 rounded-full bg-white/20 blur-2xl" />
+          <div aria-hidden className="absolute left-1/3 -bottom-16 w-48 h-48 rounded-full bg-emerald-300/25 blur-3xl" />
         </div>
-        <div className="min-w-0">
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-slate-900 break-words">{company.name}</h1>
+        <div className="px-5 sm:px-8 pb-6 sm:pb-8">
+          <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 relative z-10 -mt-12 sm:-mt-14">
+            <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white border-4 border-white shadow-xl flex items-center justify-center p-2 shrink-0">
+              {company.logoUrl ? (
+                <img src={company.logoUrl} alt={company.name} className="w-full h-full object-contain" />
+              ) : (
+                <span className="text-gradient font-display font-bold text-4xl">{company.name.charAt(0)}</span>
+              )}
+            </div>
+            <div className="min-w-0 sm:pb-2">
+              <span className="badge badge-purple mb-2"><Building2 className="w-3.5 h-3.5" /> Empresa cliente</span>
+              <h1 className="text-2xl sm:text-3xl lg:text-4xl font-bold text-slate-900 break-words">{company.name}</h1>
+            </div>
+          </div>
+
+          {/* Métricas rápidas (só leitura, derivadas dos dados já carregados) */}
+          <div className="stagger grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4 mt-6">
+            <div>
+              <div className="card-nested-flat p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 bg-[linear-gradient(135deg,#60a5fa,#2563eb)]"><Users className="w-5 h-5" /></div>
+                <div className="min-w-0"><p className="font-display text-2xl font-bold text-slate-900 leading-none"><CountUp value={managers.length} /></p><p className="text-xs font-bold text-slate-500 mt-1 truncate">Gestores</p></div>
+              </div>
+            </div>
+            <div>
+              <div className="card-nested-flat p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 bg-[linear-gradient(135deg,#34d399,#059669)]"><User className="w-5 h-5" /></div>
+                <div className="min-w-0"><p className="font-display text-2xl font-bold text-slate-900 leading-none"><CountUp value={companyUsers.length} /></p><p className="text-xs font-bold text-slate-500 mt-1 truncate">Utilizadores</p></div>
+              </div>
+            </div>
+            <div>
+              <div className="card-nested-flat p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 bg-[linear-gradient(135deg,#a78bfa,#7c3aed)]"><CalendarDays className="w-5 h-5" /></div>
+                <div className="min-w-0"><p className="font-display text-2xl font-bold text-slate-900 leading-none"><CountUp value={events.length} /></p><p className="text-xs font-bold text-slate-500 mt-1 truncate">Eventos</p></div>
+              </div>
+            </div>
+            <div>
+              <div className="card-nested-flat p-4 flex items-center gap-3">
+                <div className="w-10 h-10 rounded-2xl flex items-center justify-center text-white shrink-0 bg-[linear-gradient(135deg,#fbbf24,#f97316)]"><Ticket className="w-5 h-5" /></div>
+                <div className="min-w-0"><p className="font-display text-2xl font-bold text-slate-900 leading-none"><CountUp value={events.reduce((sum, ev) => sum + ev.totalSeats, 0)} /></p><p className="text-xs font-bold text-slate-500 mt-1 truncate">Lugares</p></div>
+              </div>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* SEPARADORES EM PÍLULA */}
+      <div className="reveal mb-6 max-w-full" style={{ ["--i" as string]: 2 }}>
+        <div className="tab-bar" role="tablist" aria-label="Secções da empresa">
+          <button type="button" role="tab" aria-selected={activeTab === "gestores"} onClick={() => setActiveTab("gestores")} className="tab">
+            <Users className="w-[18px] h-[18px]" /> Gestores <span className="opacity-80">({managers.length})</span>
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "utilizadores"} onClick={() => setActiveTab("utilizadores")} className="tab">
+            <User className="w-[18px] h-[18px]" /> Utilizadores <span className="opacity-80">({companyUsers.length})</span>
+          </button>
+          <button type="button" role="tab" aria-selected={activeTab === "eventos"} onClick={() => setActiveTab("eventos")} className="tab">
+            <CalendarDays className="w-[18px] h-[18px]" /> Eventos <span className="opacity-80">({events.length})</span>
+          </button>
         </div>
       </div>
 
-      <div className="flex overflow-x-auto scrollbar-hide border-b border-slate-200 mb-8 gap-6 sm:gap-8 snap-x">
-        <button type="button" onClick={() => setActiveTab("gestores")} className={`snap-start whitespace-nowrap pb-4 text-base font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "gestores" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
-          <div className="flex items-center gap-2"><Users className="w-5 h-5" /> Gestores ({managers.length})</div>
-          {activeTab === "gestores" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
-        </button>
-        <button type="button" onClick={() => setActiveTab("utilizadores")} className={`snap-start whitespace-nowrap pb-4 text-base font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "utilizadores" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
-          <div className="flex items-center gap-2"><User className="w-5 h-5" /> Utilizadores ({companyUsers.length})</div>
-          {activeTab === "utilizadores" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
-        </button>
-        <button type="button" onClick={() => setActiveTab("eventos")} className={`snap-start whitespace-nowrap pb-4 text-base font-bold transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-500 rounded-t-md relative ${activeTab === "eventos" ? "text-purple-600" : "text-slate-400 hover:text-slate-600"}`}>
-          <div className="flex items-center gap-2"><CalendarDays className="w-5 h-5" /> Eventos ({events.length})</div>
-          {activeTab === "eventos" && <div className="absolute bottom-0 left-0 w-full h-1 bg-purple-600 rounded-t-full"></div>}
-        </button>
-      </div>
-
-      <div className="card-main p-5 sm:p-6 lg:p-8 min-h-[400px]">
+      {/* CONTEÚDO DO SEPARADOR ATIVO */}
+      <div className="reveal card-main p-5 sm:p-6 lg:p-8 min-h-[400px]" style={{ ["--i" as string]: 3 }}>
         {activeTab === "gestores" && renderAccountList(managers, "Gestores de Conta", "Gestor", "Ainda não existem gestores atribuídos a esta empresa.")}
         {activeTab === "utilizadores" && renderAccountList(companyUsers, "Utilizadores de Conta", "Utilizador", "Ainda não existem utilizadores atribuídos a esta empresa.")}
 
         {activeTab === "eventos" && (
           <div>
             <div className="flex flex-col sm:flex-row justify-between items-start sm:items-center mb-6 gap-4">
-              <h2 className="text-xl font-bold text-slate-900">Eventos da Empresa</h2>
-              <button type="button" onClick={() => setShowEventModal(true)} className="w-full sm:w-auto bg-purple-50 hover:bg-purple-100 text-purple-700 font-bold py-2.5 px-5 rounded-xl transition-all flex items-center justify-center gap-2 outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
+              <div className="flex items-center gap-3">
+                <h2 className="text-xl font-bold text-slate-900">Eventos da Empresa</h2>
+                <span className="badge badge-purple">{events.length}</span>
+              </div>
+              <button type="button" onClick={() => setShowEventModal(true)} className="btn btn-primary w-full sm:w-auto">
                 <CalendarPlus className="w-4 h-4" /> Criar Evento
               </button>
             </div>
             {sortedEvents.length === 0 ? (
-              <div className="text-center py-12 text-slate-500">Esta empresa ainda não tem eventos criados.</div>
+              <EmptyState title="Esta empresa ainda não tem eventos criados." description="Cria o primeiro evento para começar a gerir convidados." />
             ) : (
-              <div className="grid grid-cols-1 lg:grid-cols-2 gap-5 sm:gap-6">
+              <div className="stagger grid grid-cols-1 xl:grid-cols-2 gap-5 sm:gap-6">
                 {sortedEvents.map(event => {
                   const progress = event.totalSeats > 0 ? Math.round((event.treatedSeats / event.totalSeats) * 100) : 0;
                   const isOneDayEvent = event.startDate && event.endDate && new Date(event.startDate).toLocaleDateString('pt-PT') === new Date(event.endDate).toLocaleDateString('pt-PT');
-                  
+
                   return (
-                    <div key={event.id} className="card-nested-pop p-5 flex flex-col justify-between outline-none focus-visible:ring-2 focus-visible:ring-purple-500" tabIndex={0}>
-                      <div>
-                        <div className="flex justify-between items-start mb-2">
-                          <div className="min-w-0 pr-4">
-                            <h3 className="font-bold text-slate-900 text-lg mb-1 truncate" title={event.name}>{event.name}</h3>
-                            <div className="flex flex-col gap-0.5 mt-1 mb-4">
-                              {isOneDayEvent ? (
-                                <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Data:</strong> {new Date(event.startDate).toLocaleDateString('pt-PT')}</span>
-                              ) : (
-                                <>
-                                  <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Início:</strong> {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "N/D"}</span>
-                                  <span className="text-sm text-slate-500"><strong className="font-semibold text-slate-600">Fim:</strong> {event.endDate ? new Date(event.endDate).toLocaleDateString('pt-PT') : "N/D"}</span>
-                                </>
-                              )}
+                    <div key={event.id}>
+                      {/* CARTÃO DE EVENTO em estilo bilhete: corpo + linha picotada + ações */}
+                      <div className="card-nested-pop card-lift h-full flex flex-col outline-none focus-visible:ring-2 focus-visible:ring-purple-500" tabIndex={0}>
+                        <div className="p-5 pb-4 flex-1">
+                          {/* Título, datas e ações do evento */}
+                          <div className="flex justify-between items-start gap-3 mb-4">
+                            <div className="min-w-0">
+                              <span className="badge badge-purple mb-2"><CalendarDays className="w-3.5 h-3.5" /> Evento</span>
+                              <h3 className="font-bold text-slate-900 text-lg leading-snug truncate" title={event.name}>{event.name}</h3>
+                              <div className="flex flex-col gap-0.5 mt-1.5">
+                                {isOneDayEvent ? (
+                                  <span className="text-sm text-slate-500"><strong className="font-bold text-slate-600">Data:</strong> {new Date(event.startDate).toLocaleDateString('pt-PT')}</span>
+                                ) : (
+                                  <>
+                                    <span className="text-sm text-slate-500"><strong className="font-bold text-slate-600">Início:</strong> {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "N/D"}</span>
+                                    <span className="text-sm text-slate-500"><strong className="font-bold text-slate-600">Fim:</strong> {event.endDate ? new Date(event.endDate).toLocaleDateString('pt-PT') : "N/D"}</span>
+                                  </>
+                                )}
+                              </div>
+                            </div>
+                            <div className="flex gap-2 shrink-0">
+                              <button type="button" onClick={() => openEditEventModal(event)} className="icon-btn icon-btn-blue" title="Editar evento" aria-label="Editar evento"><Edit2 className="w-[18px] h-[18px]" /></button>
+                              <button type="button" onClick={() => promptDeleteEvent(event.id, event.name)} className="icon-btn icon-btn-red" title="Apagar evento" aria-label="Apagar evento"><Trash2 className="w-[18px] h-[18px]" /></button>
                             </div>
                           </div>
-                          <div className="flex gap-1 shrink-0">
-                            <button type="button" onClick={() => openEditEventModal(event)} className="p-2 text-slate-300 hover:text-blue-500 hover:bg-blue-50 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-blue-500"><Edit2 className="w-5 h-5" /></button>
-                            <button type="button" onClick={() => promptDeleteEvent(event.id, event.name)} className="p-2 text-slate-300 hover:text-red-500 hover:bg-red-50 rounded-lg transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500"><Trash2 className="w-5 h-5" /></button>
-                          </div>
-                        </div>
-                        
-                        <div className="flex justify-between text-sm mb-2"><span className="font-medium text-slate-600">Progresso</span><span className="font-bold text-purple-600">{progress}%</span></div>
-                        <div className="w-full bg-slate-100 rounded-full h-2"><div className="bg-purple-500 h-2 rounded-full" style={{ width: `${progress}%` }}></div></div>
-                        
-                        <div className="flex justify-between mt-4 pt-4 border-t border-slate-50 text-sm">
-                          <span className="text-slate-500">Capacidade: <strong className="text-slate-900">{event.totalSeats}</strong></span>
-                          <span className="text-slate-500">Tratados: <strong className="text-emerald-600">{event.treatedSeats}</strong></span>
-                        </div>
-                        
-                        {event.assignedUsers && event.assignedUsers.length > 0 && (
-                          <div className="mt-4 pt-4 border-t border-slate-50">
-                            <p className="text-xs font-bold text-slate-500 mb-2 uppercase tracking-wider">Acessos Atribuídos</p>
-                            <div className="flex flex-wrap gap-2">
-                              {event.assignedUsers.map(au => (
-                                <span key={au.id} className="inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg bg-purple-50 border border-purple-100 text-sm font-semibold text-purple-700 shadow-sm">
-                                  {au.username}
-                                  <button type="button" onClick={() => promptRemoveAccess(event.id, au.id, au.username, event.name)} className="hover:bg-purple-200 p-0.5 rounded-md transition-colors outline-none focus-visible:ring-2 focus-visible:ring-purple-700"><X className="w-3.5 h-3.5" /></button>
-                                </span>
-                              ))}
+
+                          {/* Progresso: anel + números */}
+                          <div className="flex items-center gap-4 p-3 rounded-3xl bg-white/60 border border-[var(--line)]">
+                            <ProgressRing percent={progress} size={68} stroke={8} />
+                            <div className="grid grid-cols-2 gap-3 flex-1 min-w-0">
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-500">Capacidade</p>
+                                <p className="font-display text-xl font-bold text-slate-900 tabular">{event.totalSeats}</p>
+                              </div>
+                              <div className="min-w-0">
+                                <p className="text-xs font-bold text-slate-500">Tratados</p>
+                                <p className="font-display text-xl font-bold text-emerald-600 tabular">{event.treatedSeats}</p>
+                              </div>
                             </div>
                           </div>
-                        )}
-                      </div>
-                      
-                      <div className="mt-5 grid grid-cols-1 sm:grid-cols-3 gap-2">
-                        <Link href={`/events/${event.id}/guests?companyId=${id}`} className="w-full flex items-center justify-center gap-1.5 bg-blue-50 hover:bg-blue-100 border border-blue-100 text-blue-700 font-bold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-blue-500">
-                          <Users className="w-4 h-4" /> Convidados
-                        </Link>
-                        <button type="button" onClick={() => setFilesModalEvent(event)} className="w-full flex items-center justify-center gap-1.5 bg-emerald-50 hover:bg-emerald-100 border border-emerald-100 text-emerald-700 font-bold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-emerald-500">
-                          <FileText className="w-4 h-4" /> Ficheiros
-                        </button>
-                        <button type="button" onClick={() => openAssignModal(event)} className="w-full flex items-center justify-center gap-1.5 bg-purple-50 hover:bg-purple-100 border border-purple-100 text-purple-700 font-bold py-2.5 rounded-xl transition-colors text-[13px] outline-none focus-visible:ring-2 focus-visible:ring-purple-500">
-                          <KeyRound className="w-4 h-4" /> Acessos
-                        </button>
+
+                          {/* Acessos atribuídos */}
+                          {event.assignedUsers && event.assignedUsers.length > 0 && (
+                            <div className="mt-4">
+                              <p className="text-xs font-bold text-slate-500 mb-2">Acessos Atribuídos</p>
+                              <div className="flex flex-wrap gap-2">
+                                {event.assignedUsers.map(au => (
+                                  <span key={au.id} className="badge badge-purple !text-[13px] !pr-1.5">
+                                    {au.username}
+                                    <button type="button" onClick={() => promptRemoveAccess(event.id, au.id, au.username, event.name)} className="hover:bg-purple-200 p-0.5 rounded-full transition-colors" aria-label={`Remover acesso de ${au.username}`}><X className="w-3.5 h-3.5" /></button>
+                                  </span>
+                                ))}
+                              </div>
+                            </div>
+                          )}
+                        </div>
+
+                        {/* Linha picotada com os dois "dentes" do bilhete */}
+                        <div className="relative" aria-hidden>
+                          <div className="ticket-cut" />
+                          <span className="absolute -left-[9px] top-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-full bg-[var(--background)] shadow-[inset_0_0_0_1px_var(--line)]" />
+                          <span className="absolute -right-[9px] top-1/2 -translate-y-1/2 w-[18px] h-[18px] rounded-full bg-[var(--background)] shadow-[inset_0_0_0_1px_var(--line)]" />
+                        </div>
+
+                        {/* Ações do evento */}
+                        <div className="p-4 grid grid-cols-3 gap-2">
+                          <Link href={`/events/${event.id}/guests?companyId=${id}`} className="btn btn-info btn-sm !px-2 flex-col sm:flex-row !gap-1 sm:!gap-1.5 !text-[12px] sm:!text-[13px]">
+                            <Users className="w-4 h-4" /> Convidados
+                          </Link>
+                          <button type="button" onClick={() => setFilesModalEvent(event)} className="btn btn-success btn-sm !px-2 flex-col sm:flex-row !gap-1 sm:!gap-1.5 !text-[12px] sm:!text-[13px]">
+                            <FileText className="w-4 h-4" /> Ficheiros
+                          </button>
+                          <button type="button" onClick={() => openAssignModal(event)} className="btn btn-soft btn-sm !px-2 flex-col sm:flex-row !gap-1 sm:!gap-1.5 !text-[12px] sm:!text-[13px]">
+                            <KeyRound className="w-4 h-4" /> Acessos
+                          </button>
+                        </div>
                       </div>
                     </div>
                   );
@@ -552,315 +647,344 @@ function CompanyDetailsContent() {
         )}
       </div>
 
+      {/* MODAL: FICHEIROS DO EVENTO (escolher importar ou exportar CSV) */}
       {filesModalEvent && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><FileText className="w-5 h-5 text-emerald-600" /> Ficheiros do Evento</h3>
-              <button type="button" onClick={() => setFilesModalEvent(null)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm outline-none focus-visible:ring-2 focus-visible:ring-slate-400"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-5 sm:p-6">
-              <p className="text-sm text-slate-500 mb-6">Escolhe a operação que pretendes realizar para a lista de convidados do evento <strong className="text-slate-700">{filesModalEvent.name}</strong>.</p>
-              
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                <button 
-                  type="button"
-                  onClick={() => { openUploadModal(filesModalEvent.id); setFilesModalEvent(null); }} 
-                  className="flex flex-col items-center justify-center p-6 border border-slate-200 rounded-2xl hover:border-emerald-300 hover:bg-emerald-50 transition-colors group outline-none focus-visible:ring-2 focus-visible:ring-emerald-500"
-                >
-                  <UploadCloud className="w-8 h-8 text-slate-400 group-hover:text-emerald-600 mb-3 transition-colors" />
-                  <span className="font-bold text-slate-900 group-hover:text-emerald-700">Importar CSV</span>
-                  <span className="text-xs text-slate-500 mt-1">Carregar nova lista</span>
-                </button>
-                <button 
-                  type="button"
-                  disabled={isExporting}
-                  onClick={() => handleExportCsv(filesModalEvent.id, filesModalEvent.name)} 
-                  className="flex flex-col items-center justify-center p-6 border border-slate-200 rounded-2xl hover:border-blue-300 hover:bg-blue-50 transition-colors group outline-none focus-visible:ring-2 focus-visible:ring-blue-500 disabled:opacity-50"
-                >
-                  {isExporting ? <Loader2 className="w-8 h-8 text-blue-500 animate-spin mb-3" /> : <Download className="w-8 h-8 text-slate-400 group-hover:text-blue-600 mb-3 transition-colors" />}
-                  <span className="font-bold text-slate-900 group-hover:text-blue-700">Exportar CSV</span>
-                  <span className="text-xs text-slate-500 mt-1">Descarregar dados</span>
-                </button>
+        <Modal
+          onClose={() => setFilesModalEvent(null)}
+          title="Ficheiros do Evento"
+          subtitle={filesModalEvent.name}
+          icon={<FileText className="w-5 h-5" />}
+          tone="emerald"
+          size="md"
+          closeOnBackdrop={false}
+        >
+          <p className="text-sm text-slate-500 mb-5">Escolhe a operação que pretendes realizar para a lista de convidados do evento <strong className="text-slate-700">{filesModalEvent.name}</strong>.</p>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+            <button
+              type="button"
+              onClick={() => { openUploadModal(filesModalEvent.id); setFilesModalEvent(null); }}
+              className="card-nested-pop card-lift flex flex-col items-center justify-center p-6 group"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-[linear-gradient(135deg,#34d399,#059669)] text-white flex items-center justify-center mb-3 shadow-lg shadow-emerald-500/30 group-hover:scale-110 transition-transform"><UploadCloud className="w-7 h-7" /></div>
+              <span className="font-bold text-slate-900 group-hover:text-emerald-700">Importar CSV</span>
+              <span className="text-xs text-slate-500 mt-1">Carregar nova lista</span>
+            </button>
+            <button
+              type="button"
+              disabled={isExporting}
+              onClick={() => handleExportCsv(filesModalEvent.id, filesModalEvent.name)}
+              className="card-nested-pop card-lift flex flex-col items-center justify-center p-6 group disabled:opacity-50"
+            >
+              <div className="w-14 h-14 rounded-2xl bg-[linear-gradient(135deg,#60a5fa,#2563eb)] text-white flex items-center justify-center mb-3 shadow-lg shadow-blue-500/30 group-hover:scale-110 transition-transform">
+                {isExporting ? <Loader2 className="w-7 h-7 animate-spin" /> : <Download className="w-7 h-7" />}
               </div>
-            </div>
+              <span className="font-bold text-slate-900 group-hover:text-blue-700">Exportar CSV</span>
+              <span className="text-xs text-slate-500 mt-1">Descarregar dados</span>
+            </button>
           </div>
-        </div>
+        </Modal>
       )}
 
+      {/* MODAL: CRIAR CONTA (gestor ou utilizador) */}
       {showCreateAccountModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900">Novo {newAccountRole}</h3>
-              <button onClick={() => setShowCreateAccountModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={handleCreateAccount} className="p-5 sm:p-6 space-y-5">
-              <p className="text-sm text-slate-500">A palavra-passe será gerada automaticamente e enviada para o e-mail inserido.</p>
-              <div><label className="block text-sm font-bold text-slate-700 mb-2">Nome Completo</label><input type="text" required value={newName} onChange={(e) => setNewName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="Ex: João Silva" /></div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Endereço de E-mail</label>
-                <div className="relative">
-                  <div className="absolute inset-y-0 left-0 pl-3.5 flex items-center pointer-events-none"><Mail className="h-5 w-5 text-slate-400" /></div>
-                  <input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="w-full pl-11 pr-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500 outline-none transition-all" placeholder="joao@empresa.com" />
-                </div>
+        <Modal
+          onClose={() => setShowCreateAccountModal(false)}
+          title={<>Novo {newAccountRole}</>}
+          subtitle="A palavra-passe é gerada e enviada por e-mail"
+          icon={<UserPlus className="w-5 h-5" />}
+          tone={newAccountRole === "Gestor" ? "blue" : "emerald"}
+          size="md"
+          closeOnBackdrop={false}
+          footer={
+            <button type="submit" form="create-account-form" disabled={isCreatingAccount || !newName || !newEmail} className={`btn btn-block ${newAccountRole === "Gestor" ? "btn-info" : "btn-success"}`}>
+              {isCreatingAccount ? <Loader2 className="w-5 h-5 animate-spin" /> : `Criar ${newAccountRole} e Enviar E-mail`}
+            </button>
+          }
+        >
+          <form id="create-account-form" onSubmit={handleCreateAccount} className="space-y-5">
+            <p className="notice notice-info !font-medium">A palavra-passe será gerada automaticamente e enviada para o e-mail inserido.</p>
+            <div>
+              <label className="field-label">Nome Completo</label>
+              <div className="input-wrap">
+                <User className="input-icon" />
+                <input type="text" required value={newName} onChange={(e) => setNewName(e.target.value)} className="input input-with-icon" placeholder="Ex: João Silva" />
               </div>
-              {createAccountError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex gap-2"><AlertTriangle className="w-5 h-5 shrink-0" /> {createAccountError}</div>}
-              <button type="submit" disabled={isCreatingAccount || !newName || !newEmail} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-all mt-2 flex justify-center items-center shadow-lg shadow-purple-600/20 disabled:opacity-70">
-                {isCreatingAccount ? <Loader2 className="w-5 h-5 animate-spin" /> : `Criar ${newAccountRole} e Enviar E-mail`}
-              </button>
-            </form>
-          </div>
-        </div>
+            </div>
+            <div>
+              <label className="field-label">Endereço de E-mail</label>
+              <div className="input-wrap">
+                <Mail className="input-icon" />
+                <input type="email" required value={newEmail} onChange={(e) => setNewEmail(e.target.value)} className="input input-with-icon" placeholder="joao@empresa.com" />
+              </div>
+            </div>
+            {createAccountError && <div className="notice notice-error"><AlertTriangle className="w-5 h-5" /> {createAccountError}</div>}
+          </form>
+        </Modal>
       )}
 
+      {/* MODAL: ATRIBUIR ACESSOS DE EQUIPA A UM EVENTO */}
       {showAssignModal && assignEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="card-nested-pop w-full max-w-lg animate-in fade-in zoom-in-95 duration-200 flex flex-col max-h-[90vh]">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 shrink-0 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><KeyRound className="w-5 h-5 text-purple-600" /> Atribuir Acessos</h3>
-              <button onClick={() => setShowAssignModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
-            </div>
-            
-            <div className="p-5 sm:p-6 overflow-y-auto custom-scrollbar flex-1">
-              <p className="text-sm text-slate-500 mb-6 leading-relaxed">
-                Seleciona a equipa que queres atribuir ao evento <strong className="text-slate-800">{assignEvent.name}</strong>.
-              </p>
-              <div className="space-y-6">
-                <div>
-                  <h4 className="text-xs font-black text-blue-500 uppercase tracking-widest mb-3">Gestores Disponíveis</h4>
-                  {availableManagers.length === 0 ? (
-                    <p className="text-sm text-slate-400 bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">Todos os gestores já têm acesso.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {availableManagers.map(m => (
-                        <button 
-                          type="button"
-                          key={m.id} 
-                          onClick={() => toggleUserSelection(m.id)} 
-                          className={`w-full text-left p-3 rounded-xl border flex flex-col transition-all outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-1 ${selectedUserIds.includes(m.id) ? 'bg-blue-50 border-blue-300 shadow-sm' : 'bg-white border-slate-200 hover:border-blue-200'}`}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <input type="checkbox" readOnly checked={selectedUserIds.includes(m.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 pointer-events-none" />
-                            <span className={`text-sm font-bold truncate ${selectedUserIds.includes(m.id) ? 'text-blue-700' : 'text-slate-700'}`}>{m.username}</span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 truncate pl-6">{m.email}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-                <div>
-                  <h4 className="text-xs font-black text-emerald-500 uppercase tracking-widest mb-3">Staff / Validadores Disponíveis</h4>
-                  {availableUsers.length === 0 ? (
-                    <p className="text-sm text-slate-400 bg-slate-50 p-4 rounded-xl border border-slate-100 text-center">Todos os utilizadores já têm acesso.</p>
-                  ) : (
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
-                      {availableUsers.map(u => (
-                        <button 
-                          type="button"
-                          key={u.id} 
-                          onClick={() => toggleUserSelection(u.id)} 
-                          className={`w-full text-left p-3 rounded-xl border flex flex-col transition-all outline-none focus-visible:ring-2 focus-visible:ring-purple-500 focus-visible:ring-offset-1 ${selectedUserIds.includes(u.id) ? 'bg-emerald-50 border-emerald-300 shadow-sm' : 'bg-white border-slate-200 hover:border-emerald-200'}`}
-                        >
-                          <div className="flex items-center gap-2 mb-1">
-                            <input type="checkbox" readOnly checked={selectedUserIds.includes(u.id)} className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 pointer-events-none" />
-                            <span className={`text-sm font-bold truncate ${selectedUserIds.includes(u.id) ? 'text-emerald-700' : 'text-slate-700'}`}>{u.username}</span>
-                          </div>
-                          <span className="text-[10px] text-slate-400 truncate pl-6">{u.email}</span>
-                        </button>
-                      ))}
-                    </div>
-                  )}
-                </div>
-              </div>
-            </div>
-
-            <div className="p-5 sm:p-6 border-t border-slate-100 shrink-0 bg-white rounded-b-[1.5rem]">
-              {assignError && <div className="mb-4 p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl">{assignError}</div>}
-              <button 
-                onClick={handleAssignAccess} 
-                disabled={isAssigning || selectedUserIds.length === 0} 
-                className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-all disabled:opacity-50 flex justify-center items-center shadow-lg shadow-purple-600/20"
+        <Modal
+          onClose={() => setShowAssignModal(false)}
+          title="Atribuir Acessos"
+          subtitle={assignEvent.name}
+          icon={<KeyRound className="w-5 h-5" />}
+          size="lg"
+          closeOnBackdrop={false}
+          footer={
+            <div>
+              {assignError && <div className="notice notice-error mb-4">{assignError}</div>}
+              <button
+                type="button"
+                onClick={handleAssignAccess}
+                disabled={isAssigning || selectedUserIds.length === 0}
+                className="btn btn-primary btn-block"
               >
                 {isAssigning ? <Loader2 className="w-5 h-5 animate-spin" /> : `Atribuir Acesso (${selectedUserIds.length} selecionados)`}
               </button>
             </div>
-          </div>
-        </div>
-      )}
-
-      {showEventModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="card-nested-pop w-full max-w-md">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900">Novo Evento</h3>
-              <button onClick={() => setShowEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={handleCreateEvent} className="p-5 sm:p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
-                <input type="text" required value={eventName} onChange={(e) => setEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
-                <input type="date" required value={eventStartDate} onChange={(e) => setEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label>
-                <input type="date" required min={eventStartDate} value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              {eventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />{eventError}</div>}
-              <button type="submit" disabled={isCreatingEvent} className="w-full bg-purple-600 hover:bg-purple-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isCreatingEvent ? "A Criar..." : "Criar Evento"}</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showEditEventModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="card-nested-pop w-full max-w-md animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><Edit2 className="w-5 h-5 text-purple-600" /> Editar Evento</h3>
-              <button onClick={() => setShowEditEventModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
-            </div>
-            <form onSubmit={handleUpdateEvent} className="p-5 sm:p-6 space-y-5">
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Nome do Evento</label>
-                <input type="text" required value={editEventName} onChange={(e) => setEditEventName(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Início</label>
-                <input type="date" required value={editEventStartDate} onChange={(e) => setEditEventStartDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              <div>
-                <label className="block text-sm font-bold text-slate-700 mb-2">Data de Fim</label>
-                <input type="date" required min={editEventStartDate} value={editEventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="w-full px-4 py-3 rounded-xl border border-slate-200 text-slate-900 focus:ring-2 focus:ring-purple-500" />
-              </div>
-              {editEventError && <div className="p-3 bg-red-50 text-red-600 text-sm font-semibold rounded-xl flex items-center gap-2"><AlertTriangle className="w-4 h-4 shrink-0" />{editEventError}</div>}
-              <button type="submit" disabled={isEditingEvent} className="w-full bg-blue-600 hover:bg-blue-700 text-white font-bold py-3.5 rounded-xl transition-colors mt-2">{isEditingEvent ? "A Guardar..." : "Guardar Alterações"}</button>
-            </form>
-          </div>
-        </div>
-      )}
-
-      {showUploadModal && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-sm">
-          <div className="card-nested-pop w-full max-w-lg animate-in fade-in zoom-in-95 duration-200">
-            <div className="flex justify-between items-center p-5 sm:p-6 border-b border-slate-100 bg-slate-50/50 rounded-t-[1.5rem]">
-              <h3 className="text-xl font-bold text-slate-900 flex items-center gap-2"><UploadCloud className="w-5 h-5 text-emerald-600" /> Importar CSV</h3>
-              <button onClick={() => setShowUploadModal(false)} className="text-slate-400 hover:text-slate-600 bg-white rounded-full p-1 shadow-sm"><X className="w-5 h-5" /></button>
-            </div>
-            <div className="p-5 sm:p-6">
-              {uploadSuccess ? (
-                <div className="bg-emerald-50 rounded-2xl flex flex-col items-center text-center p-6">
-                  <div className="w-12 h-12 bg-emerald-100 rounded-full flex items-center justify-center mb-4"><FileText className="w-6 h-6 text-emerald-600" /></div>
-                  <h4 className="font-bold text-emerald-800 mb-1">Importação Concluída</h4>
-                  <p className="text-sm text-emerald-600 font-medium">{uploadSuccess}</p>
-                  <button type="button" onClick={() => setShowUploadModal(false)} className="mt-6 w-full bg-emerald-600 hover:bg-emerald-700 text-white font-bold py-3 rounded-xl transition-colors">Fechar</button>
-                </div>
-              ) : validationErrors && validationErrors.length > 0 ? (
-                <div className="animate-in fade-in duration-300">
-                  <div className="p-4 bg-red-50 border border-red-100 rounded-2xl flex items-start gap-3 mb-6">
-                    <AlertTriangle className="w-6 h-6 text-red-600 shrink-0 mt-0.5" />
-                    <div>
-                      <h4 className="font-bold text-red-800 text-base mb-1">Importação Recusada</h4>
-                      <p className="text-sm text-red-600 font-medium">Foram encontrados {validationErrors.length} erros em {totalValidationRows} linhas. Corrige o ficheiro e tenta novamente.</p>
-                    </div>
-                  </div>
-                  <div className="max-h-64 overflow-y-auto mb-6 pr-2">
-                    {Object.entries(groupedErrors).map(([type, lines]) => (
-                      <details key={type} className="mb-2 bg-white rounded-xl border border-red-100 overflow-hidden group">
-                        <summary className="bg-white px-4 py-3.5 font-semibold text-slate-800 cursor-pointer hover:bg-red-50 flex items-center justify-between transition-colors outline-none focus-visible:ring-2 focus-visible:ring-red-500">
-                          <span className="flex items-center gap-2"><span className="w-2 h-2 rounded-full bg-red-500"></span> {type}</span>
-                          <span className="bg-red-100 text-red-800 text-xs py-1 px-2.5 rounded-lg font-bold">{lines.length} ocorrências</span>
-                        </summary>
-                        <div className="p-4 pt-2 text-sm text-slate-600 border-t border-red-50 bg-slate-50/50"><span className="font-semibold text-slate-700 mb-1 block">Linhas afetadas:</span><br/>{lines.map(l => l === 0 ? "Geral" : l).join(", ")}</div>
-                      </details>
-                    ))}
-                  </div>
-                  <div className="flex gap-3">
-                    <button type="button" onClick={() => setValidationErrors(null)} className="flex-1 py-3.5 rounded-xl border border-slate-200 text-slate-600 font-bold hover:bg-slate-50 transition-colors">Tentar Novamente</button>
-                    <button type="button" onClick={handleExportErrors} className="flex-1 bg-slate-900 hover:bg-slate-800 text-white font-bold py-3.5 rounded-xl transition-colors flex items-center justify-center gap-2 shadow-lg"><Download className="w-4 h-4" /> Exportar Relatório</button>
-                  </div>
-                </div>
+          }
+        >
+          <p className="text-sm text-slate-500 mb-6 leading-relaxed">
+            Seleciona a equipa que queres atribuir ao evento <strong className="text-slate-800">{assignEvent.name}</strong>.
+          </p>
+          <div className="space-y-6">
+            {/* Gestores */}
+            <div>
+              <h4 className="mb-3"><span className="badge badge-blue"><Users className="w-3.5 h-3.5" /> Gestores Disponíveis</span></h4>
+              {availableManagers.length === 0 ? (
+                <p className="notice notice-info !justify-center !font-medium">Todos os gestores já têm acesso.</p>
               ) : (
-                <form onSubmit={handleUploadCsv} className="space-y-5">
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Ficheiro de Convidados</label>
-                    <div className="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-slate-200 border-dashed rounded-xl hover:bg-slate-50 transition-colors bg-white">
-                      <div className="space-y-1 text-center">
-                        <FileText className="mx-auto h-8 w-8 text-slate-400" />
-                        <div className="flex text-sm text-slate-600 justify-center mt-2">
-                          <label htmlFor="csv-upload" className="relative cursor-pointer bg-white rounded-md font-medium text-emerald-600 hover:text-emerald-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2">
-                            <span>Procurar ficheiro .csv</span>
-                            <input id="csv-upload" name="csv-upload" type="file" accept=".csv" className="sr-only" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setUploadFile(e.target.files[0]); }} />
-                          </label>
-                        </div>
-                        {uploadFile ? <p className="text-xs text-emerald-600 font-bold mt-2 border border-emerald-100 bg-emerald-50 p-2 rounded-lg truncate px-4">{uploadFile.name}</p> : <p className="text-xs text-slate-500 mt-2">Colunas: MESA;LUGAR;CATEGORIA;NOME</p>}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {availableManagers.map(m => (
+                    <button
+                      type="button"
+                      key={m.id}
+                      onClick={() => toggleUserSelection(m.id)}
+                      className={`w-full text-left p-3 rounded-2xl border-2 flex flex-col transition-all ${selectedUserIds.includes(m.id) ? 'bg-blue-50 border-blue-400 shadow-md shadow-blue-500/10' : 'bg-white/80 border-slate-200 hover:border-blue-300'}`}
+                    >
+                      <div className="flex items-center gap-2 mb-1 min-w-0">
+                        <input type="checkbox" readOnly checked={selectedUserIds.includes(m.id)} className="w-4 h-4 rounded border-slate-300 text-blue-600 focus:ring-blue-500 pointer-events-none accent-blue-600" />
+                        <span className={`text-sm font-bold truncate ${selectedUserIds.includes(m.id) ? 'text-blue-700' : 'text-slate-700'}`}>{m.username}</span>
                       </div>
-                    </div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-bold text-slate-700 mb-2">Método de Importação</label>
-                    <div className="grid grid-cols-2 gap-3">
-                      <button type="button" onClick={() => setUploadMode("replace")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${uploadMode === 'replace' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
-                        <Trash2 className={`w-5 h-5 mb-1 ${uploadMode === 'replace' ? 'text-emerald-600' : 'text-slate-400'}`} /> Substituir Lista
-                      </button>
-                      <button type="button" onClick={() => setUploadMode("append")} className={`py-3 px-4 rounded-xl border text-sm font-bold flex flex-col items-center justify-center transition-colors outline-none focus-visible:ring-2 focus-visible:ring-emerald-500 focus-visible:ring-offset-1 ${uploadMode === 'append' ? 'border-emerald-600 bg-emerald-50 text-emerald-700' : 'border-slate-200 bg-white text-slate-500 hover:bg-slate-50'}`}>
-                        <CalendarPlus className={`w-5 h-5 mb-1 ${uploadMode === 'append' ? 'text-emerald-600' : 'text-slate-400'}`} /> Adicionar à Lista
-                      </button>
-                    </div>
-                  </div>
-                  {uploadError && (
-                    <div className="p-4 bg-red-50 border border-red-100 rounded-xl flex items-start gap-3 shadow-sm">
-                      <AlertTriangle className="w-5 h-5 text-red-600 shrink-0 mt-0.5" />
-                      <div><h4 className="font-bold text-red-800 text-sm">Falha na Leitura</h4><p className="text-sm text-red-600 font-medium mt-0.5">{uploadError}</p></div>
-                    </div>
-                  )}
-                  <button type="submit" disabled={isUploading || !uploadFile} className={`w-full text-white font-bold py-3.5 rounded-xl transition-colors mt-2 flex justify-center items-center shadow-lg ${(isUploading || !uploadFile) ? 'bg-emerald-400 cursor-not-allowed' : 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/20'}`}>
-                    {isUploading ? <div className="flex items-center gap-2"><div className="animate-spin w-4 h-4 border-2 border-white border-t-transparent rounded-full"></div> A Processar...</div> : "Iniciar Importação"}
-                  </button>
-                </form>
+                      <span className="text-[11px] text-slate-400 truncate pl-6">{m.email}</span>
+                    </button>
+                  ))}
+                </div>
+              )}
+            </div>
+            {/* Staff / validadores */}
+            <div>
+              <h4 className="mb-3"><span className="badge badge-green"><User className="w-3.5 h-3.5" /> Staff / Validadores Disponíveis</span></h4>
+              {availableUsers.length === 0 ? (
+                <p className="notice notice-success !justify-center !font-medium">Todos os utilizadores já têm acesso.</p>
+              ) : (
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
+                  {availableUsers.map(u => (
+                    <button
+                      type="button"
+                      key={u.id}
+                      onClick={() => toggleUserSelection(u.id)}
+                      className={`w-full text-left p-3 rounded-2xl border-2 flex flex-col transition-all ${selectedUserIds.includes(u.id) ? 'bg-emerald-50 border-emerald-400 shadow-md shadow-emerald-500/10' : 'bg-white/80 border-slate-200 hover:border-emerald-300'}`}
+                    >
+                      <div className="flex items-center gap-2 mb-1 min-w-0">
+                        <input type="checkbox" readOnly checked={selectedUserIds.includes(u.id)} className="w-4 h-4 rounded border-slate-300 text-emerald-600 focus:ring-emerald-500 pointer-events-none accent-emerald-600" />
+                        <span className={`text-sm font-bold truncate ${selectedUserIds.includes(u.id) ? 'text-emerald-700' : 'text-slate-700'}`}>{u.username}</span>
+                      </div>
+                      <span className="text-[11px] text-slate-400 truncate pl-6">{u.email}</span>
+                    </button>
+                  ))}
+                </div>
               )}
             </div>
           </div>
-        </div>
+        </Modal>
       )}
 
-      {/* MODAL GLOBAL DE CONFIRMAÇÃO (Liquid Glass) */}
-      {confirmDialog && confirmDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
-            <div className="w-16 h-16 bg-amber-100 text-amber-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>
-            <h2 className="text-2xl font-black text-slate-900 mb-2">{confirmDialog.title}</h2>
-            <p className="text-slate-500 font-medium mb-8 leading-relaxed">{confirmDialog.message}</p>
-            <div className="flex gap-3 w-full">
-              <button onClick={() => setConfirmDialog(null)} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-slate-600 bg-slate-100 hover:bg-slate-200 transition-colors">Cancelar</button>
-              <button onClick={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }} className="flex-1 px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">Confirmar</button>
+      {/* MODAL: CRIAR EVENTO */}
+      {showEventModal && (
+        <Modal
+          onClose={() => setShowEventModal(false)}
+          title="Novo Evento"
+          subtitle="Define o nome e as datas"
+          icon={<CalendarPlus className="w-5 h-5" />}
+          size="md"
+          closeOnBackdrop={false}
+          footer={
+            <button type="submit" form="create-event-form" disabled={isCreatingEvent} className="btn btn-primary btn-block">{isCreatingEvent ? "A Criar..." : "Criar Evento"}</button>
+          }
+        >
+          <form id="create-event-form" onSubmit={handleCreateEvent} className="space-y-5">
+            <div>
+              <label className="field-label">Nome do Evento</label>
+              <input type="text" required value={eventName} onChange={(e) => setEventName(e.target.value)} className="input" />
             </div>
-          </div>
-        </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="field-label">Data de Início</label>
+                <input type="date" required value={eventStartDate} onChange={(e) => setEventStartDate(e.target.value)} className="input" />
+              </div>
+              <div>
+                <label className="field-label">Data de Fim</label>
+                <input type="date" required min={eventStartDate} value={eventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="input" />
+              </div>
+            </div>
+            {eventError && <div className="notice notice-error"><AlertTriangle className="w-4 h-4" />{eventError}</div>}
+          </form>
+        </Modal>
       )}
 
-      {/* MODAL GLOBAL DE ALERTAS (Liquid Glass) */}
+      {/* MODAL: EDITAR EVENTO */}
+      {showEditEventModal && (
+        <Modal
+          onClose={() => setShowEditEventModal(false)}
+          title="Editar Evento"
+          subtitle="Altera o nome ou as datas"
+          icon={<Edit2 className="w-5 h-5" />}
+          size="md"
+          closeOnBackdrop={false}
+          footer={
+            <button type="submit" form="edit-event-form" disabled={isEditingEvent} className="btn btn-primary btn-block">{isEditingEvent ? "A Guardar..." : "Guardar Alterações"}</button>
+          }
+        >
+          <form id="edit-event-form" onSubmit={handleUpdateEvent} className="space-y-5">
+            <div>
+              <label className="field-label">Nome do Evento</label>
+              <input type="text" required value={editEventName} onChange={(e) => setEditEventName(e.target.value)} className="input" />
+            </div>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <label className="field-label">Data de Início</label>
+                <input type="date" required value={editEventStartDate} onChange={(e) => setEditEventStartDate(e.target.value)} className="input" />
+              </div>
+              <div>
+                <label className="field-label">Data de Fim</label>
+                {/* NOTA: o onChange abaixo usa setEventEndDate (e não setEditEventEndDate). Bug anterior ao redesign, mantido de propósito (só design nesta tarefa). */}
+                <input type="date" required min={editEventStartDate} value={editEventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="input" />
+              </div>
+            </div>
+            {editEventError && <div className="notice notice-error"><AlertTriangle className="w-4 h-4" />{editEventError}</div>}
+          </form>
+        </Modal>
+      )}
+
+      {/* MODAL: IMPORTAR CSV (3 estados: sucesso | erros de validação | formulário) */}
+      {showUploadModal && (
+        <Modal
+          onClose={() => setShowUploadModal(false)}
+          title="Importar CSV"
+          subtitle="Lista de convidados do evento"
+          icon={<UploadCloud className="w-5 h-5" />}
+          tone="emerald"
+          size="lg"
+          closeOnBackdrop={false}
+        >
+          {uploadSuccess ? (
+            /* Estado: importação concluída */
+            <div className="flex flex-col items-center text-center py-2">
+              <div className="dialog-icon dialog-icon-success"><FileText className="w-8 h-8" /></div>
+              <h4 className="text-xl font-bold text-emerald-800 mb-1">Importação Concluída</h4>
+              <p className="text-sm text-emerald-700 font-medium">{uploadSuccess}</p>
+              <button type="button" onClick={() => setShowUploadModal(false)} className="btn btn-success btn-block mt-6"><Check className="w-4 h-4" /> Fechar</button>
+            </div>
+          ) : validationErrors && validationErrors.length > 0 ? (
+            /* Estado: importação recusada, erros agrupados por tipo */
+            <div className="animate-in">
+              <div className="notice notice-error mb-6 !items-start">
+                <AlertTriangle className="w-6 h-6" />
+                <div>
+                  <h4 className="font-bold text-base mb-0.5">Importação Recusada</h4>
+                  <p className="text-sm font-medium">Foram encontrados {validationErrors.length} erros em {totalValidationRows} linhas. Corrige o ficheiro e tenta novamente.</p>
+                </div>
+              </div>
+              <div className="max-h-64 overflow-y-auto custom-scrollbar mb-6 pr-1">
+                {Object.entries(groupedErrors).map(([type, lines]) => (
+                  <details key={type} className="mb-2 bg-white/80 rounded-2xl border border-red-100 overflow-hidden group">
+                    <summary className="px-4 py-3.5 font-bold text-slate-800 cursor-pointer hover:bg-red-50 flex items-center justify-between gap-2 transition-colors list-none [&::-webkit-details-marker]:hidden">
+                      <span className="flex items-center gap-2 min-w-0"><ChevronRight className="w-4 h-4 text-red-400 shrink-0 transition-transform group-open:rotate-90" /> <span className="truncate">{type}</span></span>
+                      <span className="badge badge-red">{lines.length} ocorrências</span>
+                    </summary>
+                    <div className="p-4 pt-3 text-sm text-slate-600 border-t border-red-50 bg-red-50/30"><span className="font-bold text-slate-700 mb-1 block">Linhas afetadas:</span>{lines.map(l => l === 0 ? "Geral" : l).join(", ")}</div>
+                  </details>
+                ))}
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                <button type="button" onClick={() => setValidationErrors(null)} className="btn btn-white">Tentar Novamente</button>
+                <button type="button" onClick={handleExportErrors} className="btn btn-primary"><Download className="w-4 h-4" /> Exportar Relatório</button>
+              </div>
+            </div>
+          ) : (
+            /* Estado: formulário de upload */
+            <form onSubmit={handleUploadCsv} className="space-y-5">
+              <div>
+                <label className="field-label">Ficheiro de Convidados</label>
+                <div className="flex justify-center px-6 py-6 border-2 border-dashed border-emerald-200 rounded-3xl bg-emerald-50/40 hover:bg-emerald-50 hover:border-emerald-400 transition-colors">
+                  <div className="space-y-1.5 text-center min-w-0 max-w-full">
+                    <div className="mx-auto w-12 h-12 rounded-2xl bg-[linear-gradient(135deg,#34d399,#059669)] text-white flex items-center justify-center shadow-lg shadow-emerald-500/30"><FileText className="h-6 w-6" /></div>
+                    <div className="flex text-sm text-slate-600 justify-center mt-2">
+                      <label htmlFor="csv-upload" className="relative cursor-pointer rounded-md font-bold text-emerald-600 hover:text-emerald-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-emerald-500 focus-within:ring-offset-2">
+                        <span>Procurar ficheiro .csv</span>
+                        <input id="csv-upload" name="csv-upload" type="file" accept=".csv" className="sr-only" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setUploadFile(e.target.files[0]); }} />
+                      </label>
+                    </div>
+                    {uploadFile ? <p className="badge badge-green mt-2 max-w-full"><span className="truncate">{uploadFile.name}</span></p> : <p className="text-xs text-slate-500 mt-2">Colunas: MESA;LUGAR;CATEGORIA;NOME</p>}
+                  </div>
+                </div>
+              </div>
+              <div>
+                <label className="field-label">Método de Importação</label>
+                <div className="grid grid-cols-2 gap-3">
+                  <button type="button" onClick={() => setUploadMode("replace")} className={`py-3 px-4 rounded-2xl border-2 text-sm font-bold flex flex-col items-center justify-center transition-all ${uploadMode === 'replace' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-md shadow-emerald-500/10' : 'border-slate-200 bg-white/80 text-slate-500 hover:border-emerald-300'}`}>
+                    <Trash2 className={`w-5 h-5 mb-1 ${uploadMode === 'replace' ? 'text-emerald-600' : 'text-slate-400'}`} /> Substituir Lista
+                  </button>
+                  <button type="button" onClick={() => setUploadMode("append")} className={`py-3 px-4 rounded-2xl border-2 text-sm font-bold flex flex-col items-center justify-center transition-all ${uploadMode === 'append' ? 'border-emerald-500 bg-emerald-50 text-emerald-700 shadow-md shadow-emerald-500/10' : 'border-slate-200 bg-white/80 text-slate-500 hover:border-emerald-300'}`}>
+                    <CalendarPlus className={`w-5 h-5 mb-1 ${uploadMode === 'append' ? 'text-emerald-600' : 'text-slate-400'}`} /> Adicionar à Lista
+                  </button>
+                </div>
+              </div>
+              {uploadError && (
+                <div className="notice notice-error !items-start">
+                  <AlertTriangle className="w-5 h-5" />
+                  <div><h4 className="font-bold text-sm">Falha na Leitura</h4><p className="text-sm font-medium mt-0.5">{uploadError}</p></div>
+                </div>
+              )}
+              <button type="submit" disabled={isUploading || !uploadFile} className="btn btn-success btn-block">
+                {isUploading ? <div className="flex items-center gap-2"><div className="spinner !w-4 !h-4 !border-2 !border-white/40 !border-t-white"></div> A Processar...</div> : "Iniciar Importação"}
+              </button>
+            </form>
+          )}
+        </Modal>
+      )}
+
+      {/* DIÁLOGO GLOBAL DE CONFIRMAÇÃO (apagar, remover acesso, recuperar palavra-passe) */}
+      {confirmDialog && confirmDialog.isOpen && (
+        <ConfirmDialog
+          title={confirmDialog.title}
+          message={confirmDialog.message}
+          onConfirm={() => { confirmDialog.onConfirm(); setConfirmDialog(null); }}
+          onCancel={() => setConfirmDialog(null)}
+        />
+      )}
+
+      {/* DIÁLOGO GLOBAL DE AVISOS (sucesso / erro / info) */}
       {alertDialog && alertDialog.isOpen && (
-        <div className="fixed inset-0 z-[100] flex items-center justify-center p-4 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="card-nested-pop p-6 sm:p-8 w-full max-w-sm text-center">
-            {alertDialog.type === 'error' && <div className="w-16 h-16 bg-red-100 text-red-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><AlertTriangle className="w-8 h-8" /></div>}
-            {alertDialog.type === 'success' && <div className="w-16 h-16 bg-emerald-100 text-emerald-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><CheckCircle2 className="w-8 h-8" /></div>}
-            {alertDialog.type === 'info' && <div className="w-16 h-16 bg-blue-100 text-blue-600 rounded-full flex items-center justify-center mx-auto mb-5 shadow-inner"><Info className="w-8 h-8" /></div>}
-            <h2 className="text-2xl font-black text-slate-900 mb-2">{alertDialog.title}</h2>
-            <p className="text-slate-500 font-medium mb-8 leading-relaxed">{alertDialog.message}</p>
-            <button onClick={() => setAlertDialog(null)} className="w-full px-4 py-3.5 rounded-xl font-bold text-white bg-slate-900 hover:bg-slate-800 transition-colors shadow-lg">OK, Entendido</button>
-          </div>
-        </div>
+        <AlertDialog
+          title={alertDialog.title}
+          message={alertDialog.message}
+          type={alertDialog.type}
+          onClose={() => setAlertDialog(null)}
+        />
       )}
 
     </div>
   );
 }
 
+/**
+ * Logótipo com fallback (não usado neste ecrã de momento; o herói usa <img> direto).
+ * Mantido para reutilização futura.
+ */
 function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: any) {
   const [error, setError] = useState(false);
   useEffect(() => { setError(false); }, [logoUrl]);
@@ -871,9 +995,10 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
   return <div className={`flex items-center justify-center bg-white border border-slate-100 rounded-2xl shadow-sm shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-slate-300`} /></div>;
 }
 
+/** Wrapper com Suspense: useSearchParams exige-o no App Router. */
 export default function CompanyDetailsPageWrapper() {
   return (
-    <Suspense fallback={<div className="flex justify-center p-20"><div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div></div>}>
+    <Suspense fallback={<div className="flex justify-center p-20" role="status" aria-label="A carregar"><div className="spinner" /></div>}>
       <CompanyDetailsContent />
     </Suspense>
   );

@@ -12,7 +12,7 @@ namespace SeatingManagement.API.Data
 
             if (systemCompany == null)
             {
-                systemCompany = new Company { Name = "Seatly Admin", LogoUrl = "" };
+                systemCompany = new Company { Name = "Seatly Admin", LogoUrl = "https://seatly-backoffice.vercel.app/seatly_icon.png" };
                 context.Companies.Add(systemCompany);
                 context.SaveChanges();
             }

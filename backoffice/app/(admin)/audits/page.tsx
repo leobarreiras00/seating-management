@@ -1,10 +1,37 @@
 "use client";
 
+/**
+ * Auditoria de Eventos — histórico de ações feitas na base de dados de cada evento.
+ *
+ * Estrutura da página:
+ *   1. Cabeçalho (PageHeader) e pesquisa por evento / empresa.
+ *   2. Grelha de "bilhetes": um cartão por evento (cor rotativa), com o total de registos
+ *      na ponta picotada.
+ *   3. Modal de registos do evento: filtros (ação / cargo), linha temporal com pontos
+ *      coloridos por tipo de ação, paginação ("Ver Registos Anteriores") e exportação PDF.
+ *   4. Modal de detalhes (diff antes/depois) para registos do tipo UPDATE.
+ *
+ * Dados: GET /api/Audit/events-overview e GET /api/Audit/event/{id} → { logs, totalLogs }.
+ * Em tempo real: qualquer mensagem MQTT em `seating/events/#` ou `seating/backoffice/#`
+ * volta a carregar os dados. Toda esta lógica é a original; só o aspeto mudou.
+ */
+
 import { useEffect, useState, useCallback, useRef } from "react";
-import { Search, History, CalendarDays, ChevronRight, X, User, Activity, Database, CheckCircle, XCircle, Trash2, UploadCloud, Download, Loader2, ArrowDown, Filter, FileJson } from "lucide-react";
+import { Search, History, CalendarDays, ChevronRight, User, Activity, Database, CheckCircle, XCircle, Trash2, UploadCloud, Download, Loader2, ArrowDown, Filter, FileJson, Minus, Plus } from "lucide-react";
 import mqtt from "mqtt";
 import jsPDF from "jspdf";
 import autoTable from "jspdf-autotable";
+import Modal from "@/components/ui/Modal";
+import PageHeader from "@/components/ui/PageHeader";
+import EmptyState from "@/components/ui/EmptyState";
+
+// Cores rotativas das faixas dos bilhetes de evento (escolhidas por id do evento)
+const EVENT_TONES = [
+  "bg-[image:var(--grad-brand)]",
+  "bg-[image:var(--grad-blue)]",
+  "bg-[image:var(--grad-emerald)]",
+  "bg-[image:var(--grad-amber)]",
+];
 
 interface EventOverview {
   id: number;
@@ -267,18 +294,20 @@ export default function AuditsPage() {
     }
   };
 
+  // Estilos por tipo de ação (vivos: pílula e ponto em degradê com texto branco).
+  // create = verde, update = âmbar, delete = vermelho, import = azul, bulk = roxo.
   const getActionStyles = (actionType: string) => {
     switch (actionType) {
-      case "IMPORT_CSV": return { color: "text-blue-600", bg: "bg-blue-500/10", border: "border-blue-200", icon: <UploadCloud className="w-4 h-4" /> };
+      case "IMPORT_CSV": return { color: "text-white", bg: "bg-gradient-to-br from-blue-400 to-blue-600 shadow-blue-500/40", border: "border-blue-300", icon: <UploadCloud className="w-4 h-4" /> };
       case "VALIDATE_SEAT":
-      case "QR_VALIDATE": return { color: "text-emerald-600", bg: "bg-emerald-500/10", border: "border-emerald-200", icon: <CheckCircle className="w-4 h-4" /> };
-      case "UNVALIDATE_SEAT": return { color: "text-red-500", bg: "bg-red-500/10", border: "border-red-200", icon: <XCircle className="w-4 h-4" /> };
-      case "BULK_UPDATE": return { color: "text-purple-600", bg: "bg-purple-500/10", border: "border-purple-200", icon: <Database className="w-4 h-4" /> };
+      case "QR_VALIDATE": return { color: "text-white", bg: "bg-gradient-to-br from-emerald-400 to-emerald-600 shadow-emerald-500/40", border: "border-emerald-300", icon: <CheckCircle className="w-4 h-4" /> };
+      case "UNVALIDATE_SEAT": return { color: "text-white", bg: "bg-gradient-to-br from-rose-400 to-rose-600 shadow-rose-500/40", border: "border-rose-300", icon: <XCircle className="w-4 h-4" /> };
+      case "BULK_UPDATE": return { color: "text-white", bg: "bg-gradient-to-br from-purple-400 to-purple-600 shadow-purple-500/40", border: "border-purple-300", icon: <Database className="w-4 h-4" /> };
       case "CLEAR_DB":
-      case "DELETE_GUEST": return { color: "text-red-600", bg: "bg-red-500/10", border: "border-red-200", icon: <Trash2 className="w-4 h-4" /> };
-      case "CREATE_GUEST": return { color: "text-emerald-600", bg: "bg-emerald-500/10", border: "border-emerald-200", icon: <User className="w-4 h-4" /> };
-      case "UPDATE_GUEST": return { color: "text-amber-600", bg: "bg-amber-500/10", border: "border-amber-200", icon: <Activity className="w-4 h-4" /> };
-      default: return { color: "text-slate-600", bg: "bg-slate-500/10", border: "border-slate-200", icon: <Activity className="w-4 h-4" /> };
+      case "DELETE_GUEST": return { color: "text-white", bg: "bg-gradient-to-br from-red-500 to-red-700 shadow-red-500/40", border: "border-red-300", icon: <Trash2 className="w-4 h-4" /> };
+      case "CREATE_GUEST": return { color: "text-white", bg: "bg-gradient-to-br from-emerald-400 to-teal-600 shadow-emerald-500/40", border: "border-emerald-300", icon: <User className="w-4 h-4" /> };
+      case "UPDATE_GUEST": return { color: "text-white", bg: "bg-gradient-to-br from-amber-400 to-orange-500 shadow-amber-500/40", border: "border-amber-300", icon: <Activity className="w-4 h-4" /> };
+      default: return { color: "text-white", bg: "bg-gradient-to-br from-slate-400 to-slate-600 shadow-slate-500/30", border: "border-slate-300", icon: <Activity className="w-4 h-4" /> };
     }
   };
 
@@ -293,280 +322,286 @@ export default function AuditsPage() {
     return matchAction && matchRole;
   });
 
+  // Renderiza o diff antes/depois: bloco vermelho (anterior) e verde (novo).
   const renderJsonDiff = (jsonStr: string) => {
     try {
       const data = JSON.parse(jsonStr);
       if (data.Before || data.After) {
         return (
-          <div className="grid grid-cols-2 gap-4 mt-2">
-            <div className="bg-red-50/50 border border-red-100 rounded-xl p-4">
-              <h4 className="text-xs font-black text-red-600 uppercase mb-2 border-b border-red-100 pb-2">Estado Anterior</h4>
-              <pre className="text-[11px] text-red-800 font-mono whitespace-pre-wrap">{JSON.stringify(data.Before, null, 2)}</pre>
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+            <div className="bg-red-50/70 border border-red-200 rounded-2xl p-4 min-w-0">
+              <h4 className="text-xs font-bold text-red-600 mb-3 pb-2 border-b border-red-200 flex items-center gap-2">
+                <span className="w-5 h-5 rounded-lg bg-[image:var(--grad-red)] text-white flex items-center justify-center"><Minus className="w-3 h-3" /></span> Estado Anterior
+              </h4>
+              <pre className="text-[11px] text-red-800 font-mono whitespace-pre-wrap break-words">{JSON.stringify(data.Before, null, 2)}</pre>
             </div>
-            <div className="bg-emerald-50/50 border border-emerald-100 rounded-xl p-4">
-              <h4 className="text-xs font-black text-emerald-600 uppercase mb-2 border-b border-emerald-100 pb-2">Novo Estado</h4>
-              <pre className="text-[11px] text-emerald-800 font-mono whitespace-pre-wrap">{JSON.stringify(data.After, null, 2)}</pre>
+            <div className="bg-emerald-50/70 border border-emerald-200 rounded-2xl p-4 min-w-0">
+              <h4 className="text-xs font-bold text-emerald-600 mb-3 pb-2 border-b border-emerald-200 flex items-center gap-2">
+                <span className="w-5 h-5 rounded-lg bg-[image:var(--grad-emerald)] text-white flex items-center justify-center"><Plus className="w-3 h-3" /></span> Novo Estado
+              </h4>
+              <pre className="text-[11px] text-emerald-800 font-mono whitespace-pre-wrap break-words">{JSON.stringify(data.After, null, 2)}</pre>
             </div>
           </div>
         );
       }
-      return <pre className="text-[11px] text-slate-700 bg-slate-100 p-4 rounded-xl font-mono whitespace-pre-wrap mt-2">{JSON.stringify(data, null, 2)}</pre>;
+      return <pre className="text-[11px] text-slate-700 bg-slate-100 border border-slate-200 p-4 rounded-2xl font-mono whitespace-pre-wrap break-words mt-2">{JSON.stringify(data, null, 2)}</pre>;
     } catch (e) {
       return <p className="text-sm text-slate-500 italic mt-2">Nenhum dado estruturado disponível.</p>;
     }
   };
 
+  // ───────────── Estado de carregamento ─────────────
   if (isLoading) {
     return (
-      <div className="flex justify-center p-20">
-        <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
+      <div className="flex justify-center p-20" role="status" aria-label="A carregar">
+        <div className="spinner" />
       </div>
     );
   }
 
   return (
-    <div className="w-full max-w-7xl mx-auto px-2 sm:px-4 lg:px-8 pb-10">
-      <div className="mb-8">
-        <h1 className="text-3xl font-extrabold text-slate-900 flex items-center gap-3">
-          <History className="w-8 h-8 text-purple-600" /> Auditoria de Eventos
-        </h1>
-        <p className="text-slate-500 mt-2 font-medium">Acompanha e monitoriza todas as ações executadas na base de dados de cada evento em tempo real.</p>
-      </div>
+    <div className="w-full max-w-7xl mx-auto pb-10">
+      {/* ───────────── Cabeçalho da página ───────────── */}
+      <PageHeader
+        icon={<History className="w-6 h-6" />}
+        title="Auditoria de Eventos"
+        description="Acompanha e monitoriza todas as ações executadas na base de dados de cada evento em tempo real."
+      />
 
-      <div className="card-main p-4 flex items-center gap-3 mb-8">
-        <Search className="w-5 h-5 text-slate-400 ml-2" />
+      {/* ───────────── Pesquisa ───────────── */}
+      <div className="reveal search-bar mb-6 lg:mb-8" style={{ "--i": 1 } as React.CSSProperties}>
+        <Search className="w-5 h-5 text-slate-400 shrink-0" />
         <input
           type="text"
           placeholder="Pesquisar por evento ou empresa..."
           value={searchQuery}
           onChange={(e) => setSearchQuery(e.target.value)}
-          className="bg-transparent border-none focus:ring-0 text-slate-900 w-full placeholder:text-slate-400 font-medium"
+          aria-label="Pesquisar eventos"
         />
       </div>
 
-      <div className="card-main p-6 sm:p-8 min-h-[50vh]">
-        {filteredEvents.length === 0 ? (
-          <div className="text-center py-16">
-            <Database className="w-12 h-12 text-slate-300 mx-auto mb-4" />
-            <h3 className="text-lg font-bold text-slate-900">Nenhum evento encontrado</h3>
-            <p className="text-slate-500 mt-1">Ainda não existem eventos com registos de auditoria.</p>
-          </div>
-        ) : (
-          <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-            {filteredEvents.map(event => {
-              const hasActivity = event.lastActivity && !event.lastActivity.startsWith("0001-01-01");
+      {/* ───────────── Grelha de bilhetes (um por evento) ───────────── */}
+      {filteredEvents.length === 0 ? (
+        <EmptyState title="Nenhum evento encontrado" description="Ainda não existem eventos com registos de auditoria." />
+      ) : (
+        <div className="stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5 lg:gap-6">
+          {filteredEvents.map(event => {
+            const hasActivity = event.lastActivity && !event.lastActivity.startsWith("0001-01-01");
+            const tone = EVENT_TONES[event.id % EVENT_TONES.length];
 
-              return (
-                /* ACESSIBILIDADE: Alterado de <div> para <button> para funcionar via TAB e ENTER */
-                <button
-                  type="button"
-                  key={event.id}
-                  onClick={() => openEventLogs(event)}
-                  className="text-left w-full card-nested-pop hover:border-purple-300 hover:-translate-y-1 cursor-pointer group flex flex-col justify-between"
-                >
-                  <div className="p-6 w-full">
-                    <div className="flex justify-end items-start mb-2">
-                      <ChevronRight className="w-5 h-5 text-slate-300 group-hover:text-purple-500 transition-colors" />
+            return (
+              /* ACESSIBILIDADE: Alterado de <div> para <button> para funcionar via TAB e ENTER */
+              <button
+                type="button"
+                key={event.id}
+                onClick={() => openEventLogs(event)}
+                // A linha picotada fica 4.25rem acima da base (altura fixa do "talão")
+                style={{ "--ticket-cut": "calc(100% - 4.25rem)" } as React.CSSProperties}
+                className="ticket card-nested-pop card-lift text-left w-full cursor-pointer group flex flex-col"
+              >
+                {/* Faixa colorida: empresa + seta */}
+                <div className={`relative overflow-hidden rounded-t-[1.5rem] px-5 py-3.5 flex items-center justify-between gap-3 text-white ${tone}`}>
+                  <div aria-hidden className="absolute -right-6 -top-8 w-24 h-24 rounded-full bg-white/25 blur-xl" />
+                  <p className="relative text-sm font-bold truncate">{event.companyName}</p>
+                  <ChevronRight className="relative w-5 h-5 shrink-0 text-white/80 group-hover:translate-x-1 transition-transform" />
+                </div>
+
+                {/* Corpo: nome, data e última ação */}
+                <div className="p-5 pb-4 w-full flex-1">
+                  <h3 className="text-xl font-bold text-slate-900 mb-3 line-clamp-1">{event.name}</h3>
+                  <div className="space-y-2">
+                    <div className="flex items-center text-sm text-slate-500">
+                      <CalendarDays className="w-4 h-4 mr-2 shrink-0 text-purple-500" />
+                      {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "Sem data"}
                     </div>
-                    <h3 className="text-xl font-bold text-slate-900 mb-1 line-clamp-1">{event.name}</h3>
-                    <p className="text-sm font-semibold text-purple-600 mb-4">{event.companyName}</p>
-                    <div className="space-y-2">
-                      <div className="flex items-center text-sm text-slate-500">
-                        <CalendarDays className="w-4 h-4 mr-2 shrink-0" />
-                        {event.startDate ? new Date(event.startDate).toLocaleDateString('pt-PT') : "Sem data"}
-                      </div>
-                      <div className="flex items-center text-sm text-slate-500">
-                        <Activity className="w-4 h-4 mr-2 shrink-0" />
-                        {hasActivity 
-                          ? `Última ação: ${new Date(event.lastActivity!).toLocaleDateString('pt-PT')}` 
-                          : "Sem ações registadas"}
-                      </div>
+                    <div className="flex items-center text-sm text-slate-500">
+                      <Activity className="w-4 h-4 mr-2 shrink-0 text-emerald-500" />
+                      {hasActivity 
+                        ? `Última ação: ${new Date(event.lastActivity!).toLocaleDateString('pt-PT')}` 
+                        : "Sem ações registadas"}
                     </div>
                   </div>
-                  <div className="w-full bg-slate-50/50 backdrop-blur-sm px-6 py-4 border-t border-slate-100 rounded-b-[1.5rem] flex justify-between items-center">
-                    <span className="text-sm font-bold text-slate-600">Total de Registos</span>
-                    <span className="bg-purple-100 text-purple-700 py-1 px-3 rounded-xl text-sm font-extrabold">{event.totalLogs}</span>
-                  </div>
-                </button>
-              );
-            })}
-          </div>
-        )}
-      </div>
-
-      {selectedEvent && (
-        <div className="fixed inset-0 z-50 flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md">
-          <div className="card-nested-pop w-full max-w-4xl h-[85vh] flex flex-col overflow-hidden animate-in fade-in zoom-in-95 duration-200">
-            <div className="p-6 border-b border-slate-200/50 flex justify-between items-center shrink-0 rounded-t-[1.5rem]">
-              <div>
-                <h2 className="text-xl font-extrabold text-slate-900">Registos: {selectedEvent.name}</h2>
-                <p className="text-sm font-medium text-slate-500 mt-1">{selectedEvent.companyName}</p>
-              </div>
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={exportToPDF}
-                  disabled={eventLogs.length === 0 || isLoadingLogs || isExporting}
-                  className="flex items-center gap-2 bg-purple-100 hover:bg-purple-200 text-purple-700 px-4 py-2 rounded-xl font-bold text-sm transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
-                >
-                  {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
-                  <span className="hidden sm:inline">{isExporting ? 'A Gerar...' : 'Exportar PDF'}</span>
-                </button>
-                <button
-                  onClick={() => setSelectedEvent(null)}
-                  className="p-2 rounded-xl border border-slate-200 text-slate-400 hover:text-slate-700 hover:bg-slate-50 transition-colors shadow-sm bg-white"
-                >
-                  <X className="w-5 h-5" />
-                </button>
-              </div>
-            </div>
-
-            <div className="bg-slate-50 border-b border-slate-200/50 p-4 flex flex-wrap gap-4 shrink-0">
-              <div className="flex items-center gap-2">
-                <Filter className="w-4 h-4 text-slate-400" />
-                <span className="text-sm font-bold text-slate-600">Filtros:</span>
-              </div>
-              <select 
-                value={filterAction} 
-                onChange={(e) => setFilterAction(e.target.value)}
-                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
-              >
-                <option value="ALL">Todas as Ações</option>
-                <option value="VALIDATE">Validações</option>
-                <option value="IMPORT">Importações</option>
-                <option value="UPDATE">Atualizações</option>
-                <option value="CREATE">Criações</option>
-                <option value="DELETE">Remoções</option>
-              </select>
-
-              <select 
-                value={filterRole} 
-                onChange={(e) => setFilterRole(e.target.value)}
-                className="bg-white border border-slate-200 rounded-xl px-4 py-2 text-sm font-medium text-slate-700 focus:outline-none focus:ring-2 focus:ring-purple-500 shadow-sm"
-              >
-                <option value="ALL">Todos os Cargos</option>
-                <option value="SuperAdmin">SuperAdmins</option>
-                <option value="Gestor">Gestores</option>
-                <option value="Utilizador">Staff / Validadores</option>
-                <option value="Sistema">Ações de Sistema</option>
-              </select>
-            </div>
-
-            <div className="flex-1 overflow-y-auto p-6 bg-slate-50/50 rounded-b-[1.5rem]">
-              {isLoadingLogs ? (
-                <div className="flex justify-center items-center h-full">
-                  <div className="animate-spin w-8 h-8 border-4 border-purple-500 border-t-transparent rounded-full"></div>
                 </div>
-              ) : displayedLogs.length === 0 ? (
-                <div className="flex flex-col items-center justify-center h-full text-slate-400">
-                  <History className="w-12 h-12 mb-3 opacity-20" />
-                  <p className="font-medium text-slate-500">Nenhum registo corresponde aos filtros aplicados.</p>
-                </div>
-              ) : (
-                <div className="relative border-l-2 border-slate-200/60 ml-4 space-y-6 pb-4">
-                  {displayedLogs.map((log) => {
-                    const style = getActionStyles(log.actionType);
-                    const logDate = new Date(log.timestamp);
-                    const isUpdatable = log.actionType.includes("UPDATE");
 
-                    return (
-                      <div key={log.id} className="relative pl-6 group">
-                        <div className={`absolute -left-[17px] top-1 w-8 h-8 rounded-full border-4 border-slate-50 ${style.bg} ${style.color} flex items-center justify-center shadow-sm`}>
-                          {style.icon}
-                        </div>
-                        
-                        {/* ACESSIBILIDADE: Alterado de <div> para <button> para funcionar via TAB e ENTER */}
-                        <button
-                          type="button"
-                          onClick={() => isUpdatable ? setSelectedLogDetails(log) : null}
-                          disabled={!isUpdatable}
-                          className={`text-left w-full bg-white p-5 rounded-[1.5rem] border border-slate-200/80 shadow-[0_8px_30px_rgba(0,0,0,0.04)] transition-all ${isUpdatable ? 'cursor-pointer hover:border-purple-300 hover:shadow-md' : 'cursor-default'}`}
-                        >
-                          <div className="flex justify-between items-start mb-3">
-                            <span className={`text-[11px] uppercase tracking-wider font-extrabold px-3 py-1.5 rounded-xl border ${style.bg} ${style.color} ${style.border}`}>
-                              {log.actionType.replace("_", " ")}
-                            </span>
-                            <span className="text-xs font-bold text-slate-400 bg-slate-50 px-2.5 py-1 rounded-xl">
-                              {logDate.toLocaleDateString('pt-PT')} às {logDate.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
-                            </span>
-                          </div>
-                          
-                          <p className="text-slate-700 text-sm font-medium leading-relaxed my-3">
-                            {log.description}
-                          </p>
-
-                          <div className="flex items-center justify-between text-xs font-bold text-slate-500 pt-3 border-t border-slate-50">
-                            <div className="flex items-center">
-                              <User className="w-4 h-4 mr-1.5" />
-                              Por: <span className="text-slate-900 ml-1 bg-slate-100 px-2 py-0.5 rounded-lg">{log.performedBy}</span>
-                              <span className={`ml-2 px-2 py-0.5 rounded-md text-[10px] uppercase tracking-wider font-black border ${
-                                log.performedRole === 'SuperAdmin' ? 'bg-red-500/10 text-red-600 border-red-200' :
-                                log.performedRole === 'Gestor' ? 'bg-blue-500/10 text-blue-600 border-blue-200' :
-                                log.performedRole === 'Utilizador' ? 'bg-emerald-500/10 text-emerald-600 border-emerald-200' :
-                                'bg-slate-500/10 text-slate-600 border-slate-200'
-                              }`}>
-                                {log.performedRole || 'Sistema'}
-                              </span>
-                            </div>
-                            
-                            {isUpdatable && (
-                              <span className="flex items-center gap-1 text-purple-600 bg-purple-50 px-2 py-1 rounded-lg">
-                                <FileJson className="w-3.5 h-3.5" /> Ver Detalhes
-                              </span>
-                            )}
-                          </div>
-                        </button>
-                      </div>
-                    );
-                  })}
-                  {hasMore && displayedLogs.length > 0 && (
-                    <div className="pt-6 pb-2 flex justify-center pl-6">
-                      <button
-                        type="button"
-                        onClick={loadMoreLogs}
-                        disabled={isLoadingMore}
-                        className="flex items-center gap-2 px-6 py-3 bg-white border border-slate-200 hover:border-purple-300 hover:bg-purple-50 text-slate-600 hover:text-purple-600 rounded-2xl font-bold text-sm shadow-sm transition-all"
-                      >
-                        {isLoadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowDown className="w-4 h-4" />}
-                        {isLoadingMore ? 'A Carregar...' : 'Ver Registos Anteriores'}
-                      </button>
-                    </div>
-                  )}
+                {/* Linha picotada + talão com o total de registos */}
+                <div className="ticket-cut" />
+                <div className="w-full h-[4.25rem] px-5 flex justify-between items-center">
+                  <span className="text-sm font-bold text-slate-600">Total de Registos</span>
+                  <span className="badge badge-purple !text-sm !px-3.5 tabular">{event.totalLogs}</span>
                 </div>
-              )}
-            </div>
-          </div>
+              </button>
+            );
+          })}
         </div>
       )}
 
-      {selectedLogDetails && (
-        <div className="fixed inset-0 z-[60] flex items-center justify-center p-4 sm:p-6 bg-slate-900/40 backdrop-blur-md animate-in fade-in duration-200">
-          <div className="card-nested-pop w-full max-w-2xl max-h-[80vh] flex flex-col overflow-hidden animate-in zoom-in-95">
-            <div className="p-5 border-b border-slate-100 flex justify-between items-center bg-slate-50/50 shrink-0 rounded-t-[1.5rem]">
-              <h3 className="text-lg font-black text-slate-900 flex items-center gap-2">
-                <FileJson className="w-5 h-5 text-purple-600" /> Detalhes da Alteração (Diff)
-              </h3>
+      {/* ───────────── Modal: registos do evento (filtros + linha temporal) ───────────── */}
+      {selectedEvent && (
+        <Modal
+          onClose={() => setSelectedEvent(null)}
+          title={`Registos: ${selectedEvent.name}`}
+          subtitle={selectedEvent.companyName}
+          icon={<History className="w-5 h-5" />}
+          size="2xl"
+          footer={
+            <div className="flex items-center justify-between gap-3">
+              <span className="badge badge-purple">{displayedLogs.length} registos</span>
               <button
                 type="button"
-                onClick={() => setSelectedLogDetails(null)}
-                className="p-1.5 rounded-full text-slate-400 hover:text-slate-700 hover:bg-white shadow-sm transition-colors border border-transparent hover:border-slate-200 bg-white"
+                onClick={exportToPDF}
+                disabled={eventLogs.length === 0 || isLoadingLogs || isExporting}
+                className="btn btn-primary"
               >
-                <X className="w-5 h-5" />
+                {isExporting ? <Loader2 className="w-4 h-4 animate-spin" /> : <Download className="w-4 h-4" />}
+                <span>{isExporting ? 'A Gerar...' : 'Exportar PDF'}</span>
               </button>
             </div>
-            
-            <div className="p-6 overflow-y-auto bg-white flex-1 rounded-b-[1.5rem]">
-              <p className="text-sm font-medium text-slate-600 mb-4">{selectedLogDetails.description}</p>
-              
-              {selectedLogDetails.payloadJson ? (
-                renderJsonDiff(selectedLogDetails.payloadJson)
-              ) : (
-                <p className="text-sm text-slate-500 italic bg-slate-50 p-4 rounded-xl text-center border border-slate-100">
-                  Nenhum dado estruturado guardado para este registo.
-                </p>
+          }
+        >
+          {/* Filtros (fixos no topo da área com scroll) */}
+          <div className="sticky top-0 z-10 -mx-6 -mt-6 mb-6 px-6 py-4 bg-white/90 backdrop-blur border-b border-[var(--line)] flex flex-wrap items-center gap-3">
+            <div className="flex items-center gap-2">
+              <Filter className="w-4 h-4 text-purple-500" />
+              <span className="text-sm font-bold text-slate-600">Filtros:</span>
+            </div>
+            <select 
+              value={filterAction} 
+              onChange={(e) => setFilterAction(e.target.value)}
+              className="input !w-auto !py-2 !text-sm"
+              aria-label="Filtrar por ação"
+            >
+              <option value="ALL">Todas as Ações</option>
+              <option value="VALIDATE">Validações</option>
+              <option value="IMPORT">Importações</option>
+              <option value="UPDATE">Atualizações</option>
+              <option value="CREATE">Criações</option>
+              <option value="DELETE">Remoções</option>
+            </select>
+
+            <select 
+              value={filterRole} 
+              onChange={(e) => setFilterRole(e.target.value)}
+              className="input !w-auto !py-2 !text-sm"
+              aria-label="Filtrar por cargo"
+            >
+              <option value="ALL">Todos os Cargos</option>
+              <option value="SuperAdmin">SuperAdmins</option>
+              <option value="Gestor">Gestores</option>
+              <option value="Utilizador">Staff / Validadores</option>
+              <option value="Sistema">Ações de Sistema</option>
+            </select>
+          </div>
+
+          {isLoadingLogs ? (
+            <div className="flex justify-center items-center py-20" role="status" aria-label="A carregar">
+              <div className="spinner" />
+            </div>
+          ) : displayedLogs.length === 0 ? (
+            <div className="flex flex-col items-center justify-center py-16 text-center">
+              <History className="w-12 h-12 mb-3 text-purple-300 float-slow" />
+              <p className="font-medium text-slate-500">Nenhum registo corresponde aos filtros aplicados.</p>
+            </div>
+          ) : (
+            /* Linha temporal: trilho à esquerda, um ponto colorido por registo */
+            <div className="stagger relative border-l-2 border-purple-200 ml-4 space-y-5 pb-2">
+              {displayedLogs.map((log) => {
+                const style = getActionStyles(log.actionType);
+                const logDate = new Date(log.timestamp);
+                const isUpdatable = log.actionType.includes("UPDATE");
+
+                return (
+                  <div key={log.id} className="relative pl-7 group">
+                    {/* Ponto da linha temporal (cor do tipo de ação) */}
+                    <div className={`absolute -left-[19px] top-1 w-9 h-9 rounded-full ring-4 ring-white ${style.bg} ${style.color} flex items-center justify-center shadow-lg`}>
+                      {style.icon}
+                    </div>
+                    
+                    {/* ACESSIBILIDADE: Alterado de <div> para <button> para funcionar via TAB e ENTER */}
+                    <button
+                      type="button"
+                      onClick={() => isUpdatable ? setSelectedLogDetails(log) : null}
+                      disabled={!isUpdatable}
+                      className={`card-nested-pop relative overflow-hidden text-left w-full p-4 sm:p-5 pl-5 sm:pl-6 ${isUpdatable ? 'card-lift cursor-pointer' : 'cursor-default'}`}
+                    >
+                      {/* Barra de cor do tipo de ação */}
+                      <span aria-hidden className={`absolute left-0 inset-y-0 w-1.5 ${style.bg}`} />
+
+                      <div className="flex flex-wrap justify-between items-start gap-2 mb-3">
+                        <span className={`text-[11px] font-bold px-3 py-1.5 rounded-full border shadow-md ${style.bg} ${style.color} ${style.border}`}>
+                          {log.actionType.replace("_", " ")}
+                        </span>
+                        <span className="text-xs font-semibold text-slate-500 bg-slate-100 px-2.5 py-1 rounded-full tabular">
+                          {logDate.toLocaleDateString('pt-PT')} às {logDate.toLocaleTimeString('pt-PT', { hour: '2-digit', minute: '2-digit', second: '2-digit' })}
+                        </span>
+                      </div>
+                      
+                      <p className="text-slate-700 text-sm font-medium leading-relaxed my-3 break-words">
+                        {log.description}
+                      </p>
+
+                      <div className="flex flex-wrap items-center justify-between gap-2 text-xs font-semibold text-slate-500 pt-3 border-t border-slate-100">
+                        <div className="flex flex-wrap items-center gap-y-1.5">
+                          <User className="w-4 h-4 mr-1.5" />
+                          Por: <span className="text-slate-900 ml-1 bg-slate-100 px-2 py-0.5 rounded-lg">{log.performedBy}</span>
+                          <span className={`badge ml-2 !py-0.5 !text-[11px] ${
+                            log.performedRole === 'SuperAdmin' ? 'badge-red' :
+                            log.performedRole === 'Gestor' ? 'badge-blue' :
+                            log.performedRole === 'Utilizador' ? 'badge-green' :
+                            'badge-slate'
+                          }`}>
+                            {log.performedRole || 'Sistema'}
+                          </span>
+                        </div>
+                        
+                        {isUpdatable && (
+                          <span className="badge badge-purple">
+                            <FileJson className="w-3.5 h-3.5" /> Ver Detalhes
+                          </span>
+                        )}
+                      </div>
+                    </button>
+                  </div>
+                );
+              })}
+              {hasMore && displayedLogs.length > 0 && (
+                <div className="pt-4 pb-2 flex justify-center pl-6">
+                  <button
+                    type="button"
+                    onClick={loadMoreLogs}
+                    disabled={isLoadingMore}
+                    className="btn btn-soft"
+                  >
+                    {isLoadingMore ? <Loader2 className="w-4 h-4 animate-spin" /> : <ArrowDown className="w-4 h-4" />}
+                    {isLoadingMore ? 'A Carregar...' : 'Ver Registos Anteriores'}
+                  </button>
+                </div>
               )}
             </div>
-          </div>
-        </div>
+          )}
+        </Modal>
+      )}
+
+      {/* ───────────── Modal: detalhes da alteração (diff) ───────────── */}
+      {selectedLogDetails && (
+        <Modal
+          onClose={() => setSelectedLogDetails(null)}
+          title="Detalhes da Alteração (Diff)"
+          subtitle={selectedLogDetails.actionType.replace("_", " ")}
+          icon={<FileJson className="w-5 h-5" />}
+          tone="blue"
+          size="xl"
+          layer="dialog"
+        >
+          <p className="notice notice-info mb-4">{selectedLogDetails.description}</p>
+          
+          {selectedLogDetails.payloadJson ? (
+            renderJsonDiff(selectedLogDetails.payloadJson)
+          ) : (
+            <p className="text-sm text-slate-500 italic bg-slate-50 p-4 rounded-2xl text-center border border-slate-100">
+              Nenhum dado estruturado guardado para este registo.
+            </p>
+          )}
+        </Modal>
       )}
     </div>
   );

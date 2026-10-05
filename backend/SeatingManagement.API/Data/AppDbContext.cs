@@ -52,7 +52,7 @@ namespace SeatingManagement.API.Data
                 .OnDelete(DeleteBehavior.Cascade);
 
             modelBuilder.Entity<Company>().HasData(
-                new Company { Id = 1, Name = "Seatly Admin", LogoUrl = "https://img.logoipsum.com/288.svg" }
+                new Company { Id = 1, Name = "Seatly Admin", LogoUrl = "https://seatly-backoffice.vercel.app/seatly_icon.png" }
             );
 
             modelBuilder.Entity<EventAccess>()

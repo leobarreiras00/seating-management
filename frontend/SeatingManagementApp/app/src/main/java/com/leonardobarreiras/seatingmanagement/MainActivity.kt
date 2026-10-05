@@ -6,7 +6,11 @@ import androidx.activity.compose.setContent
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
-import androidx.compose.material3.lightColorScheme
+import androidx.compose.animation.fadeIn
+import androidx.compose.animation.fadeOut
+import androidx.compose.animation.slideInHorizontally
+import androidx.compose.animation.slideOutHorizontally
+import androidx.compose.animation.core.tween
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
 import androidx.compose.ui.Modifier
@@ -16,6 +20,7 @@ import androidx.navigation.compose.composable
 import androidx.navigation.compose.rememberNavController
 import dagger.hilt.android.AndroidEntryPoint
 
+import com.leonardobarreiras.seatingmanagement.ui.components.FeedbackToastHost
 import com.leonardobarreiras.seatingmanagement.ui.screens.*
 import com.leonardobarreiras.seatingmanagement.ui.theme.*
 import com.leonardobarreiras.seatingmanagement.viewmodel.SeatViewModel
@@ -25,7 +30,7 @@ class MainActivity : ComponentActivity() {
     override fun onCreate(savedInstanceState: Bundle?) {
         super.onCreate(savedInstanceState)
         setContent {
-            MaterialTheme(colorScheme = lightColorScheme(primary = CorporateBlue, secondary = SuccessGreen, background = LightBg)) {
+            SeatlyTheme {
                 val navController = rememberNavController()
                 Surface(modifier = Modifier.fillMaxSize(), color = MaterialTheme.colorScheme.background) {
 
@@ -40,7 +45,15 @@ class MainActivity : ComponentActivity() {
                         }
                     }
 
-                    NavHost(navController = navController, startDestination = startDestination) {
+                    NavHost(
+                        navController = navController,
+                        startDestination = startDestination,
+                        // Transições suaves entre ecrãs
+                        enterTransition = { fadeIn(tween(300)) + slideInHorizontally(tween(300)) { it / 8 } },
+                        exitTransition = { fadeOut(tween(200)) },
+                        popEnterTransition = { fadeIn(tween(300)) },
+                        popExitTransition = { fadeOut(tween(200)) + slideOutHorizontally(tween(300)) { it / 8 } }
+                    ) {
                         composable("login") {
                             LoginScreen(
                                 onLoginSuccess = {
@@ -75,6 +88,9 @@ class MainActivity : ComponentActivity() {
                         composable("event_selection") { EventSelectionScreen(viewModel = sharedViewModel, onEventSelected = { navController.navigate("dashboard") { popUpTo("event_selection") { inclusive = true } } }) }
                         composable("dashboard") { SeatScreen(viewModel = sharedViewModel, navController = navController) }
                     }
+
+                    // Avisos (sucesso, erro, informação) em banner no topo, visíveis em qualquer ecrã
+                    FeedbackToastHost(feedback = sharedViewModel.appFeedback, onDismiss = { sharedViewModel.clearFeedback() })
                 }
             }
         }

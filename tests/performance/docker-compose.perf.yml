@@ -1,0 +1,41 @@
+# Local performance environment that mimics Render Free: API limited to 0.1 CPU and 512 MB, PostgreSQL in a container.
+# Nothing here is a real secret: the values are throw-away and only valid inside this compose network.
+# Run from tests/performance:   docker compose -f docker-compose.perf.yml up -d --build
+name: seatly-perf
+services:
+  db:
+    image: postgres:16-alpine
+    container_name: seatly-perf-db
+    environment:
+      POSTGRES_USER: seatly
+      POSTGRES_PASSWORD: perf-local-only
+      POSTGRES_DB: seatly_perf
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U seatly -d seatly_perf"]
+      interval: 3s
+      timeout: 3s
+      retries: 20
+    ports: ["5433:5432"]
+
+  api:
+    build: ../../backend/SeatingManagement.API
+    container_name: seatly-perf-api
+    depends_on:
+      db: { condition: service_healthy }
+    cpus: 0.1
+    mem_limit: 512m
+    ports: ["8080:8080"]
+    environment:
+      ASPNETCORE_ENVIRONMENT: ${API_ENV:-Production}
+      ConnectionStrings__DefaultConnection: Host=db;Port=5432;Database=seatly_perf;Username=seatly;Password=perf-local-only
+      Jwt__Key: perf-local-signing-key-at-least-32-characters-long
+      Jwt__Issuer: SeatingManagementAPI
+      Jwt__Audience: SeatingManagementApp
+      Seed__AdminPassword: perf-local-admin-password
+      MqttSettings__Host: 127.0.0.1       # unreachable on purpose: publishing is skipped when the client is not connected
+      MqttSettings__Port: "8883"
+      MqttSettings__Username: perf
+      MqttSettings__Password: perf
+      EmailSettings__SenderName: Seatly Perf
+      EmailSettings__SenderEmail: perf@seatly.test
+      EmailSettings__BrevoApiKey: ""

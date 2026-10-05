@@ -1,10 +1,17 @@
 import type { Metadata } from "next";
-import { Geist, Geist_Mono } from "next/font/google";
+import { Bricolage_Grotesque, Hanken_Grotesk, Geist_Mono } from "next/font/google";
 import "./globals.css";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
+const hanken = Hanken_Grotesk({
+  variable: "--font-hanken",
   subsets: ["latin"],
+  display: "swap",
+});
+
+const bricolage = Bricolage_Grotesque({
+  variable: "--font-bricolage",
+  subsets: ["latin"],
+  display: "swap",
 });
 
 const geistMono = Geist_Mono({
@@ -24,11 +31,10 @@ export default function RootLayout({
 }>) {
   return (
     <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
+      lang="pt-PT"
+      className={`${hanken.variable} ${bricolage.variable} ${geistMono.variable} h-full antialiased`}
     >
-      {/* Aplicamos o fundo gradiente prateado/cinzento globalmente a toda a app */}
-      <body className="min-h-full flex flex-col bg-gradient-to-br from-slate-300 via-slate-100 to-slate-200 text-slate-900">
+      <body className="min-h-full flex flex-col bg-background text-slate-900">
         {children}
       </body>
     </html>
