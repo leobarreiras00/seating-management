@@ -183,11 +183,18 @@ export default function AuditsPage() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Audit/event/${selectedEvent.id}?page=1&pageSize=100000`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      const logsToExport = data.logs;
+      // A API limita cada página a 200 registos, por isso percorre todas as páginas para exportar o histórico completo
+      const EXPORT_PAGE_SIZE = 200;
+      const logsToExport: AuditLog[] = [];
+      for (let exportPage = 1; ; exportPage++) {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Audit/event/${selectedEvent.id}?page=${exportPage}&pageSize=${EXPORT_PAGE_SIZE}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error(`Erro ${res.status} ao obter os registos`);
+        const data = await res.json();
+        logsToExport.push(...data.logs);
+        if (data.logs.length === 0 || logsToExport.length >= data.totalLogs) break;
+      }
 
       if(logsToExport.length === 0) {
         setIsExporting(false);
