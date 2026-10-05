@@ -1,0 +1,9 @@
+stage | VUs | purpose | requests | failed % | median ms | p95 ms | p99 ms | max ms
+s1 | 10 | Baseline | 64 | 0.00 | 1309 | 6572 | 9824 | 9945
+s2 | 25 | Expected peak | 216 | 0.00 | 4229 | 10950 | 12418 | 14750
+s3 | 50 | Stress begins | 207 | 18.84 | 9700 | 59717 | 60012 | 60012
+s4 | 100 | High stress | 114 | 97.37 | 60028 | 81035 | 81036 | 81038
+s5 | 150 | Heavy overload | 97 | 100.00 | 81007 | 81017 | 81022 | 81028
+s6 | 200 | Breaking point | 173 | 100.00 | 60001 | 60004 | 60006 | 60012
+s7 | 10 | Ramp-down 200 to 10 | 133 | 100.00 | 60001 | 60005 | 60008 | 60008
+s8 | 10 | Recovery (steady 10 VUs) | 49 | 95.92 | 60001 | 60006 | 60008 | 60009

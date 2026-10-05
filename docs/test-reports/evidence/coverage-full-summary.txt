@@ -1,0 +1,36 @@
+Summary
+  Generated on: 05/10/2026 - 14:12:12
+  Coverage date: 05/10/2026 - 14:12:06
+  Parser: MultiReport (2x Cobertura)
+  Assemblies: 1
+  Classes: 14
+  Files: 14
+  Line coverage: 86.2%
+  Covered lines: 1025
+  Uncovered lines: 164
+  Coverable lines: 1189
+  Total lines: 2135
+  Branch coverage: 73.9% (318 of 430)
+  Covered branches: 318
+  Total branches: 430
+  Method coverage: 85.1% (69 of 81)
+  Full method coverage: 77.7% (63 of 81)
+  Covered methods: 69
+  Fully covered methods: 63
+  Total methods: 81
+
+SeatingManagement.API                                     86.2%
+  Program                                                 65.1%
+  SeatingManagement.API.Controllers.AnalyticsController     98%
+  SeatingManagement.API.Controllers.AuditController        100%
+  SeatingManagement.API.Controllers.AuthController        99.4%
+  SeatingManagement.API.Controllers.CompanyController     92.6%
+  SeatingManagement.API.Controllers.EventController        100%
+  SeatingManagement.API.Controllers.SeatController         100%
+  SeatingManagement.API.Controllers.SeatCsvController     97.9%
+  SeatingManagement.API.Data.AppDbContext                  100%
+  SeatingManagement.API.Data.DbInitializer                   0%
+  SeatingManagement.API.Services.EmailService                0%
+  SeatingManagement.API.Services.EmailTemplates            100%
+  SeatingManagement.API.Services.EventAccessService       90.9%
+  SeatingManagement.API.Services.MqttService                 0%
