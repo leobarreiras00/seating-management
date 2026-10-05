@@ -9,7 +9,8 @@ namespace SeatingManagement.API.Tests.Security;
 
 /// <summary>
 /// SEC-INP: injection, encoding, malformed and oversized input, mass assignment and HTTP method tampering.
-/// Tests marked Status=KnownOpen assert the SECURE behaviour that the system does not yet have.
+/// Every test asserts the SECURE behaviour. Tests tagged Finding=S-xx are regression tests for findings
+/// that were confirmed (and, at the time, failing) in the first security run and remediated afterwards.
 /// </summary>
 [Trait("Suite", "Security")]
 public class SecurityInputTests : IClassFixture<SeatlyWebApplicationFactory>
@@ -299,9 +300,9 @@ public class SecurityInputTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.True(response.StatusCode is HttpStatusCode.MethodNotAllowed or HttpStatusCode.NotFound, $"{method} {url} -> {(int)response.StatusCode}");
     }
 
-    // ================================================================ KNOWN OPEN FINDINGS
+    // ================================================================ REGRESSION TESTS FOR REMEDIATED FINDINGS
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-21")]
+    [Fact, Trait("Finding", "S-21")]
     public async Task SEC_INP_60_SingleSeatUpdate_RejectsStatusOutsideTheEnum()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);
@@ -314,7 +315,7 @@ public class SecurityInputTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.Equal(0, (int)(await _f.SeatsOfAsync(eventId)).Single().Status);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-21")]
+    [Fact, Trait("Finding", "S-21")]
     public async Task SEC_INP_61_AuditPageSize_IsCapped()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);
@@ -323,7 +324,7 @@ public class SecurityInputTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.True(pageSize <= 200, $"pageSize echoed as {pageSize}");
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-21")]
+    [Fact, Trait("Finding", "S-21")]
     public async Task SEC_INP_62_AuditNegativePage_IsRejectedInsteadOfCrashing()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);
@@ -331,7 +332,7 @@ public class SecurityInputTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-21")]
+    [Fact, Trait("Finding", "S-21")]
     public async Task SEC_INP_63_Avatar_LargerThanTwoMegabytes_IsRejected()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);
@@ -340,7 +341,7 @@ public class SecurityInputTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.True(response.StatusCode is HttpStatusCode.BadRequest or HttpStatusCode.RequestEntityTooLarge, $"-> {(int)response.StatusCode}");
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-21")]
+    [Fact, Trait("Finding", "S-21")]
     public async Task SEC_INP_64_Avatar_ThatIsNotAnImageDataUri_IsRejected()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);
@@ -349,7 +350,7 @@ public class SecurityInputTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-21")]
+    [Fact, Trait("Finding", "S-21")]
     public async Task SEC_INP_65_GuestName_OfOneThousandCharacters_IsRejected()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);
@@ -359,7 +360,7 @@ public class SecurityInputTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-21")]
+    [Fact, Trait("Finding", "S-21")]
     public async Task SEC_INP_66_Event_WithEndBeforeStart_IsRejected()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);
@@ -368,7 +369,7 @@ public class SecurityInputTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-21")]
+    [Fact, Trait("Finding", "S-21")]
     public async Task SEC_INP_67_Event_WithStartYear2206_IsRejected()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);
@@ -377,7 +378,7 @@ public class SecurityInputTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-21")]
+    [Fact, Trait("Finding", "S-21")]
     public async Task SEC_INP_68_Event_WithEmptyName_IsRejected()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);
@@ -386,7 +387,7 @@ public class SecurityInputTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-23")]
+    [Fact, Trait("Finding", "S-23")]
     public async Task SEC_INP_69_CsvParserFailure_DoesNotEchoInternalExceptionText()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);

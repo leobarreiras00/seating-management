@@ -18,5 +18,8 @@ COPY --from=build-env /App/out .
 EXPOSE 8080
 ENV ASPNETCORE_URLS=http://+:8080
 
+# Correr sem privilégios de root (a imagem aspnet inclui o utilizador "app"; a porta 8080 não precisa de root)
+USER $APP_UID
+
 # Comando para arrancar a API
 ENTRYPOINT ["dotnet", "SeatingManagement.API.dll"]

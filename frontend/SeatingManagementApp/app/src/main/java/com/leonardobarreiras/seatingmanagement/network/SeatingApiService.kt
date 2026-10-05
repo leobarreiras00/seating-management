@@ -94,12 +94,6 @@ interface SeatingApiService {
         @Header("Authorization") token: String,
         @Path("eventId") eventId: Int
     ): Response<Unit>
-
-    @POST("api/SeatCsv/remove-duplicates/{eventId}")
-    suspend fun removeDuplicates(
-        @Header("Authorization") token: String,
-        @Path("eventId") eventId: Int
-    ): Response<Unit>
 }
 
 /**

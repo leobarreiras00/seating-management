@@ -72,7 +72,7 @@ public class CompanyIntegrationTests : IClassFixture<SeatlyWebApplicationFactory
         Assert.Equal(HttpStatusCode.OK, ok.StatusCode);
         Assert.Equal("data:image/png;base64,AAAA", (await _f.QueryAsync(db => db.Companies.AsNoTracking().SingleAsync(c => c.Id == id))).LogoUrl);
         Assert.Equal(HttpStatusCode.BadRequest, (await admin.PutAsJsonAsync($"/api/Company/{id}/logo", new { logoBase64 = "" })).StatusCode);
-        Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsJsonAsync("/api/Company/99999/logo", new { logoBase64 = "x" })).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound, (await admin.PutAsJsonAsync("/api/Company/99999/logo", new { logoBase64 = "data:image/png;base64,AAAA" })).StatusCode);
     }
 
     [Fact]
@@ -159,5 +159,25 @@ public class CompanyIntegrationTests : IClassFixture<SeatlyWebApplicationFactory
         Assert.Equal(HttpStatusCode.Forbidden, (await staffClient.GetAsync($"/api/Seat/{eventId}")).StatusCode);
         Assert.Equal(HttpStatusCode.NotFound,
             (await admin.DeleteAsync($"/api/Company/{TestAccounts.AcmeCompanyId}/events/{eventId}/assign/{staff.Id}")).StatusCode);
+    }
+
+    [Fact]
+    public async Task INT_COMP_11_AssignAccess_GrantsUsersAccessToTheEvent_AndRejectsForeignUsers()
+    {
+        var admin = await _f.ClientForAsync(TestAccounts.SuperAdmin);
+        var staff = await _f.CreateUserAsync("Utilizador", TestAccounts.AcmeCompanyId);
+        var foreign = await _f.CreateUserAsync("Utilizador", TestAccounts.GlobexCompanyId);
+        var eventId = await _f.CreateEventAsync(TestAccounts.AcmeCompanyId, System.Array.Empty<int>(), seats: 2);
+        var staffClient = await _f.ClientForAsync(staff.Email);
+        Assert.Equal(HttpStatusCode.Forbidden, (await staffClient.GetAsync($"/api/Seat/{eventId}")).StatusCode);
+
+        var granted = await admin.PostAsync($"/api/Company/{TestAccounts.AcmeCompanyId}/events/{eventId}/assign/{staff.Id}", null);
+
+        Assert.Equal(HttpStatusCode.OK, granted.StatusCode);
+        Assert.Equal(HttpStatusCode.OK, (await staffClient.GetAsync($"/api/Seat/{eventId}")).StatusCode);
+        Assert.Equal(HttpStatusCode.BadRequest,
+            (await admin.PostAsync($"/api/Company/{TestAccounts.AcmeCompanyId}/events/{eventId}/assign/{staff.Id}", null)).StatusCode);
+        Assert.Equal(HttpStatusCode.NotFound,
+            (await admin.PostAsync($"/api/Company/{TestAccounts.AcmeCompanyId}/events/{eventId}/assign/{foreign.Id}", null)).StatusCode);
     }
 }

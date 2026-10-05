@@ -8,11 +8,13 @@
  *     degradê, campos .input com ícone e botões vivos.
  */
 
-import { useState, useEffect, Suspense } from "react";
+import { useState, Suspense } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
 import Image from "next/image";
 import Link from "next/link";
 import { Loader2, AlertTriangle, Lock, ArrowRight, ChevronLeft } from "lucide-react";
+import { isStrongPassword, PASSWORD_ERROR, PASSWORD_HINT } from "@/lib/passwordPolicy";
+import { getErrorMessage } from "@/lib/errors";
 
 function ResetPasswordForm() {
   const router = useRouter();
@@ -21,15 +23,13 @@ function ResetPasswordForm() {
 
   const [newPassword, setNewPassword] = useState("");
   const [confirmNewPassword, setConfirmNewPassword] = useState("");
-  const [error, setError] = useState("");
+  const [submitError, setError] = useState("");
   const [isLoading, setIsLoading] = useState(false);
   const [isSuccess, setIsSuccess] = useState(false);
 
-  useEffect(() => {
-    if (!token) {
-      setError("O link de recuperação é inválido ou está incompleto. Por favor, verifica o e-mail que recebeste.");
-    }
-  }, [token]);
+  const error = !token
+    ? "O link de recuperação é inválido ou está incompleto. Por favor, verifica o e-mail que recebeste."
+    : submitError;
 
   const handleReset = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -38,8 +38,8 @@ function ResetPasswordForm() {
       setError("As palavras-passe não coincidem.");
       return;
     }
-    if (newPassword.length < 6) {
-      setError("A palavra-passe deve ter pelo menos 6 caracteres.");
+    if (!isStrongPassword(newPassword)) {
+      setError(PASSWORD_ERROR);
       return;
     }
 
@@ -64,8 +64,8 @@ function ResetPasswordForm() {
         router.push("/login");
       }, 3000);
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -106,7 +106,7 @@ function ResetPasswordForm() {
           <label htmlFor="rp-new" className="field-label">Nova Palavra-passe</label>
           <div className="input-wrap">
             <Lock className="input-icon" />
-            <input id="rp-new" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={!token} className="input input-with-icon" placeholder="Mínimo 6 caracteres" required />
+            <input id="rp-new" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} disabled={!token} className="input input-with-icon" placeholder={PASSWORD_HINT} required />
           </div>
         </div>
 
@@ -124,7 +124,7 @@ function ResetPasswordForm() {
           </div>
         )}
 
-        <button type="submit" disabled={isLoading || !token || newPassword.length < 6 || newPassword !== confirmNewPassword} className="btn btn-primary btn-lg btn-block mt-1">
+        <button type="submit" disabled={isLoading || !token || !isStrongPassword(newPassword) || newPassword !== confirmNewPassword} className="btn btn-primary btn-lg btn-block mt-1">
           {isLoading ? <span className="flex items-center gap-2"><Loader2 className="animate-spin h-5 w-5" /> A Guardar...</span> : "Guardar Palavra-passe"}
         </button>
 

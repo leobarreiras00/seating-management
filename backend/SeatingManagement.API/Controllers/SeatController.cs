@@ -11,14 +11,19 @@ namespace SeatingManagement.API.Controllers
 {
     public class UpdateSingleSeatDto
     {
+        [System.ComponentModel.DataAnnotations.Range(0, 2, ErrorMessage = "Estado inválido (0 = Vazio, 1 = Marcado, 2 = Tratado).")]
         public int Status { get; set; }
     }
 
     public class ManageGuestDto
     {
+        [System.ComponentModel.DataAnnotations.StringLength(150)]
         public string GuestName { get; set; } = string.Empty;
+        [System.ComponentModel.DataAnnotations.StringLength(100)]
         public string Category { get; set; } = string.Empty;
+        [System.ComponentModel.DataAnnotations.StringLength(50)]
         public string TableName { get; set; } = string.Empty;
+        [System.ComponentModel.DataAnnotations.StringLength(50)]
         public string SeatNumber { get; set; } = string.Empty;
     }
 
@@ -82,7 +87,7 @@ namespace SeatingManagement.API.Controllers
             var seat = await _context.Seats.FindAsync(id);
             if (seat == null || !await _access.CanAccessEventAsync(User, seat.EventId)) return NotFound("Lugar não encontrado.");
 
-            if (!Enum.TryParse(request.Status, true, out SeatStatus statusEnum))
+            if (!Enum.TryParse(request.Status, true, out SeatStatus statusEnum) || !Enum.IsDefined(statusEnum))
                 return BadRequest("Estado inválido.");
 
             seat.Status = statusEnum;
@@ -176,11 +181,12 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpPut("{eventId}/bulk-status")]
+        [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> BulkUpdateStatus(int eventId, [FromBody] BulkUpdateDto request)
         {
             if (!await _access.CanAccessEventAsync(User, eventId)) return Forbid();
 
-            if (!Enum.TryParse(request.Status, true, out SeatStatus statusEnum))
+            if (!Enum.TryParse(request.Status, true, out SeatStatus statusEnum) || !Enum.IsDefined(statusEnum))
                 return BadRequest(new { Message = "Estado inválido." });
 
             var seats = await _context.Seats.Where(s => s.EventId == eventId).ToListAsync();

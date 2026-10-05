@@ -26,6 +26,13 @@ object JwtUtils {
         return name.trim().takeIf { it.isNotEmpty() }
     }
 
+    /** True se o token já expirou (claim `exp`, em segundos) ou não pode ser lido. */
+    fun isExpired(token: String?, nowMillis: Long = System.currentTimeMillis()): Boolean {
+        if (token.isNullOrBlank()) return true
+        val exp = payload(token)?.optLong("exp", 0L) ?: return true
+        return exp <= 0L || exp * 1000L <= nowMillis
+    }
+
     /** Indica se um texto parece um e-mail (para corrigir sessões antigas guardadas com e-mail). */
     fun looksLikeEmail(value: String): Boolean = value.contains("@")
 

@@ -1,0 +1,10 @@
+bin/
+obj/
+publish/
+.vs/
+.vscode/
+.DS_Store
+**/*.user
+appsettings.Development.json
+Dockerfile
+.dockerignore

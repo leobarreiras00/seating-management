@@ -21,6 +21,8 @@ namespace SeatingManagement.API.Controllers
             _access = access;
         }
 
+        private const int MaxPageSize = 200;
+
         [HttpGet("events-overview")]
         [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> GetEventsOverview()
@@ -48,9 +50,14 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpGet("event/{eventId}")]
+        [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> GetEventLogs(int eventId, [FromQuery] int page = 1, [FromQuery] int pageSize = 50)
         {
             if (!await _access.CanAccessEventAsync(User, eventId)) return Forbid();
+
+            if (page < 1 || pageSize < 1)
+                return BadRequest(new { Message = "Os parâmetros page e pageSize têm de ser positivos." });
+            pageSize = Math.Min(pageSize, MaxPageSize);
 
             var query = _context.AuditLogs
                 .Where(al => al.EventId == eventId)

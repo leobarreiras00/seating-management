@@ -114,7 +114,7 @@ public class AuthIntegrationTests : IClassFixture<SeatlyWebApplicationFactory>
     public async Task INT_AUTH_10_FirstLoginReset_NewPasswordTooShort_Returns400()
     {
         var response = await _f.CreateApiClient().PostAsJsonAsync("/api/Auth/first-login-reset",
-            new { email = TestAccounts.TempUser, temporaryPassword = TestAccounts.Password, newPassword = "12345" });
+            new { email = TestAccounts.TempUser, temporaryPassword = TestAccounts.Password, newPassword = "Ab1" });
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
@@ -134,7 +134,9 @@ public class AuthIntegrationTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.True(mail.ResetToken!.Length >= 32);
 
         var stored = (await _f.FindUserAsync(user.Email))!;
-        Assert.Equal(mail.ResetToken, stored.PasswordResetToken);
+        // Only the SHA-256 hash of the emailed token is stored.
+        var expectedHash = Convert.ToHexString(System.Security.Cryptography.SHA256.HashData(System.Text.Encoding.UTF8.GetBytes(mail.ResetToken)));
+        Assert.Equal(expectedHash, stored.PasswordResetToken);
         var remaining = stored.ResetTokenExpiry!.Value - DateTime.UtcNow;
         Assert.InRange(remaining.TotalMinutes, 55, 61);
     }
@@ -243,7 +245,7 @@ public class AuthIntegrationTests : IClassFixture<SeatlyWebApplicationFactory>
 
         Assert.Equal(HttpStatusCode.OK, register.StatusCode);
         var mail = Assert.Single(_f.Email.For(email), e => e.TempPassword != null);
-        Assert.Matches(new Regex(@"^Seatly-[A-Za-z0-9]{6}!$"), mail.TempPassword!);
+        Assert.Matches(new Regex(@"^Seatly-[A-Za-z0-9]{14}!$"), mail.TempPassword!);
         Assert.Contains(await _f.AuditByActionAsync("CREATE_USER"), a => a.Description.Contains(email));
 
         var anonymous = _f.CreateApiClient();

@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Upload, Building2, ImageIcon, Sparkles } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function NewCompanyPage() {
   const router = useRouter();
@@ -67,8 +68,8 @@ export default function NewCompanyPage() {
       }
 
       router.push("/companies");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }

@@ -37,18 +37,24 @@ public class AuthDtoValidationTests
     }
 
     [Theory]
-    [InlineData("12345", false)]
-    [InlineData("123456", true)]
-    public void ResetPassword_EnforcesMinimumLength(string password, bool expectedValid)
+    [InlineData("Ab1", false)]
+    [InlineData("1234567", false)]
+    [InlineData("abcdefgh", false)]
+    [InlineData("12345678", false)]
+    [InlineData("Passw0rd", true)]
+    public void ResetPassword_EnforcesPasswordPolicy(string password, bool expectedValid)
     {
         var dto = new ResetPasswordDto { NewPassword = password };
         Assert.Equal(expectedValid, Validate(dto).Count == 0);
     }
 
     [Theory]
-    [InlineData("12345", false)]
-    [InlineData("123456", true)]
-    public void ChangePassword_EnforcesMinimumLength(string password, bool expectedValid)
+    [InlineData("Ab1", false)]
+    [InlineData("1234567", false)]
+    [InlineData("abcdefgh", false)]
+    [InlineData("12345678", false)]
+    [InlineData("Passw0rd", true)]
+    public void ChangePassword_EnforcesPasswordPolicy(string password, bool expectedValid)
     {
         var dto = new ChangePasswordDto { OldPassword = "old", NewPassword = password };
         Assert.Equal(expectedValid, Validate(dto).Count == 0);
@@ -64,7 +70,7 @@ public class AuthDtoValidationTests
     [Fact]
     public void ResetWithToken_RequiresToken()
     {
-        var dto = new ResetPasswordWithTokenDto { Token = "", NewPassword = "123456" };
+        var dto = new ResetPasswordWithTokenDto { Token = "", NewPassword = "Passw0rd1" };
         Assert.NotEmpty(Validate(dto));
     }
 

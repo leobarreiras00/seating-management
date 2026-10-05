@@ -90,7 +90,9 @@ import com.leonardobarreiras.seatingmanagement.ui.theme.TextGray
 import com.leonardobarreiras.seatingmanagement.ui.utils.EventPhase
 import com.leonardobarreiras.seatingmanagement.ui.utils.eventPhase
 import com.leonardobarreiras.seatingmanagement.ui.utils.formatEventDate
+import com.leonardobarreiras.seatingmanagement.viewmodel.MAX_PASSWORD_LENGTH
 import com.leonardobarreiras.seatingmanagement.viewmodel.MIN_PASSWORD_LENGTH
+import com.leonardobarreiras.seatingmanagement.viewmodel.isStrongPassword
 import com.leonardobarreiras.seatingmanagement.viewmodel.SeatViewModel
 
 /*
@@ -170,8 +172,8 @@ fun ProfileDialog(viewModel: SeatViewModel, onDismiss: () -> Unit) {
                                 return@GradientButton
                             }
                             // Restrição de segurança: mínimo de caracteres
-                            if (newPass.length < MIN_PASSWORD_LENGTH) {
-                                errorMsg = "A palavra-passe tem de ter no mínimo $MIN_PASSWORD_LENGTH caracteres."
+                            if (!isStrongPassword(newPass)) {
+                                errorMsg = "A palavra-passe tem de ter entre $MIN_PASSWORD_LENGTH e $MAX_PASSWORD_LENGTH caracteres, com pelo menos uma letra e um número."
                                 return@GradientButton
                             }
                             if (newPass != confirmPass) {

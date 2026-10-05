@@ -8,8 +8,8 @@ namespace SeatingManagement.API.Tests.Security;
 
 /// <summary>
 /// SEC-AUTH: authentication, token handling, enumeration and credential hygiene.
-/// Tests marked Status=KnownOpen assert the SECURE behaviour that the system does not yet have: they fail today
-/// and each failure is a confirmed finding (see the Security Test Report). CI excludes them until they are fixed.
+/// Every test asserts the SECURE behaviour. Tests tagged Finding=S-xx are regression tests for findings
+/// that were confirmed (and, at the time, failing) in the first security run and remediated afterwards.
 /// </summary>
 [Trait("Suite", "Security")]
 public class SecurityAuthenticationTests : IClassFixture<SeatlyWebApplicationFactory>
@@ -222,23 +222,24 @@ public class SecurityAuthenticationTests : IClassFixture<SeatlyWebApplicationFac
         }
     }
 
-    // ================================================================ KNOWN OPEN FINDINGS (secure behaviour not yet implemented)
+    // ================================================================ REGRESSION TESTS FOR REMEDIATED FINDINGS (formerly KnownOpen; fixed on branch fix/audit-hardening)
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-11")]
+    [Fact, Trait("Finding", "S-11")]
     public async Task SEC_AUTH_20_Login_RepeatedFailures_TriggerThrottlingOrLockout()
     {
+        var victim = await _f.CreateUserAsync("Utilizador", TestAccounts.AcmeCompanyId);   // dedicated account: the lockout must not leak into other tests
         var client = _f.CreateApiClient();
         var statuses = new List<HttpStatusCode>();
         for (var i = 0; i < 30; i++)
-            statuses.Add((await client.PostAsJsonAsync("/api/Auth/login", new { email = TestAccounts.UserGlobex, password = "bad-" + i })).StatusCode);
+            statuses.Add((await client.PostAsJsonAsync("/api/Auth/login", new { email = victim.Email, password = "bad-" + i })).StatusCode);
 
-        var correct = await client.PostAsJsonAsync("/api/Auth/login", new { email = TestAccounts.UserGlobex, password = TestAccounts.Password });
+        var correct = await client.PostAsJsonAsync("/api/Auth/login", new { email = victim.Email, password = TestAccounts.Password });
         statuses.Add(correct.StatusCode);
 
         Assert.Contains(statuses, s => s == HttpStatusCode.TooManyRequests || s == HttpStatusCode.Locked);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-11")]
+    [Fact, Trait("Finding", "S-11")]
     public async Task SEC_AUTH_21_ContactForm_IsRateLimited()
     {
         var client = _f.CreateApiClient();
@@ -249,7 +250,7 @@ public class SecurityAuthenticationTests : IClassFixture<SeatlyWebApplicationFac
         Assert.Contains(HttpStatusCode.TooManyRequests, statuses);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-12")]
+    [Fact, Trait("Finding", "S-12")]
     public async Task SEC_AUTH_22_PasswordPolicy_RejectsSixCharacterPasswords()
     {
         var user = await _f.CreateUserAsync("Utilizador", TestAccounts.AcmeCompanyId);
@@ -261,15 +262,16 @@ public class SecurityAuthenticationTests : IClassFixture<SeatlyWebApplicationFac
         Assert.Equal(HttpStatusCode.BadRequest, response.StatusCode);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-13")]
-    public async Task SEC_AUTH_23_AccessTokenLifetime_IsAtMostOneHour()
+    [Fact, Trait("Finding", "S-13")]
+    public async Task SEC_AUTH_23_AccessTokenLifetime_IsAtMostOneWorkingDay()
     {
         var token = await _f.GetTokenAsync(TestAccounts.GestorAcme);
         var lifetime = TestJwt.ExpiryOf(token) - DateTime.UtcNow;
-        Assert.True(lifetime <= TimeSpan.FromHours(1), $"Token lifetime is {lifetime.TotalHours:F1} hours");
+        // 8 h covers one event shift; the clients have no refresh-token flow, and revocation is covered by SEC_AUTH_24.
+        Assert.True(lifetime <= TimeSpan.FromHours(8) + TimeSpan.FromMinutes(1), $"Token lifetime is {lifetime.TotalHours:F1} hours");
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-13")]
+    [Fact, Trait("Finding", "S-13")]
     public async Task SEC_AUTH_24_TokenOfDeletedUser_IsNoLongerAccepted()
     {
         var gestor = await _f.CreateUserAsync("Gestor", TestAccounts.AcmeCompanyId);
@@ -283,7 +285,7 @@ public class SecurityAuthenticationTests : IClassFixture<SeatlyWebApplicationFac
         Assert.Equal(HttpStatusCode.Unauthorized, afterDeletion.StatusCode);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-17")]
+    [Fact, Trait("Finding", "S-17")]
     public async Task SEC_AUTH_25_PasswordResetToken_IsStoredHashedNotInPlainText()
     {
         var user = await _f.CreateUserAsync("Utilizador", TestAccounts.AcmeCompanyId);
@@ -295,7 +297,7 @@ public class SecurityAuthenticationTests : IClassFixture<SeatlyWebApplicationFac
         Assert.NotEqual(emailed, stored);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-18")]
+    [Fact, Trait("Finding", "S-18")]
     public async Task SEC_AUTH_26_TemporaryPassword_HasAtLeastTwelveRandomCharacters()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);

@@ -35,7 +35,7 @@ export default function TermsOfService() {
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-3 pt-1.5">Aceitação dos Termos</h2>
                 <div className="text-[15px] leading-relaxed text-slate-600 [&_p]:break-words">            <p>
-              Ao aceder e utilizar o Backoffice Web ou a Aplicação Mobile do Seatly, concorda em ficar vinculado a estes Termos de Serviço. A plataforma Seatly é desenvolvida por Leonardo Barreiras ("Seatly") e é-lhe fornecida em nome do organizador do seu evento.
+              Ao aceder e utilizar o Backoffice Web ou a Aplicação Mobile do Seatly, concorda em ficar vinculado a estes Termos de Serviço. A plataforma Seatly é desenvolvida por Leonardo Barreiras (&quot;Seatly&quot;) e é-lhe fornecida em nome do organizador do seu evento.
             </p>
           
                 </div>
@@ -80,7 +80,7 @@ export default function TermsOfService() {
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-3 pt-1.5">Limitação de Responsabilidade</h2>
                 <div className="text-[15px] leading-relaxed text-slate-600 [&_p]:break-words">            <p>
-              O Seatly fornece a plataforma "tal como está" e "conforme disponível", sem garantias de qualquer tipo. O Seatly é uma plataforma tecnológica, não uma empresa de produção de eventos. Não nos responsabilizamos por interrupções de eventos, violações da capacidade física do recinto ou por entradas de dados imprecisos carregados pelos gestores.
+              O Seatly fornece a plataforma &quot;tal como está&quot; e &quot;conforme disponível&quot;, sem garantias de qualquer tipo. O Seatly é uma plataforma tecnológica, não uma empresa de produção de eventos. Não nos responsabilizamos por interrupções de eventos, violações da capacidade física do recinto ou por entradas de dados imprecisos carregados pelos gestores.
             </p>
           
                 </div>
