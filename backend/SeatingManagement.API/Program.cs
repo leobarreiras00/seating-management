@@ -99,6 +99,7 @@ app.UseAuthentication();
 app.UseAuthorization();
 app.MapControllers();
 
+if (!app.Environment.IsEnvironment("Testing"))
 using (var scope = app.Services.CreateScope())
 {
     var services = scope.ServiceProvider;
@@ -119,3 +120,6 @@ using (var scope = app.Services.CreateScope())
 app.MapMethods("/", new[] { "GET", "HEAD" }, () => "A API do Seatly está online e a correr a 100%!");
 app.MapMethods("/health", new[] { "GET", "HEAD" }, () => Results.Ok(new { status = "ok" }));
 app.Run();
+
+// Exposes the entry point to the integration test project (WebApplicationFactory<Program>).
+public partial class Program { }
