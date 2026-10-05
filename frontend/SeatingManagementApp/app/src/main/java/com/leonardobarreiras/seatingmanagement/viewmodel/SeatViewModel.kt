@@ -21,6 +21,8 @@ import dagger.hilt.android.lifecycle.HiltViewModel
 import kotlinx.coroutines.flow.Flow
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
 import okhttp3.RequestBody.Companion.asRequestBody
 import okhttp3.MediaType.Companion.toMediaTypeOrNull
 import retrofit2.HttpException
@@ -132,6 +134,9 @@ class SeatViewModel @Inject constructor(
 
     private val announcedCapacityThresholds = mutableSetOf<Int>()
 
+    /** Impede que o envio das validações pendentes e a substituição da cache local corram ao mesmo tempo. */
+    private val syncMutex = Mutex()
+
     init {
         viewModelScope.launch {
             networkMonitor.isConnected.collect { connected ->
@@ -169,6 +174,8 @@ class SeatViewModel @Inject constructor(
                 currentEventId?.let { mqttManager.subscribeToEventRoom(it) }
                 fetchMyCompany()
                 fetchMyEvents()
+                // Durante a quebra podem ter-se perdido mensagens (o MQTT não guarda histórico): recarrega os lugares
+                if (currentEventId != null) fetchSeatsFromApi()
             }
         }
         // REMOVIDO: mqttManager.connect() daqui, passa a ser chamado nas funções de auth e startup.
@@ -254,6 +261,8 @@ class SeatViewModel @Inject constructor(
      * Termina a sessão: limpa estado em memória, desliga o MQTT, apaga a sessão guardada e os lugares locais.
      */
     fun logout() {
+        val tokenToFlush = jwtToken
+        val eventToFlush = currentEventId
         jwtToken = null
         currentEventId = null
         myEvents = emptyList()
@@ -267,7 +276,13 @@ class SeatViewModel @Inject constructor(
 
         mqttManager.disconnect() // Desliga o MQTT no logout
         secureStorage.clearSession()
-        viewModelScope.launch { repository.deleteAllSeats() }
+        viewModelScope.launch {
+            // Se houver rede, tenta enviar as validações ainda pendentes antes de apagar os lugares locais
+            if (tokenToFlush != null && eventToFlush != null && !isOffline) {
+                syncMutex.withLock { flushPendingSeats(eventToFlush, tokenToFlush) }
+            }
+            repository.deleteAllSeats()
+        }
     }
 
     /**
@@ -277,6 +292,29 @@ class SeatViewModel @Inject constructor(
         currentEventId = null
         announcedCapacityThresholds.clear()
         viewModelScope.launch { repository.deleteAllSeats() }
+    }
+
+    /**
+     * Muda de evento sem perder validações: primeiro tenta enviar as pendentes; se alguma continuar por enviar
+     * (sem rede ou erro do servidor), não muda e avisa o utilizador. Só depois fecha o evento e chama [onSwitched].
+     */
+    fun switchEvent(onSwitched: () -> Unit) {
+        val eventId = currentEventId
+        viewModelScope.launch {
+            if (eventId != null) {
+                if (!isOffline) syncMutex.withLock { flushPendingSeats(eventId) }
+                val remaining = repository.getPendingSyncSeats().size
+                if (remaining > 0) {
+                    appFeedback = AppFeedback(
+                        FeedbackType.ERROR, "Validações por enviar",
+                        "Tens $remaining validações guardadas só neste telemóvel. Liga-te à internet para as enviar antes de mudar de evento."
+                    )
+                    return@launch
+                }
+            }
+            clearCurrentEvent()
+            onSwitched()
+        }
     }
 
     /**
@@ -457,8 +495,18 @@ class SeatViewModel @Inject constructor(
                     val seatsFromApi = apiService.getSeatsByEvent("Bearer $jwtToken", id)
                     currentEventId = id
                     announcedCapacityThresholds.clear()
-                    repository.deleteAllSeats()
-                    repository.insertAll(seatsFromApi)
+                    val discarded = syncMutex.withLock {
+                        // Preserva validações pendentes que sobraram de uma sessão anterior deste evento e envia-as já
+                        val notInThisEvent = replaceLocalSeats(seatsFromApi)
+                        flushPendingSeats(id)
+                        notInThisEvent
+                    }
+                    if (discarded > 0) {
+                        appFeedback = AppFeedback(
+                            FeedbackType.ERROR, "Validações descartadas",
+                            "$discarded validações pendentes não pertenciam a este evento e não puderam ser enviadas."
+                        )
+                    }
 
                     // Só subscrevemos se não ocorreram erros até aqui
                     mqttManager.subscribeToEventRoom(id)
@@ -520,30 +568,64 @@ class SeatViewModel @Inject constructor(
         }
     }
 
+    /**
+     * Envia para o servidor as validações guardadas offline do evento aberto (corre quando a rede volta).
+     */
     private suspend fun syncPendingSeats() {
         val safeEventId = currentEventId ?: return
-        val pendingSeats = repository.getPendingSyncSeats()
-
-        if (pendingSeats.isNotEmpty()) {
-            Log.d("SYNC", "A sincronizar ${pendingSeats.size} registos offline...")
-            var successCount = 0
-
-            pendingSeats.forEach { seat ->
-                try {
-                    val response = apiService.updateSingleSeat("Bearer $jwtToken", safeEventId, seat.id, UpdateSingleSeatRequest(seat.status))
-                    if (response.isSuccessful) {
-                        mqttManager.publishSeatUpdate(safeEventId, seat.id, seat.status)
-                        repository.updateSeatStatusLocally(seat.id, seat.status, isPendingSync = false, markedAt = seat.markedAt)
-                        successCount++
-                    }
-                } catch (e: Exception) { Log.e("SYNC", "Falha ao enviar lugar ${seat.id}, continua na fila.") }
-            }
-            if (successCount > 0) { appFeedback = AppFeedback(FeedbackType.SUCCESS, "Rede Restabelecida", "$successCount lugares offline gravados na BD Central.") }
-        }
+        syncMutex.withLock { flushPendingSeats(safeEventId) }
     }
 
     /**
-     * Sincroniza manualmente: substitui os lugares locais pelos do servidor (ignorado offline).
+     * Envia, uma a uma, as validações com `isPendingSync` e devolve quantas foram aceites pelo servidor.
+     *
+     * Uma falha de rede ou de servidor mantém o lugar na fila para tentar mais tarde. Se o servidor responder
+     * 400, 403 ou 404 (o lugar já não existe ou não pertence ao evento), repetir não resolve: o pedido é
+     * descartado, para não bloquear a fila nem a mudança de evento. Deve ser chamada com [syncMutex] já obtido.
+     */
+    private suspend fun flushPendingSeats(eventId: Int, token: String? = jwtToken): Int {
+        val authToken = token ?: return 0
+        val pendingSeats = repository.getPendingSyncSeats()
+        if (pendingSeats.isEmpty()) return 0
+
+        Log.d("SYNC", "A sincronizar ${pendingSeats.size} registos offline...")
+        var successCount = 0
+
+        pendingSeats.forEach { seat ->
+            try {
+                val response = apiService.updateSingleSeat("Bearer $authToken", eventId, seat.id, UpdateSingleSeatRequest(seat.status))
+                if (response.isSuccessful) {
+                    mqttManager.publishSeatUpdate(eventId, seat.id, seat.status)
+                    repository.updateSeatStatusLocally(seat.id, seat.status, isPendingSync = false, markedAt = seat.markedAt)
+                    successCount++
+                } else if (response.code() in listOf(400, 403, 404)) {
+                    Log.w("SYNC", "Lugar ${seat.id} recusado (${response.code()}), removido da fila.")
+                    repository.updateSeatStatusLocally(seat.id, seat.status, isPendingSync = false, markedAt = seat.markedAt)
+                }
+            } catch (e: Exception) { Log.e("SYNC", "Falha ao enviar lugar ${seat.id}, continua na fila.") }
+        }
+        if (successCount > 0) { appFeedback = AppFeedback(FeedbackType.SUCCESS, "Rede Restabelecida", "$successCount lugares offline gravados na BD Central.") }
+        return successCount
+    }
+
+    /**
+     * Substitui a cache local pelos lugares do servidor sem perder validações ainda por enviar: os lugares
+     * pendentes mantêm o estado local e a marca `isPendingSync`. Devolve quantos pendentes não existem nesta lista.
+     */
+    private suspend fun replaceLocalSeats(serverSeats: List<SeatEntity>): Int {
+        val pending = repository.getPendingSyncSeats().associateBy { it.id }
+        val serverIds = serverSeats.map { it.id }.toSet()
+        val merged = serverSeats.map { seat ->
+            pending[seat.id]?.let { p -> seat.copy(status = p.status, markedAt = p.markedAt, isPendingSync = true) } ?: seat
+        }
+        repository.deleteAllSeats()
+        repository.insertAll(merged)
+        return pending.keys.count { it !in serverIds }
+    }
+
+    /**
+     * Sincroniza manualmente: envia as validações pendentes e depois substitui os lugares locais pelos do
+     * servidor (ignorado offline). Usado também quando chega um comando REFRESH por MQTT.
      */
     fun fetchSeatsFromApi() {
         if (isOffline) return
@@ -551,11 +633,14 @@ class SeatViewModel @Inject constructor(
         if (jwtToken == null) return
 
         viewModelScope.launch {
-            try {
-                val seatsFromApi = apiService.getSeatsByEvent("Bearer $jwtToken", safeEventId)
-                repository.deleteAllSeats()
-                repository.insertAll(seatsFromApi)
-            } catch (e: Exception) { Log.e("API", "Erro ao sincronizar") }
+            syncMutex.withLock {
+                try {
+                    flushPendingSeats(safeEventId)
+                    val seatsFromApi = apiService.getSeatsByEvent("Bearer $jwtToken", safeEventId)
+                    // Se entretanto mudou de evento, a resposta já não interessa
+                    if (currentEventId == safeEventId) replaceLocalSeats(seatsFromApi)
+                } catch (e: Exception) { Log.e("API", "Erro ao sincronizar") }
+            }
         }
     }
 
@@ -569,6 +654,8 @@ class SeatViewModel @Inject constructor(
 
         viewModelScope.launch {
             try {
+                // Primeiro o que ficou pendente, para a ação em massa ser a última palavra
+                syncMutex.withLock { flushPendingSeats(safeEventId) }
                 val response = apiService.bulkUpdateStatus("Bearer $jwtToken", safeEventId, BulkUpdateStatusRequest(novoEstado))
                 if (response.isSuccessful) {
                     fetchSeatsFromApi()
