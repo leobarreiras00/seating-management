@@ -32,9 +32,13 @@ import java.util.Locale
 import javax.inject.Inject
 
 /**
- * Número mínimo de caracteres de qualquer palavra-passe (criar, alterar, redefinir).
+ * Política de palavra-passe (igual à da API): entre 8 e 72 caracteres, com pelo menos uma letra e um número.
  */
-const val MIN_PASSWORD_LENGTH = 6
+const val MIN_PASSWORD_LENGTH = 8
+const val MAX_PASSWORD_LENGTH = 72
+
+fun isStrongPassword(password: String): Boolean =
+    password.length in MIN_PASSWORD_LENGTH..MAX_PASSWORD_LENGTH && password.any { it.isLetter() } && password.any { it.isDigit() }
 
 /**
  * Tipos de aviso mostrados ao utilizador (determinam ícone e cor do banner).
@@ -192,6 +196,11 @@ class SeatViewModel @Inject constructor(
      */
     fun getStartDestination(): String {
         val session = secureStorage.getSession()
+        // O token dura 8 horas: se já expirou, volta ao login em vez de falhar em silêncio nos pedidos.
+        if (session != null && JwtUtils.isExpired(session.token)) {
+            secureStorage.clearSession()
+            return "login"
+        }
         return if (session != null) {
             jwtToken = session.token
             userRole = session.role
@@ -307,6 +316,8 @@ class SeatViewModel @Inject constructor(
                         if (errorData.requiresPasswordReset == true) requiresFirstLoginReset = true
                         else loginError = errorData.message ?: "Credenciais inválidas."
                     } catch (ex: Exception) { loginError = "Conta bloqueada." }
+                } else if (e.code() == 429) {
+                    loginError = "Demasiadas tentativas falhadas. Tenta novamente dentro de 15 minutos."
                 } else if (e.code() == 401 || e.code() == 400 || e.code() == 404) {
                     loginError = "Palavra-passe ou E-mail incorretos."
                 } else { loginError = "Erro no servidor (${e.code()})." }
@@ -338,7 +349,7 @@ class SeatViewModel @Inject constructor(
      */
     fun firstLoginReset(email: String, tempPass: String, newPass: String, onSuccess: () -> Unit) {
         if (isOffline) { firstLoginError = "Sem ligação à internet."; return }
-        if (newPass.length < MIN_PASSWORD_LENGTH) { firstLoginError = "A palavra-passe tem de ter no mínimo $MIN_PASSWORD_LENGTH caracteres."; return }
+        if (!isStrongPassword(newPass)) { firstLoginError = "A palavra-passe tem de ter entre $MIN_PASSWORD_LENGTH e $MAX_PASSWORD_LENGTH caracteres, com pelo menos uma letra e um número."; return }
         viewModelScope.launch {
             isResetLoading = true
             try {
@@ -412,7 +423,7 @@ class SeatViewModel @Inject constructor(
      */
     fun changePassword(oldPass: String, newPass: String, onSuccess: () -> Unit, onError: (String) -> Unit) {
         val token = jwtToken ?: return
-        if (newPass.length < MIN_PASSWORD_LENGTH) { onError("A palavra-passe tem de ter no mínimo $MIN_PASSWORD_LENGTH caracteres."); return }
+        if (!isStrongPassword(newPass)) { onError("A palavra-passe tem de ter entre $MIN_PASSWORD_LENGTH e $MAX_PASSWORD_LENGTH caracteres, com pelo menos uma letra e um número."); return }
         viewModelScope.launch {
             try {
                 val res = apiService.changePassword("Bearer $token", ChangePasswordRequest(oldPass, newPass))

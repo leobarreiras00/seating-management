@@ -71,7 +71,9 @@ import com.leonardobarreiras.seatingmanagement.ui.theme.ErrorRed
 import com.leonardobarreiras.seatingmanagement.ui.theme.LightBg
 import com.leonardobarreiras.seatingmanagement.ui.theme.PrimaryBlue
 import com.leonardobarreiras.seatingmanagement.ui.theme.TextGray
+import com.leonardobarreiras.seatingmanagement.viewmodel.MAX_PASSWORD_LENGTH
 import com.leonardobarreiras.seatingmanagement.viewmodel.MIN_PASSWORD_LENGTH
+import com.leonardobarreiras.seatingmanagement.viewmodel.isStrongPassword
 import com.leonardobarreiras.seatingmanagement.viewmodel.SeatViewModel
 import kotlinx.coroutines.delay
 
@@ -326,7 +328,7 @@ fun LoginScreen(onLoginSuccess: () -> Unit, viewModel: SeatViewModel) {
                 confirmText = "Guardar e Entrar", cancelText = "Cancelar", confirmColor = AccentPurple,
                 isConfirmLoading = viewModel.isResetLoading,
                 onConfirm = {
-                    if (newPassword.length < MIN_PASSWORD_LENGTH) { localError = "A palavra-passe tem de ter no mínimo $MIN_PASSWORD_LENGTH caracteres." }
+                    if (!isStrongPassword(newPassword)) { localError = "A palavra-passe tem de ter entre $MIN_PASSWORD_LENGTH e $MAX_PASSWORD_LENGTH caracteres, com pelo menos uma letra e um número." }
                     else if (newPassword != confirmNewPassword) { localError = "As palavras-passe não coincidem." }
                     else if (newPassword == password) { localError = "A nova palavra-passe tem de ser diferente da temporária." }
                     else {

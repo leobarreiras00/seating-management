@@ -35,7 +35,7 @@ export default function PrivacyPolicy() {
               <div className="min-w-0 flex-1">
                 <h2 className="text-lg sm:text-xl font-bold text-slate-900 mb-3 pt-1.5">Introdução: O Nosso Papel e os Seus Dados</h2>
                 <div className="text-[15px] leading-relaxed text-slate-600 [&_p]:break-words">            <p>
-              A plataforma Seatly é fornecida por Leonardo Barreiras ("Processador de Dados") em nome do organizador do evento, promotor ou recinto específico que forneceu as suas credenciais de acesso ("Controlador de Dados"). Ao abrigo do Regulamento Geral sobre a Proteção de Dados (RGPD), o organizador do evento é responsável por determinar como e porquê os seus dados pessoais são processados. O Seatly atua exclusivamente como um prestador de serviços técnicos, armazenando e gerindo estes dados de forma segura e estritamente de acordo com as instruções do organizador.
+              A plataforma Seatly é fornecida por Leonardo Barreiras (&quot;Processador de Dados&quot;) em nome do organizador do evento, promotor ou recinto específico que forneceu as suas credenciais de acesso (&quot;Controlador de Dados&quot;). Ao abrigo do Regulamento Geral sobre a Proteção de Dados (RGPD), o organizador do evento é responsável por determinar como e porquê os seus dados pessoais são processados. O Seatly atua exclusivamente como um prestador de serviços técnicos, armazenando e gerindo estes dados de forma segura e estritamente de acordo com as instruções do organizador.
             </p>
           
                 </div>

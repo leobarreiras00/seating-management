@@ -7,7 +7,8 @@ namespace SeatingManagement.API.Tests.Security;
 
 /// <summary>
 /// SEC-AUTHZ: role-based access control (vertical), tenant isolation and object-level authorization (horizontal / IDOR).
-/// Tests marked Status=KnownOpen assert the SECURE behaviour that the system does not yet have.
+/// Every test asserts the SECURE behaviour. Tests tagged Finding=S-xx are regression tests for findings
+/// that were confirmed (and, at the time, failing) in the first security run and remediated afterwards.
 /// </summary>
 [Trait("Suite", "Security")]
 public class SecurityAuthorizationTests : IClassFixture<SeatlyWebApplicationFactory>
@@ -235,9 +236,9 @@ public class SecurityAuthorizationTests : IClassFixture<SeatlyWebApplicationFact
         Assert.Equal(HttpStatusCode.Unauthorized, response.StatusCode);
     }
 
-    // ================================================================ KNOWN OPEN FINDINGS
+    // ================================================================ REGRESSION TESTS FOR REMEDIATED FINDINGS
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-19")]
+    [Fact, Trait("Finding", "S-19")]
     public async Task SEC_AUTHZ_20_Utilizador_CannotCreateEvents()
     {
         var user = await _f.ClientForAsync(TestAccounts.UserAcme);
@@ -246,7 +247,7 @@ public class SecurityAuthorizationTests : IClassFixture<SeatlyWebApplicationFact
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-19")]
+    [Fact, Trait("Finding", "S-19")]
     public async Task SEC_AUTHZ_21_Utilizador_CannotWipeTheGuestListOfAnEvent()
     {
         var eventId = await _f.CreateEventAsync(TestAccounts.AcmeCompanyId, new[] { TestAccounts.UserAcmeId }, seats: 3);
@@ -258,7 +259,7 @@ public class SecurityAuthorizationTests : IClassFixture<SeatlyWebApplicationFact
         Assert.Equal(3, (await _f.SeatsOfAsync(eventId)).Count);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-19")]
+    [Fact, Trait("Finding", "S-19")]
     public async Task SEC_AUTHZ_22_Utilizador_CannotReplaceTheGuestListWithACsvImport()
     {
         var eventId = await _f.CreateEventAsync(TestAccounts.AcmeCompanyId, new[] { TestAccounts.UserAcmeId }, seats: 3);
@@ -269,7 +270,7 @@ public class SecurityAuthorizationTests : IClassFixture<SeatlyWebApplicationFact
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-19")]
+    [Fact, Trait("Finding", "S-19")]
     public async Task SEC_AUTHZ_23_Utilizador_CannotReadTheAuditTrailOfAnEvent()
     {
         var user = await _f.ClientForAsync(TestAccounts.UserAcme);
@@ -277,7 +278,7 @@ public class SecurityAuthorizationTests : IClassFixture<SeatlyWebApplicationFact
         Assert.Equal(HttpStatusCode.Forbidden, response.StatusCode);
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-20")]
+    [Fact, Trait("Finding", "S-20")]
     public async Task SEC_AUTHZ_24_Register_RejectsRolesOutsideTheKnownSet()
     {
         var gestor = await _f.ClientForAsync(TestAccounts.GestorAcme);

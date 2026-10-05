@@ -25,6 +25,15 @@ import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import EmptyState from "@/components/ui/EmptyState";
 import ProgressRing from "@/components/ui/ProgressRing";
 import CountUp from "@/components/ui/CountUp";
+import { getErrorMessage } from "@/lib/errors";
+
+// Resposta crua da API (a API pode devolver PascalCase ou camelCase)
+interface RawGuest {
+  seatNumber?: string; SeatNumber?: string;
+  assignedTo?: string; AssignedTo?: string;
+  eventName?: string; EventName?: string;
+  status?: number; Status?: number;
+}
 
 interface Company { id: number; name: string; logoUrl: string | null; }
 interface AccountUser { id: number; email: string; username: string; role: string; }
@@ -126,6 +135,7 @@ function CompanyDetailsContent() {
     }
   }, [id]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial no mount; o setState só corre depois do await
   useEffect(() => { fetchCompanyData(); }, [fetchCompanyData]);
 
   useEffect(() => {
@@ -167,8 +177,8 @@ function CompanyDetailsContent() {
       setShowCreateAccountModal(false); 
       setAlertDialog({ isOpen: true, title: "Conta Criada", message: `O ${newAccountRole.toLowerCase()} foi criado com sucesso. Foi enviado um e-mail com a palavra-passe temporária.`, type: 'success' });
       fetchCompanyData();
-    } catch (err: any) { 
-      setCreateAccountError(err.message); 
+    } catch (err: unknown) { 
+      setCreateAccountError(getErrorMessage(err)); 
     } finally { 
       setIsCreatingAccount(false); 
     }
@@ -187,7 +197,7 @@ function CompanyDetailsContent() {
           });
           if (!res.ok) throw new Error();
           setAlertDialog({ isOpen: true, title: "E-mail Enviado", message: "As instruções de recuperação foram enviadas para o utilizador.", type: 'success' });
-        } catch (error) { 
+        } catch { 
           setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao enviar o e-mail.", type: 'error' }); 
         }
       }
@@ -202,7 +212,7 @@ function CompanyDetailsContent() {
           const token = localStorage.getItem("token");
           await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
           fetchCompanyData();
-        } catch (error) { setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao tentar apagar o acesso.", type: 'error' }); }
+        } catch { setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao tentar apagar o acesso.", type: 'error' }); }
       }
     });
   };
@@ -222,7 +232,7 @@ function CompanyDetailsContent() {
       });
       if (!res.ok) throw new Error("Erro ao criar o evento.");
       setEventName(""); setEventStartDate(""); setEventEndDate(""); setShowEventModal(false); fetchCompanyData();
-    } catch (err: any) { setEventError(err.message); } finally { setIsCreatingEvent(false); }
+    } catch (err: unknown) { setEventError(getErrorMessage(err)); } finally { setIsCreatingEvent(false); }
   };
 
   const handleUpdateEvent = async (e: React.FormEvent) => {
@@ -241,7 +251,7 @@ function CompanyDetailsContent() {
       });
       if (!res.ok) throw new Error("Erro ao atualizar o evento.");
       setShowEditEventModal(false); fetchCompanyData();
-    } catch (err: any) { setEditEventError(err.message); } finally { setIsEditingEvent(false); }
+    } catch (err: unknown) { setEditEventError(getErrorMessage(err)); } finally { setIsEditingEvent(false); }
   };
 
   const openEditEventModal = (event: EventStats) => {
@@ -259,7 +269,7 @@ function CompanyDetailsContent() {
           const token = localStorage.getItem("token");
           await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Event/${eventId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
           fetchCompanyData();
-        } catch (error) { setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao tentar apagar o evento.", type: 'error' }); }
+        } catch { setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao tentar apagar o evento.", type: 'error' }); }
       }
     });
   };
@@ -290,7 +300,7 @@ function CompanyDetailsContent() {
       setShowAssignModal(false);
       setAlertDialog({ isOpen: true, title: "Sucesso", message: "Os acessos foram atribuídos com sucesso à equipa selecionada!", type: 'success' });
       fetchCompanyData();
-    } catch (err: any) {
+    } catch {
       setAssignError("Alguns acessos podem não ter sido atribuídos corretamente devido a um erro de comunicação.");
     } finally {
       setIsAssigning(false);
@@ -305,7 +315,7 @@ function CompanyDetailsContent() {
           const token = localStorage.getItem("token");
           await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${id}/events/${eventId}/assign/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
           fetchCompanyData();
-        } catch (error) { setAlertDialog({ isOpen: true, title: "Erro", message: "Falha ao remover o acesso do utilizador.", type: 'error' }); }
+        } catch { setAlertDialog({ isOpen: true, title: "Erro", message: "Falha ao remover o acesso do utilizador.", type: 'error' }); }
       }
     });
   };
@@ -334,7 +344,7 @@ function CompanyDetailsContent() {
       }
       setUploadSuccess(data.message || data.Message || "Ficheiro importado com sucesso!");
       setUploadFile(null); fetchCompanyData();
-    } catch (err: any) { setUploadError(err.message); } finally { setIsUploading(false); }
+    } catch (err: unknown) { setUploadError(getErrorMessage(err)); } finally { setIsUploading(false); }
   };
 
   const handleExportCsv = async (eventId: number, eventName: string) => {
@@ -349,8 +359,8 @@ function CompanyDetailsContent() {
       
       let csvContent = "MESA;LUGAR;CATEGORIA;NOME;ESTADO\n";
       
-      const mappedGuests = Array.isArray(data) ? data : [];
-      mappedGuests.forEach((g: any) => {
+      const mappedGuests: RawGuest[] = Array.isArray(data) ? data : [];
+      mappedGuests.forEach((g: RawGuest) => {
         const seatNumFull = g.seatNumber || g.SeatNumber || "";
         const [table, seat] = seatNumFull.includes('-') ? seatNumFull.split('-') : [seatNumFull, ""];
         const name = g.assignedTo || g.AssignedTo || "";
@@ -370,7 +380,7 @@ function CompanyDetailsContent() {
       document.body.removeChild(link);
       
       setFilesModalEvent(null);
-    } catch (error) {
+    } catch {
       setAlertDialog({ isOpen: true, title: "Erro na Exportação", message: "Ocorreu um erro ao gerar o ficheiro.", type: 'error' });
     } finally {
       setIsExporting(false);
@@ -480,6 +490,7 @@ function CompanyDetailsContent() {
           <div className="flex flex-col sm:flex-row sm:items-end gap-4 sm:gap-6 relative z-10 -mt-12 sm:-mt-14">
             <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-3xl bg-white border-4 border-white shadow-xl flex items-center justify-center p-2 shrink-0">
               {company.logoUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element -- logótipo dinâmico (URL da API ou data URI), next/image não aplicável
                 <img src={company.logoUrl} alt={company.name} className="w-full h-full object-contain" />
               ) : (
                 <span className="text-gradient font-display font-bold text-4xl">{company.name.charAt(0)}</span>
@@ -860,8 +871,7 @@ function CompanyDetailsContent() {
               </div>
               <div>
                 <label className="field-label">Data de Fim</label>
-                {/* NOTA: o onChange abaixo usa setEventEndDate (e não setEditEventEndDate). Bug anterior ao redesign, mantido de propósito (só design nesta tarefa). */}
-                <input type="date" required min={editEventStartDate} value={editEventEndDate} onChange={(e) => setEventEndDate(e.target.value)} className="input" />
+                <input type="date" required min={editEventStartDate} value={editEventEndDate} onChange={(e) => setEditEventEndDate(e.target.value)} className="input" />
               </div>
             </div>
             {editEventError && <div className="notice notice-error"><AlertTriangle className="w-4 h-4" />{editEventError}</div>}
@@ -979,20 +989,6 @@ function CompanyDetailsContent() {
 
     </div>
   );
-}
-
-/**
- * Logótipo com fallback (não usado neste ecrã de momento; o herói usa <img> direto).
- * Mantido para reutilização futura.
- */
-function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: any) {
-  const [error, setError] = useState(false);
-  useEffect(() => { setError(false); }, [logoUrl]);
-  if (logoUrl && !error) {
-    const src = logoUrl.startsWith('http') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
-    return <div className={`relative bg-slate-50 border border-slate-100 rounded-2xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
-  }
-  return <div className={`flex items-center justify-center bg-white border border-slate-100 rounded-2xl shadow-sm shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-slate-300`} /></div>;
 }
 
 /** Wrapper com Suspense: useSearchParams exige-o no App Router. */

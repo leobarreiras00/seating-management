@@ -7,7 +7,8 @@ namespace SeatingManagement.API.Tests.Security;
 
 /// <summary>
 /// SEC-CFG: CORS policy, documentation exposure and response hardening.
-/// Tests marked Status=KnownOpen assert the SECURE behaviour that the system does not yet have.
+/// Every test asserts the SECURE behaviour. Tests tagged Finding=S-xx are regression tests for findings
+/// that were confirmed (and, at the time, failing) in the first security run and remediated afterwards.
 /// </summary>
 [Trait("Suite", "Security")]
 public class SecurityConfigTests : IClassFixture<SeatlyWebApplicationFactory>
@@ -142,23 +143,23 @@ public class SecurityConfigTests : IClassFixture<SeatlyWebApplicationFactory>
     private static StringContent JsonContent_(string json) => new(json, System.Text.Encoding.UTF8, "application/json");
     private static StringContent JsonContentOf(object o) => JsonContent_(System.Text.Json.JsonSerializer.Serialize(o));
 
-    // ================================================================ KNOWN OPEN FINDINGS
+    // ================================================================ REGRESSION TESTS FOR REMEDIATED FINDINGS
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-22")]
+    [Fact, Trait("Finding", "S-22")]
     public async Task SEC_CFG_30_Responses_CarryXContentTypeOptionsNosniff()
     {
         var response = await _f.CreateApiClient().GetAsync("/health");
         Assert.True(response.Headers.TryGetValues("X-Content-Type-Options", out var values) && values.Contains("nosniff"));
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-22")]
+    [Fact, Trait("Finding", "S-22")]
     public async Task SEC_CFG_31_Responses_CarryAFramingProtectionHeader()
     {
         var response = await _f.CreateApiClient().GetAsync("/health");
         Assert.True(response.Headers.Contains("X-Frame-Options") || response.Headers.Contains("Content-Security-Policy"));
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-24")]
+    [Fact, Trait("Finding", "S-24")]
     public async Task SEC_CFG_32_OriginHeaderWithTheLiteralNull_DoesNotCrashTheCorsPolicy()
     {
         // Sandboxed iframes and file:// pages send "Origin: null"; the policy does new Uri(origin) and throws.
@@ -166,7 +167,7 @@ public class SecurityConfigTests : IClassFixture<SeatlyWebApplicationFactory>
         Assert.True((int)response.StatusCode < 500, $"-> {(int)response.StatusCode}");
     }
 
-    [Fact, Trait("Status", "KnownOpen"), Trait("Finding", "S-24")]
+    [Fact, Trait("Finding", "S-24")]
     public async Task SEC_CFG_33_MalformedOriginHeader_DoesNotCrashTheCorsPolicy()
     {
         var response = await _f.CreateApiClient().SendAsync(WithOrigin(HttpMethod.Get, "/health", "not a url"));

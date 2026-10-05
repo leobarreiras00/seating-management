@@ -1,6 +1,8 @@
 using Microsoft.AspNetCore.Authorization;
 using Microsoft.AspNetCore.Mvc;
+using Microsoft.AspNetCore.RateLimiting;
 using Microsoft.EntityFrameworkCore;
+using Microsoft.Extensions.Caching.Memory;
 using Microsoft.IdentityModel.Tokens;
 using SeatingManagement.API.Data;
 using SeatingManagement.API.DTOs;
@@ -20,12 +22,41 @@ namespace SeatingManagement.API.Controllers
         private readonly AppDbContext _context;
         private readonly IConfiguration _configuration;
         private readonly IEmailService _emailService;
+        private readonly IMemoryCache _cache;
 
-        public AuthController(AppDbContext context, IConfiguration configuration, IEmailService emailService)
+        private static readonly string[] AllowedRoles = { "SuperAdmin", "Gestor", "Utilizador" };
+
+        // Login throttling: after MaxFailedAttempts failures for the same e-mail the account is locked for LockoutWindow.
+        private const int MaxFailedAttempts = 10;
+        private static readonly TimeSpan LockoutWindow = TimeSpan.FromMinutes(15);
+
+        public AuthController(AppDbContext context, IConfiguration configuration, IEmailService emailService, IMemoryCache cache)
         {
             _context = context;
             _configuration = configuration;
             _emailService = emailService;
+            _cache = cache;
+        }
+
+        private static string FailKey(string email) => $"login-fail:{(email ?? string.Empty).Trim().ToLowerInvariant()}";
+
+        private bool IsLockedOut(string email) =>
+            _cache.TryGetValue(FailKey(email), out int failures) && failures >= MaxFailedAttempts;
+
+        private void RegisterFailure(string email)
+        {
+            var key = FailKey(email);
+            _cache.TryGetValue(key, out int failures);
+            _cache.Set(key, failures + 1, LockoutWindow);
+        }
+
+        private void ClearFailures(string email) => _cache.Remove(FailKey(email));
+
+        private IActionResult TooManyAttempts()
+        {
+            Response.Headers.RetryAfter = ((int)LockoutWindow.TotalSeconds).ToString();
+            return StatusCode(StatusCodes.Status429TooManyRequests,
+                new { Message = "Demasiadas tentativas falhadas. Tenta novamente dentro de 15 minutos." });
         }
 
         [HttpGet("users")]
@@ -89,6 +120,9 @@ namespace SeatingManagement.API.Controllers
         [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> Register(RegisterDto request)
         {
+            if (!string.IsNullOrWhiteSpace(request.Role) && !AllowedRoles.Contains(request.Role))
+                return BadRequest(new { Message = "Função inválida. Valores permitidos: SuperAdmin, Gestor, Utilizador." });
+
             var isCurrentUserSuperAdmin = User.IsInRole("SuperAdmin");
             if (request.Role == "SuperAdmin" && !isCurrentUserSuperAdmin)
                 return StatusCode(403, new { Message = "Acesso Negado: Apenas um SuperAdmin pode criar outro SuperAdmin." });
@@ -103,7 +137,7 @@ namespace SeatingManagement.API.Controllers
             var company = await _context.Companies.FindAsync(request.CompanyId);
             if (company == null) return BadRequest(new { Message = "A empresa especificada não existe." });
 
-            string tempPassword = $"Seatly-{GenerateRandomToken(6)}!";
+            string tempPassword = $"Seatly-{GenerateRandomToken(14)}!";
 
             var user = new User
             {
@@ -139,10 +173,17 @@ namespace SeatingManagement.API.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> Login(LoginDto request)
         {
+            if (IsLockedOut(request.Email)) return TooManyAttempts();
+
             var user = await _context.Users.Include(u => u.Company).FirstOrDefaultAsync(u => u.Email == request.Email);
             
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.Password, user.PasswordHash))
+            {
+                RegisterFailure(request.Email);
                 return Unauthorized(new { Message = "Credenciais inválidas." });
+            }
+
+            ClearFailures(request.Email);
 
             if (user.MustChangePassword)
             {
@@ -163,10 +204,17 @@ namespace SeatingManagement.API.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> FirstLoginReset(FirstLoginResetDto request)
         {
+            if (IsLockedOut(request.Email)) return TooManyAttempts();
+
             var user = await _context.Users.Include(u => u.Company).FirstOrDefaultAsync(u => u.Email == request.Email);
             
             if (user == null || !BCrypt.Net.BCrypt.Verify(request.TemporaryPassword, user.PasswordHash))
+            {
+                RegisterFailure(request.Email);
                 return Unauthorized(new { Message = "A palavra-passe temporária está incorreta." });
+            }
+
+            ClearFailures(request.Email);
 
             if (!user.MustChangePassword)
                 return BadRequest(new { Message = "Este utilizador já concluiu o processo de primeiro acesso." });
@@ -198,11 +246,13 @@ namespace SeatingManagement.API.Controllers
             if (user == null) 
                 return Ok(new { Message = "Se o e-mail existir, enviámos as instruções de recuperação." });
 
-            user.PasswordResetToken = GenerateRandomToken(32);
+            // Only the SHA-256 hash is stored: a database leak does not expose usable reset links.
+            var rawToken = GenerateRandomToken(32);
+            user.PasswordResetToken = HashToken(rawToken);
             user.ResetTokenExpiry = DateTime.UtcNow.AddHours(1);
             await _context.SaveChangesAsync();
 
-            await _emailService.SendPasswordResetEmailAsync(user.Email, user.PasswordResetToken);
+            await _emailService.SendPasswordResetEmailAsync(user.Email, rawToken);
 
             return Ok(new { Message = "Se o e-mail existir, enviámos as instruções de recuperação." });
         }
@@ -211,7 +261,8 @@ namespace SeatingManagement.API.Controllers
         [AllowAnonymous]
         public async Task<IActionResult> ResetPasswordWithToken(ResetPasswordWithTokenDto request)
         {
-            var user = await _context.Users.FirstOrDefaultAsync(u => u.PasswordResetToken == request.Token && u.ResetTokenExpiry > DateTime.UtcNow);
+            var tokenHash = HashToken(request.Token);
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.PasswordResetToken == tokenHash && u.ResetTokenExpiry > DateTime.UtcNow);
             if (user == null) return BadRequest(new { Message = "O link de recuperação é inválido ou já expirou." });
 
             user.PasswordHash = BCrypt.Net.BCrypt.HashPassword(request.NewPassword);
@@ -238,6 +289,7 @@ namespace SeatingManagement.API.Controllers
             if (user == null || !CanManageUser(user, allowSelf: false)) return NotFound(new { Message = "Utilizador não encontrado." });
             string deletedUsername = user.Username;
             _context.Users.Remove(user);
+            _cache.Remove(ActiveUserCache.Key(user.UserGuid));
             var performedBy = User.Identity?.Name ?? "Sistema";
             var performedRole = User.FindFirstValue(ClaimTypes.Role) ?? "Sistema";
             _context.AuditLogs.Add(new AuditLog { EventId = null, ActionType = "DELETE_USER", Description = $"Apagou a conta do utilizador '{deletedUsername}'.", PerformedBy = performedBy, PerformedRole = performedRole, Timestamp = DateTime.UtcNow });
@@ -267,6 +319,7 @@ namespace SeatingManagement.API.Controllers
 
         [HttpPost("contact")]
         [AllowAnonymous]
+        [EnableRateLimiting("contact")]
         public async Task<IActionResult> ContactSupport([FromBody] ContactDto request)
         {
             if (string.IsNullOrWhiteSpace(request.Email) || string.IsNullOrWhiteSpace(request.Message))
@@ -299,7 +352,7 @@ namespace SeatingManagement.API.Controllers
                 new Claim(ClaimTypes.Role, user.Role),
                 new Claim("CompanyId", user.CompanyId.ToString()) 
             };
-            var token = new JwtSecurityToken(issuer: _configuration["Jwt:Issuer"] ?? "SeatingManagementAPI", audience: _configuration["Jwt:Audience"] ?? "SeatingManagementClients", claims: claims, expires: DateTime.UtcNow.AddDays(1), signingCredentials: creds);
+            var token = new JwtSecurityToken(issuer: _configuration["Jwt:Issuer"] ?? "SeatingManagementAPI", audience: _configuration["Jwt:Audience"] ?? "SeatingManagementClients", claims: claims, expires: DateTime.UtcNow.AddHours(8), signingCredentials: creds);
             return new JwtSecurityTokenHandler().WriteToken(token);
         }
 
@@ -318,12 +371,17 @@ namespace SeatingManagement.API.Controllers
                 && target.Role != "SuperAdmin";
         }
 
-        private string GenerateRandomToken(int length)
+        // Unbiased random string from an unambiguous alphabet (no 0/O, 1/l/I).
+        private static string GenerateRandomToken(int length)
         {
-            using var rng = RandomNumberGenerator.Create();
-            var byteToken = new byte[length];
-            rng.GetBytes(byteToken);
-            return Convert.ToBase64String(byteToken).Replace("+", "").Replace("/", "").Substring(0, length);
+            const string alphabet = "ABCDEFGHJKLMNPQRSTUVWXYZabcdefghijkmnopqrstuvwxyz23456789";
+            var chars = new char[length];
+            for (var i = 0; i < length; i++)
+                chars[i] = alphabet[RandomNumberGenerator.GetInt32(alphabet.Length)];
+            return new string(chars);
         }
+
+        private static string HashToken(string token) =>
+            Convert.ToHexString(SHA256.HashData(Encoding.UTF8.GetBytes(token ?? string.Empty)));
     }
 }

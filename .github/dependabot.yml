@@ -59,7 +59,7 @@ updates:
       next-react:
         patterns: ["next", "react", "react-dom", "eslint-config-next", "@types/react", "@types/react-dom"]
     ignore:
-      # Major upgrades to be planned separately (lint is informational for now).
+      # Major upgrades to be planned separately.
       - dependency-name: "typescript"
         update-types: ["version-update:semver-major"]
       - dependency-name: "eslint"

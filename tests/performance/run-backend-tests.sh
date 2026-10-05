@@ -10,11 +10,11 @@ rm -rf "$OUT" && mkdir -p "$OUT"
 dotnet restore "$PROJ" || exit 1
 dotnet build "$PROJ" -c Release --no-restore || exit 1
 
-echo "== Run 1/2: everything (KnownOpen tests are expected to fail: each failure is a confirmed finding) =="
+echo "== Run 1/2: everything (unit + integration + security, with coverage) =="
 dotnet test "$PROJ" -c Release --no-build --settings "$SETTINGS" --collect:"XPlat Code Coverage" \
   --results-directory "$OUT/all" --logger "trx;LogFileName=all.trx" 2>&1 | tee "$OUT/all.log"
 
-echo "== Run 2/2: CI selection (KnownOpen excluded; must be 100% green) =="
+echo "== Run 2/2: CI selection (same filter as the pipeline; must be 100% green) =="
 dotnet test "$PROJ" -c Release --no-build --filter "Status!=KnownOpen" --logger "trx;LogFileName=ci.trx" \
   --results-directory "$OUT/ci" 2>&1 | tee "$OUT/ci.log"
 

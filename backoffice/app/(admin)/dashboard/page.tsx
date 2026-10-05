@@ -54,6 +54,7 @@ export default function DashboardPage() {
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial no mount; o setState só corre depois do await
     fetchDashboardData();
 
     const client = mqtt.connect(process.env.NEXT_PUBLIC_MQTT_URL as string, {
@@ -228,7 +229,7 @@ export default function DashboardPage() {
                   <Tooltip
                     cursor={{fill: 'rgba(139, 92, 246, 0.08)'}}
                     contentStyle={tooltipStyle}
-                    formatter={(value: any, name: any) => [value, name]}
+                    formatter={(value, name) => [value, name]}
                   />
                   <Legend iconType="circle" wrapperStyle={{ fontSize: '12px', fontWeight: 600, color: '#6f6a85', paddingTop: '20px' }} />
                   <Bar dataKey="validated" name="Validados" stackId="a" fill="#10b981" radius={[0, 0, 0, 0]} barSize={22} />
