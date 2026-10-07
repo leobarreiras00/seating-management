@@ -24,6 +24,7 @@ import mqtt from "mqtt";
 import Modal from "@/components/ui/Modal";
 import AlertDialog from "@/components/ui/AlertDialog";
 import { fileToAvatarDataUri } from "@/lib/avatar";
+import { isStrongPassword, PASSWORD_ERROR } from "@/lib/passwordPolicy";
 
 interface CurrentUser {
   id: number;
@@ -151,7 +152,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   const handleChangePassword = async () => {
-    if (!oldPassword || newPassword.length < 6 || newPassword !== confirmPassword) return;
+    if (!oldPassword || !isStrongPassword(newPassword) || newPassword !== confirmPassword) return;
     setIsProcessing(true);
     
     try {
@@ -364,9 +365,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <input type="password" placeholder="Palavra-passe Atual" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} className="input" />
 
                   <div>
-                    <input type="password" placeholder="Nova Palavra-passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`input ${newPassword.length > 0 && newPassword.length < 6 ? 'input-invalid' : ''}`} />
-                    {newPassword.length > 0 && newPassword.length < 6 && (
-                      <p className="text-red-500 text-[11px] font-semibold mt-1.5 ml-1 animate-in">A palavra-passe deve ter pelo menos 6 caracteres.</p>
+                    <input type="password" placeholder="Nova Palavra-passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`input ${newPassword.length > 0 && !isStrongPassword(newPassword) ? 'input-invalid' : ''}`} />
+                    {newPassword.length > 0 && !isStrongPassword(newPassword) && (
+                      <p className="text-red-500 text-[11px] font-semibold mt-1.5 ml-1 animate-in">{PASSWORD_ERROR}</p>
                     )}
                   </div>
 
@@ -374,7 +375,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                   <button
                     onClick={handleChangePassword}
-                    disabled={isProcessing || !oldPassword || newPassword.length < 6 || newPassword !== confirmPassword}
+                    disabled={isProcessing || !oldPassword || !isStrongPassword(newPassword) || newPassword !== confirmPassword}
                     className="btn btn-primary btn-lg btn-block mt-2">
                     {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Atualizar Segurança'}
                   </button>

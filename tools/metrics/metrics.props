@@ -1,0 +1,12 @@
+<Project>
+  <!-- Measurement-only configuration. Not imported by the normal build. -->
+  <PropertyGroup>
+    <EnableNETAnalyzers>true</EnableNETAnalyzers>
+    <TreatWarningsAsErrors>false</TreatWarningsAsErrors>
+    <WarningsAsErrors></WarningsAsErrors>
+  </PropertyGroup>
+  <ItemGroup>
+    <AdditionalFiles Include="$(MSBuildThisFileDirectory)CodeMetricsConfig.txt" />
+    <GlobalAnalyzerConfigFiles Include="$(MSBuildThisFileDirectory)metrics.globalconfig" />
+  </ItemGroup>
+</Project>
