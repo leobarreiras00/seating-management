@@ -13,7 +13,7 @@ namespace SeatingManagement.API.DTOs
     public class CreateEventDto : IValidatableObject
     {
         [Required(AllowEmptyStrings = false, ErrorMessage = "O nome do evento é obrigatório.")]
-        [StringLength(150, MinimumLength = 1, ErrorMessage = "O nome do evento deve ter entre 1 e 150 caracteres.")]
+        [StringLength(100, MinimumLength = 1, ErrorMessage = "O nome do evento deve ter entre 1 e 100 caracteres.")]
         public string Name { get; set; } = string.Empty;
         public DateTime StartDate { get; set; }
         public DateTime EndDate { get; set; }

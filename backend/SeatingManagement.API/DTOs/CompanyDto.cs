@@ -18,7 +18,7 @@ namespace SeatingManagement.API.DTOs
     public class CreateCompanyDto
     {
         [Required(AllowEmptyStrings = false, ErrorMessage = "O nome da empresa é obrigatório.")]
-        [StringLength(150, MinimumLength = 1)]
+        [StringLength(100, MinimumLength = 1)]
         public string Name { get; set; } = string.Empty;
         [MaxLength(ImageRules.MaxDataUriLength)]
         public string LogoUrl { get; set; } = string.Empty; 
@@ -27,7 +27,7 @@ namespace SeatingManagement.API.DTOs
     public class UpdateCompanyDto
     {
         [Required(AllowEmptyStrings = false, ErrorMessage = "O nome da empresa é obrigatório.")]
-        [StringLength(150, MinimumLength = 1)]
+        [StringLength(100, MinimumLength = 1)]
         public string Name { get; set; } = string.Empty;
         [MaxLength(ImageRules.MaxDataUriLength)]
         public string LogoUrl { get; set; } = string.Empty;
