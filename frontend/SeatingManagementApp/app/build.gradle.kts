@@ -105,7 +105,7 @@ dependencies {
     ksp("androidx.room:room-compiler:$room_version")
 
     // --- MQTT ---
-    implementation("com.hivemq:hivemq-mqtt-client:1.3.3")
+    implementation("com.hivemq:hivemq-mqtt-client:1.3.17")
 
     // --- RETROFIT & REDE ---
     implementation("com.squareup.retrofit2:retrofit:2.11.0")
