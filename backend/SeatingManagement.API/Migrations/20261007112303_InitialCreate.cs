@@ -7,7 +7,7 @@ using Npgsql.EntityFrameworkCore.PostgreSQL.Metadata;
 namespace SeatingManagement.API.Migrations
 {
     /// <inheritdoc />
-    public partial class InitialPostgres : Migration
+    public partial class InitialCreate : Migration
     {
         /// <inheritdoc />
         protected override void Up(MigrationBuilder migrationBuilder)
@@ -23,7 +23,8 @@ namespace SeatingManagement.API.Migrations
                     Description = table.Column<string>(type: "text", nullable: false),
                     PerformedBy = table.Column<string>(type: "text", nullable: false),
                     PerformedRole = table.Column<string>(type: "text", nullable: false),
-                    Timestamp = table.Column<DateTime>(type: "timestamp with time zone", nullable: false)
+                    Timestamp = table.Column<DateTime>(type: "timestamp with time zone", nullable: false),
+                    PayloadJson = table.Column<string>(type: "text", nullable: true)
                 },
                 constraints: table =>
                 {
@@ -197,7 +198,7 @@ namespace SeatingManagement.API.Migrations
             migrationBuilder.InsertData(
                 table: "Companies",
                 columns: new[] { "Id", "LogoUrl", "Name" },
-                values: new object[] { 1, "https://img.logoipsum.com/288.svg", "Seatly Admin" });
+                values: new object[] { 1, "https://seatly-backoffice.vercel.app/seatly_icon.png", "Seatly Admin" });
 
             migrationBuilder.CreateIndex(
                 name: "IX_EventAccesses_EventId",

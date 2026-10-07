@@ -12,15 +12,15 @@ using SeatingManagement.API.Data;
 namespace SeatingManagement.API.Migrations
 {
     [DbContext(typeof(AppDbContext))]
-    [Migration("20260907203058_InitialPostgres")]
-    partial class InitialPostgres
+    [Migration("20261007112303_InitialCreate")]
+    partial class InitialCreate
     {
         /// <inheritdoc />
         protected override void BuildTargetModel(ModelBuilder modelBuilder)
         {
 #pragma warning disable 612, 618
             modelBuilder
-                .HasAnnotation("ProductVersion", "10.0.4")
+                .HasAnnotation("ProductVersion", "10.0.12")
                 .HasAnnotation("Relational:MaxIdentifierLength", 63);
 
             NpgsqlModelBuilderExtensions.UseIdentityByDefaultColumns(modelBuilder);
@@ -96,6 +96,9 @@ namespace SeatingManagement.API.Migrations
                     b.Property<int?>("EventId")
                         .HasColumnType("integer");
 
+                    b.Property<string>("PayloadJson")
+                        .HasColumnType("text");
+
                     b.Property<string>("PerformedBy")
                         .IsRequired()
                         .HasColumnType("text");
@@ -137,7 +140,7 @@ namespace SeatingManagement.API.Migrations
                         new
                         {
                             Id = 1,
-                            LogoUrl = "https://img.logoipsum.com/288.svg",
+                            LogoUrl = "https://seatly-backoffice.vercel.app/seatly_icon.png",
                             Name = "Seatly Admin"
                         });
                 });
