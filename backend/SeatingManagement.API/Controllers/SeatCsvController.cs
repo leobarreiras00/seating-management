@@ -30,6 +30,7 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpPost("import/{eventId}")]
+        [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> ImportCsv(int eventId, IFormFile file, [FromQuery] string mode = "replace")
         {
             if (!await _access.CanAccessEventAsync(User, eventId)) return Forbid();
@@ -199,6 +200,7 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpPost("clear/{eventId}")]
+        [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> ClearDatabase(int eventId)
         {
             if (!await _access.CanAccessEventAsync(User, eventId)) return Forbid();

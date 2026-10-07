@@ -20,6 +20,8 @@ import AlertDialog from "@/components/ui/AlertDialog";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
+import { getErrorMessage } from "@/lib/errors";
+import { fileToLogoDataUri } from "@/lib/avatar";
 
 interface Company {
   id: number;
@@ -60,14 +62,15 @@ export default function CompaniesPage() {
       if (!res.ok) throw new Error("Falha ao carregar as empresas.");
       const data = await res.json();
       setCompanies(data);
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
   }, []);
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial no mount; o setState só corre depois do await
     fetchCompanies();
     const client = mqtt.connect(process.env.NEXT_PUBLIC_MQTT_URL as string, {
       username: process.env.NEXT_PUBLIC_MQTT_USERNAME as string,
@@ -95,8 +98,8 @@ export default function CompaniesPage() {
             throw new Error(errorData?.Message || "Erro ao apagar a empresa. Verifica se ainda existem dependências.");
           }
           setCompanies(companies.filter(c => c.id !== id));
-        } catch (err: any) {
-          setAlertDialog({ isOpen: true, title: "Erro de Exclusão", message: err.message, type: 'error' });
+        } catch (err: unknown) {
+          setAlertDialog({ isOpen: true, title: "Erro de Exclusão", message: getErrorMessage(err), type: 'error' });
         }
       }
     });
@@ -123,12 +126,7 @@ export default function CompaniesPage() {
 
       // Envio em formato Base64 JSON em vez de FormData
       if (editCompanyLogo) {
-        const base64String = await new Promise<string>((resolve, reject) => {
-          const reader = new FileReader();
-          reader.readAsDataURL(editCompanyLogo);
-          reader.onload = () => resolve(reader.result as string);
-          reader.onerror = error => reject(error);
-        });
+        const base64String = await fileToLogoDataUri(editCompanyLogo);
 
         const resLogo = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Company/${editCompanyId}/logo`, { 
           method: "PUT", 
@@ -141,7 +139,7 @@ export default function CompaniesPage() {
         if (!resLogo.ok) throw new Error("O nome foi atualizado, mas ocorreu um erro no upload do novo logótipo.");
       }
       setShowEditModal(false); fetchCompanies();
-    } catch (err: any) { setEditError(err.message); } finally { setIsEditing(false); }
+    } catch (err: unknown) { setEditError(getErrorMessage(err)); } finally { setIsEditing(false); }
   };
 
   const filteredCompanies = companies.filter(c => c.name.toLowerCase() !== "seatly admin");
@@ -253,10 +251,10 @@ export default function CompaniesPage() {
                   <div className="flex text-sm text-slate-600 justify-center">
                     <label htmlFor="file-upload-edit" className="relative cursor-pointer rounded-md font-bold text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 focus-within:ring-offset-2">
                       <span>Carregar novo ficheiro</span>
-                      <input id="file-upload-edit" name="file-upload-edit" type="file" className="sr-only" accept="image/png, image/jpeg, image/svg+xml" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setEditCompanyLogo(e.target.files[0]); }} />
+                      <input id="file-upload-edit" name="file-upload-edit" type="file" className="sr-only" accept="image/png, image/jpeg, image/webp" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setEditCompanyLogo(e.target.files[0]); }} />
                     </label>
                   </div>
-                  {editCompanyLogo ? <p className="badge badge-green max-w-full truncate"><FileImage className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{editCompanyLogo.name}</span></p> : <p className="text-xs text-slate-500">PNG, JPG, SVG até 5MB</p>}
+                  {editCompanyLogo ? <p className="badge badge-green max-w-full truncate"><FileImage className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{editCompanyLogo.name}</span></p> : <p className="text-xs text-slate-500">PNG, JPG ou WEBP (redimensionado automaticamente)</p>}
                 </div>
               </div>
             </div>
@@ -293,16 +291,34 @@ export default function CompaniesPage() {
  * Logótipo da empresa com fallback: imagem (URL ou base64) -> ícone Seatly -> ícone genérico.
  * Se a imagem falhar a carregar (onError) cai para o fallback.
  */
-function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: any) {
-  const [error, setError] = useState(false);
-  useEffect(() => { setError(false); }, [logoUrl]);
+interface SafeCompanyLogoProps {
+  logoUrl?: string | null;
+  companyName?: string | null;
+  className?: string;
+  fallbackSize?: string;
+}
+
+function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: SafeCompanyLogoProps) {
+  // Guarda o URL que falhou; muda automaticamente quando o logoUrl muda (sem efeito).
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const error = failedUrl === (logoUrl ?? null);
   if (logoUrl && !error) {
     // Permite renderizar strings em base64 diretamente (data:image) além de URLs completos
     const src = logoUrl.startsWith('http') || logoUrl.startsWith('data:image') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
-    return <div className={`relative bg-white border border-purple-100 rounded-3xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
+    return (
+      <div className={`relative bg-white border border-purple-100 rounded-3xl overflow-hidden shrink-0 flex items-center justify-center ${className}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- logótipo dinâmico (URL da API ou data URI), next/image não aplicável */}
+        <img src={src} alt={companyName ?? undefined} className="w-full h-full object-cover" onError={() => setFailedUrl(logoUrl)} />
+      </div>
+    );
   }
   if (companyName?.toLowerCase().includes("seatly admin") || companyName?.toLowerCase().includes("seatly")) {
-    return <div className={`relative bg-white border border-purple-100 rounded-3xl overflow-hidden shrink-0 flex items-center justify-center shadow-sm ${className}`}><img src="/seatly_icon.png" alt="Seatly" className="w-full h-full object-cover" /></div>;
+    return (
+      <div className={`relative bg-white border border-purple-100 rounded-3xl overflow-hidden shrink-0 flex items-center justify-center shadow-sm ${className}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- logótipo dinâmico (URL da API ou data URI), next/image não aplicável */}
+        <img src="/seatly_icon.png" alt="Seatly" className="w-full h-full object-cover" />
+      </div>
+    );
   }
   return <div className={`flex items-center justify-center bg-white border border-purple-100 rounded-3xl shadow-sm shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-purple-300`} /></div>;
 }

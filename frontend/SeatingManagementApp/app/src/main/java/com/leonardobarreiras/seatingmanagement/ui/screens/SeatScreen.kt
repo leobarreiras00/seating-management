@@ -607,7 +607,7 @@ fun SeatScreen(viewModel: SeatViewModel, navController: NavController) {
 
                     val mainActions = buildList {
                         add(ActionItem(Icons.Rounded.SwapHoriz, "Mudar de Evento", "Voltar à lista de eventos", PrimaryBlue, Color(0xFFE0E7FF)) {
-                            showActionsSheet = false; viewModel.clearCurrentEvent(); navController.navigate("event_selection") { popUpTo("event_selection") { inclusive = true } }
+                            showActionsSheet = false; viewModel.switchEvent { navController.navigate("event_selection") { popUpTo("event_selection") { inclusive = true } } }
                         })
                         if (isManager) {
                             add(ActionItem(Icons.AutoMirrored.Rounded.ListAlt, "Ações", "Exportar, importar e gerir dados", AccentPurple, AccentPurpleLight) {

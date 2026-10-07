@@ -18,6 +18,16 @@ import AlertDialog from "@/components/ui/AlertDialog";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
+import { getErrorMessage } from "@/lib/errors";
+
+// Resposta crua da API (a API pode devolver PascalCase ou camelCase)
+interface RawGuest {
+  id?: number; Id?: number;
+  assignedTo?: string; AssignedTo?: string;
+  eventName?: string; EventName?: string;
+  seatNumber?: string; SeatNumber?: string;
+  status?: number; Status?: number;
+}
 
 interface Guest {
   id: number;
@@ -73,12 +83,12 @@ function ManageGuestsContent() {
       
       const data = await res.json();
 
-      const mappedGuests = Array.isArray(data) ? data.map((g: any) => {
+      const mappedGuests = Array.isArray(data) ? data.map((g: RawGuest) => {
         const seatNumFull = g.seatNumber || g.SeatNumber || "";
         const [table, seat] = seatNumFull.includes('-') ? seatNumFull.split('-') : [seatNumFull, ""];
 
         return {
-          id: g.id || g.Id,
+          id: (g.id || g.Id) as number,
           guestName: g.assignedTo || g.AssignedTo || "Sem Nome",
           category: g.eventName || g.EventName || "",
           tableName: table,
@@ -88,13 +98,14 @@ function ManageGuestsContent() {
       }) : [];
 
       setGuests(mappedGuests);
-    } catch (error: any) {
+    } catch (error: unknown) {
       console.error("Erro no fetchGuests:", error);
     } finally {
       setIsLoading(false);
     }
   }, [eventId]);
 
+  // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial no mount; o setState só corre depois do await
   useEffect(() => { fetchGuests(); }, [fetchGuests]);
 
   useEffect(() => {
@@ -126,7 +137,7 @@ function ManageGuestsContent() {
 
   // Filter and Sort Data
   const processedGuests = useMemo(() => {
-    let filtered = guests.filter(g => 
+    const filtered = guests.filter(g => 
       g.guestName.toLowerCase().includes(searchQuery.toLowerCase()) || 
       g.tableName.toLowerCase().includes(searchQuery.toLowerCase()) ||
       g.category.toLowerCase().includes(searchQuery.toLowerCase())
@@ -177,8 +188,8 @@ function ManageGuestsContent() {
       setShowModal(false);
       setAlertDialog({ isOpen: true, title: "Sucesso", message: `Convidado ${modalMode === "add" ? "adicionado" : "atualizado"} com sucesso!`, type: 'success' });
       fetchGuests();
-    } catch (err: any) {
-      setFormError(err.message);
+    } catch (err: unknown) {
+      setFormError(getErrorMessage(err));
     } finally {
       setIsSubmitting(false);
     }
@@ -197,7 +208,7 @@ function ManageGuestsContent() {
           if (!res.ok) throw new Error("Erro ao apagar");
           
           fetchGuests();
-        } catch (error) { 
+        } catch { 
           setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao apagar o convidado.", type: 'error' }); 
         }
       }

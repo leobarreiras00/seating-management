@@ -1,0 +1,248 @@
+Test run for /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/bin/Release/net10.0/SeatingManagement.API.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+[xUnit.net 00:00:01.29]     SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_33_MalformedOriginHeader_DoesNotCrashTheCorsPolicy [FAIL]
+[xUnit.net 00:00:01.30]     SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_30_Responses_CarryXContentTypeOptionsNosniff [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_33_MalformedOriginHeader_DoesNotCrashTheCorsPolicy [9 ms]
+  Error Message:
+   System.UriFormatException : Invalid URI: The format of the URI could not be determined.
+  Stack Trace:
+     at System.Uri.CreateThis(String uri, Boolean dontEscape, UriKind uriKind, UriCreationOptions& creationOptions)
+   at System.Uri..ctor(String uriString)
+   at Program.<>c.<<Main>$>b__0_8(String origin) in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/Program.cs:line 21
+   at Microsoft.AspNetCore.Cors.Infrastructure.CorsService.IsOriginAllowed(CorsPolicy policy, StringValues origin)
+   at Microsoft.AspNetCore.Cors.Infrastructure.CorsService.EvaluatePolicy(HttpContext context, CorsPolicy policy)
+   at Microsoft.AspNetCore.Cors.Infrastructure.CorsMiddleware.EvaluateAndApplyPolicy(HttpContext context, CorsPolicy corsPolicy)
+   at Microsoft.AspNetCore.HostFiltering.HostFilteringMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.TestHost.ApplicationWrapper`1.Microsoft.AspNetCore.Hosting.Server.IHttpApplication<TContext>.ProcessRequestAsync(TContext context)
+   at Microsoft.AspNetCore.TestHost.ApplicationWrapper`1.ProcessRequestAsync(Object context)
+   at Microsoft.AspNetCore.TestHost.HttpContextBuilder.<>c__DisplayClass23_0.<<SendAsync>g__RunRequestAsync|0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.TestHost.ClientHandler.SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Mvc.Testing.Handlers.CookieContainerHandler.SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_33_MalformedOriginHeader_DoesNotCrashTheCorsPolicy() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityConfigTests.cs:line 172
+--- End of stack trace from previous location ---
+  Failed SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_30_Responses_CarryXContentTypeOptionsNosniff [17 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_30_Responses_CarryXContentTypeOptionsNosniff() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityConfigTests.cs:line 151
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.42]     SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_32_OriginHeaderWithTheLiteralNull_DoesNotCrashTheCorsPolicy [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_32_OriginHeaderWithTheLiteralNull_DoesNotCrashTheCorsPolicy [6 ms]
+  Error Message:
+   System.UriFormatException : Invalid URI: The format of the URI could not be determined.
+  Stack Trace:
+     at System.Uri.CreateThis(String uri, Boolean dontEscape, UriKind uriKind, UriCreationOptions& creationOptions)
+   at System.Uri..ctor(String uriString)
+   at Program.<>c.<<Main>$>b__0_8(String origin) in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API/Program.cs:line 21
+   at Microsoft.AspNetCore.Cors.Infrastructure.CorsService.IsOriginAllowed(CorsPolicy policy, StringValues origin)
+   at Microsoft.AspNetCore.Cors.Infrastructure.CorsService.EvaluatePolicy(HttpContext context, CorsPolicy policy)
+   at Microsoft.AspNetCore.Cors.Infrastructure.CorsMiddleware.EvaluateAndApplyPolicy(HttpContext context, CorsPolicy corsPolicy)
+   at Microsoft.AspNetCore.HostFiltering.HostFilteringMiddleware.Invoke(HttpContext context)
+   at Microsoft.AspNetCore.TestHost.ApplicationWrapper`1.Microsoft.AspNetCore.Hosting.Server.IHttpApplication<TContext>.ProcessRequestAsync(TContext context)
+   at Microsoft.AspNetCore.TestHost.ApplicationWrapper`1.ProcessRequestAsync(Object context)
+   at Microsoft.AspNetCore.TestHost.HttpContextBuilder.<>c__DisplayClass23_0.<<SendAsync>g__RunRequestAsync|0>d.MoveNext()
+--- End of stack trace from previous location ---
+   at Microsoft.AspNetCore.TestHost.ClientHandler.SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+   at Microsoft.AspNetCore.Mvc.Testing.Handlers.CookieContainerHandler.SendAsync(HttpRequestMessage request, CancellationToken cancellationToken)
+   at System.Net.Http.HttpClient.<SendAsync>g__Core|83_0(HttpRequestMessage request, HttpCompletionOption completionOption, CancellationTokenSource cts, Boolean disposeCts, CancellationTokenSource pendingRequestsCts, CancellationToken originalCancellationToken)
+   at SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_32_OriginHeaderWithTheLiteralNull_DoesNotCrashTheCorsPolicy() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityConfigTests.cs:line 165
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.43]     SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_31_Responses_CarryAFramingProtectionHeader [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_31_Responses_CarryAFramingProtectionHeader [3 ms]
+  Error Message:
+   Assert.True() Failure
+Expected: True
+Actual:   False
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityConfigTests.SEC_CFG_31_Responses_CarryAFramingProtectionHeader() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityConfigTests.cs:line 158
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.61]     SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_21_Utilizador_CannotWipeTheGuestListOfAnEvent [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_21_Utilizador_CannotWipeTheGuestListOfAnEvent [171 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Forbidden
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_21_Utilizador_CannotWipeTheGuestListOfAnEvent() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthorizationTests.cs:line 257
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.74]     SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_22_PasswordPolicy_RejectsSixCharacterPasswords [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_22_PasswordPolicy_RejectsSixCharacterPasswords [385 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: BadRequest
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_22_PasswordPolicy_RejectsSixCharacterPasswords() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthenticationTests.cs:line 261
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.75]     SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_61_AuditPageSize_IsCapped [FAIL]
+[xUnit.net 00:00:01.76]     SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_23_AccessTokenLifetime_IsAtMostOneHour [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_61_AuditPageSize_IsCapped [20 ms]
+  Error Message:
+   pageSize echoed as 1000000
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_61_AuditPageSize_IsCapped() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityInputTests.cs:line 323
+--- End of stack trace from previous location ---
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_23_AccessTokenLifetime_IsAtMostOneHour [3 ms]
+  Error Message:
+   Token lifetime is 24,0 hours
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_23_AccessTokenLifetime_IsAtMostOneHour() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthenticationTests.cs:line 269
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.80]     SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_67_Event_WithStartYear2206_IsRejected [FAIL]
+[xUnit.net 00:00:01.81]     SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_21_ContactForm_IsRateLimited [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_67_Event_WithStartYear2206_IsRejected [2 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: BadRequest
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_67_Event_WithStartYear2206_IsRejected() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityInputTests.cs:line 377
+--- End of stack trace from previous location ---
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_21_ContactForm_IsRateLimited [13 ms]
+  Error Message:
+   Assert.Contains() Failure: Item not found in collection
+Collection: [OK, OK, OK, OK, OK, ···]
+Not found:  TooManyRequests
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_21_ContactForm_IsRateLimited() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthenticationTests.cs:line 249
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.82]     SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_25_PasswordResetToken_IsStoredHashedNotInPlainText [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_25_PasswordResetToken_IsStoredHashedNotInPlainText [10 ms]
+  Error Message:
+   Assert.NotEqual() Failure: Strings are equal
+Expected: Not "RCXnRwHtZvQ7iCTUyB6Kf4l1DJWt5z6a"
+Actual:       "RCXnRwHtZvQ7iCTUyB6Kf4l1DJWt5z6a"
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_25_PasswordResetToken_IsStoredHashedNotInPlainText() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthenticationTests.cs:line 295
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.92]     SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_24_Register_RejectsRolesOutsideTheKnownSet [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_24_Register_RejectsRolesOutsideTheKnownSet [308 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: BadRequest
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_24_Register_RejectsRolesOutsideTheKnownSet() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthorizationTests.cs:line 289
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:01.96]     SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_20_Utilizador_CannotCreateEvents [FAIL]
+[xUnit.net 00:00:01.97]     SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_23_Utilizador_CannotReadTheAuditTrailOfAnEvent [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_20_Utilizador_CannotCreateEvents [7 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Forbidden
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_20_Utilizador_CannotCreateEvents() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthorizationTests.cs:line 246
+--- End of stack trace from previous location ---
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_23_Utilizador_CannotReadTheAuditTrailOfAnEvent [11 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Forbidden
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_23_Utilizador_CannotReadTheAuditTrailOfAnEvent() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthorizationTests.cs:line 277
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:02.09]     SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_22_Utilizador_CannotReplaceTheGuestListWithACsvImport [FAIL]
+[xUnit.net 00:00:02.11]     SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_65_GuestName_OfOneThousandCharacters_IsRejected [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_22_Utilizador_CannotReplaceTheGuestListWithACsvImport [9 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Forbidden
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthorizationTests.SEC_AUTHZ_22_Utilizador_CannotReplaceTheGuestListWithACsvImport() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthorizationTests.cs:line 269
+--- End of stack trace from previous location ---
+  Failed SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_65_GuestName_OfOneThousandCharacters_IsRejected [2 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: BadRequest
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_65_GuestName_OfOneThousandCharacters_IsRejected() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityInputTests.cs:line 359
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:02.13]     SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_64_Avatar_ThatIsNotAnImageDataUri_IsRejected [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_64_Avatar_ThatIsNotAnImageDataUri_IsRejected [5 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: BadRequest
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_64_Avatar_ThatIsNotAnImageDataUri_IsRejected() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityInputTests.cs:line 349
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:02.15]     SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_26_TemporaryPassword_HasAtLeastTwelveRandomCharacters [FAIL]
+[xUnit.net 00:00:02.17]     SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_24_TokenOfDeletedUser_IsNoLongerAccepted [FAIL]
+[xUnit.net 00:00:02.18]     SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_63_Avatar_LargerThanTwoMegabytes_IsRejected [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_26_TemporaryPassword_HasAtLeastTwelveRandomCharacters [278 ms]
+  Error Message:
+   Temporary password has only 6 random characters
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_26_TemporaryPassword_HasAtLeastTwelveRandomCharacters() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthenticationTests.cs:line 308
+--- End of stack trace from previous location ---
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_24_TokenOfDeletedUser_IsNoLongerAccepted [25 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: Unauthorized
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_24_TokenOfDeletedUser_IsNoLongerAccepted() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthenticationTests.cs:line 283
+--- End of stack trace from previous location ---
+  Failed SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_63_Avatar_LargerThanTwoMegabytes_IsRejected [23 ms]
+  Error Message:
+   -> 200
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_63_Avatar_LargerThanTwoMegabytes_IsRejected() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityInputTests.cs:line 340
+--- End of stack trace from previous location ---
+[xUnit.net 00:00:02.18]     SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_68_Event_WithEmptyName_IsRejected [FAIL]
+[xUnit.net 00:00:02.19]     SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_60_SingleSeatUpdate_RejectsStatusOutsideTheEnum [FAIL]
+[xUnit.net 00:00:02.19]     SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_66_Event_WithEndBeforeStart_IsRejected [FAIL]
+[xUnit.net 00:00:02.20]     SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_62_AuditNegativePage_IsRejectedInsteadOfCrashing [FAIL]
+[xUnit.net 00:00:02.25]     SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_20_Login_RepeatedFailures_TriggerThrottlingOrLockout [FAIL]
+  Failed SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_68_Event_WithEmptyName_IsRejected [3 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: BadRequest
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_68_Event_WithEmptyName_IsRejected() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityInputTests.cs:line 386
+--- End of stack trace from previous location ---
+  Failed SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_60_SingleSeatUpdate_RejectsStatusOutsideTheEnum [6 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: BadRequest
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_60_SingleSeatUpdate_RejectsStatusOutsideTheEnum() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityInputTests.cs:line 313
+--- End of stack trace from previous location ---
+  Failed SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_66_Event_WithEndBeforeStart_IsRejected [2 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: BadRequest
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_66_Event_WithEndBeforeStart_IsRejected() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityInputTests.cs:line 368
+--- End of stack trace from previous location ---
+  Failed SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_62_AuditNegativePage_IsRejectedInsteadOfCrashing [1 ms]
+  Error Message:
+   Assert.Equal() Failure: Values differ
+Expected: BadRequest
+Actual:   OK
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityInputTests.SEC_INP_62_AuditNegativePage_IsRejectedInsteadOfCrashing() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityInputTests.cs:line 331
+--- End of stack trace from previous location ---
+  Failed SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_20_Login_RepeatedFailures_TriggerThrottlingOrLockout [79 ms]
+  Error Message:
+   Assert.Contains() Failure: Filter not matched in collection
+Collection: [Unauthorized, Unauthorized, Unauthorized, Unauthorized, Unauthorized, ···]
+  Stack Trace:
+     at SeatingManagement.API.Tests.Security.SecurityAuthenticationTests.SEC_AUTH_20_Login_RepeatedFailures_TriggerThrottlingOrLockout() in /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/Security/SecurityAuthenticationTests.cs:line 238
+--- End of stack trace from previous location ---
+Results File: /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/TestResults/all/all.trx
+
+Failed!  - Failed:    25, Passed:   208, Skipped:     0, Total:   233, Duration: 3 s - SeatingManagement.API.Tests.dll (net10.0)
+
+Attachments:
+  /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/TestResults/all/7604a8bb-5d9a-4a09-91d4-54abb48bc593/coverage.cobertura.xml

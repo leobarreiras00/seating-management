@@ -85,6 +85,7 @@ jobs:
           dotnet-version: 10.0.x
       - run: dotnet restore backend/SeatingManagement.API.Tests/SeatingManagement.API.Tests.csproj
       - run: dotnet build backend/SeatingManagement.API.Tests/SeatingManagement.API.Tests.csproj --no-restore -c Release
+      # Includes the security suite: tests tagged Finding=S-xx are regression tests for remediated findings.
       - run: dotnet test backend/SeatingManagement.API.Tests/SeatingManagement.API.Tests.csproj --no-build -c Release --logger "trx;LogFileName=results.trx"
       - uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a # v7.0.1
         if: always()
@@ -122,11 +123,10 @@ jobs:
           cache: npm
           cache-dependency-path: backoffice/package-lock.json
       - run: npm ci
-      # Lint debt (63 errors / 29 warnings at 2026-10-01) is reported but not blocking yet.
-      # Switch to blocking once the backlog is cleared.
-      - name: Lint (informational)
+      - name: Type check
+        run: npx tsc --noEmit
+      - name: Lint
         run: npm run lint
-        continue-on-error: true
       - name: Build
         run: npm run build
         env:

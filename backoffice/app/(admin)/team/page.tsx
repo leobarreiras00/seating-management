@@ -23,6 +23,8 @@ import AlertDialog from "@/components/ui/AlertDialog";
 import ConfirmDialog from "@/components/ui/ConfirmDialog";
 import PageHeader from "@/components/ui/PageHeader";
 import EmptyState from "@/components/ui/EmptyState";
+import { fileToAvatarDataUri } from "@/lib/avatar";
+import { getErrorMessage } from "@/lib/errors";
 
 interface UserData {
   id: number;
@@ -76,6 +78,7 @@ export default function TeamPage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial no mount; o setState só corre depois do await
     fetchUsers();
   }, []);
 
@@ -97,8 +100,8 @@ export default function TeamPage() {
       setNewName(""); setNewEmail("");
       setAlertDialog({ isOpen: true, title: "Conta Criada", message: "O novo SuperAdmin foi criado. Foi enviado um e-mail com a palavra-passe temporária.", type: 'success' });
       fetchUsers();
-    } catch (err: any) { 
-      setCreateError(err.message); 
+    } catch (err: unknown) { 
+      setCreateError(getErrorMessage(err)); 
     } finally { 
       setIsCreating(false); 
     }
@@ -117,7 +120,7 @@ export default function TeamPage() {
           });
           if (!res.ok) throw new Error();
           setAlertDialog({ isOpen: true, title: "E-mail Enviado", message: "As instruções de recuperação foram enviadas para o utilizador.", type: 'success' });
-        } catch (error) { 
+        } catch { 
           setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao enviar o e-mail.", type: 'error' }); 
         }
       }
@@ -133,7 +136,7 @@ export default function TeamPage() {
           await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${userId}`, { method: "DELETE", headers: { Authorization: `Bearer ${token}` } });
           setDetailsModalOpen(null);
           fetchUsers();
-        } catch (error) { setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao tentar apagar a conta.", type: 'error' }); }
+        } catch { setAlertDialog({ isOpen: true, title: "Erro", message: "Ocorreu um erro ao tentar apagar a conta.", type: 'error' }); }
       }
     });
   };
@@ -143,29 +146,27 @@ export default function TeamPage() {
     if (!file || !detailsModalOpen) return;
 
     setIsUploadingAvatar(true);
-    const reader = new FileReader();
+    try {
+      const base64String = await fileToAvatarDataUri(file);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${detailsModalOpen.id}/avatar`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarBase64: base64String })
+      });
 
-    reader.onloadend = async () => {
-      const base64String = reader.result as string;
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${detailsModalOpen.id}/avatar`, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ avatarBase64: base64String })
-        });
-
-        if (res.ok) {
-          setDetailsModalOpen({ ...detailsModalOpen, avatarUrl: base64String });
-          fetchUsers();
-        }
-      } catch (error) {
-        console.error("Falha ao fazer upload da imagem", error);
-      } finally {
-        setIsUploadingAvatar(false);
+      if (res.ok) {
+        setDetailsModalOpen({ ...detailsModalOpen, avatarUrl: base64String });
+        fetchUsers();
+      } else {
+        alert("Não foi possível atualizar a fotografia. Tenta com outra imagem.");
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Falha ao fazer upload da imagem", error);
+      alert(error instanceof Error ? error.message : "Falha ao fazer upload da imagem.");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const { superAdmins, companyGroups } = useMemo(() => {
@@ -266,7 +267,7 @@ export default function TeamPage() {
               </div>
               <div className="stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4 sm:gap-5 p-5 sm:p-8">
                 {superAdmins.map(user =>
-                  <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />
+                  <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: React.MouseEvent) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: React.MouseEvent) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />
                 )}
               </div>
             </section>
@@ -295,7 +296,7 @@ export default function TeamPage() {
                           <CalendarDays className="w-3.5 h-3.5 text-blue-500" /> {eventName}
                         </h4>
                         <div className="stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {usersList.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+                          {usersList.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: React.MouseEvent) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: React.MouseEvent) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
                         </div>
                       </div>
                     ))}
@@ -317,7 +318,7 @@ export default function TeamPage() {
                           <CalendarDays className="w-3.5 h-3.5 text-emerald-500" /> {eventName}
                         </h4>
                         <div className="stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                          {usersList.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+                          {usersList.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: React.MouseEvent) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: React.MouseEvent) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
                         </div>
                       </div>
                     ))}
@@ -332,7 +333,7 @@ export default function TeamPage() {
                     Sem Evento Atribuído
                   </h3>
                   <div className="stagger grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-                    {data.unassigned.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: any) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: any) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
+                    {data.unassigned.map(user => <UserCard key={user.id} user={user} currentUserRole={currentUserRole} onClick={() => setDetailsModalOpen(user)} onDelete={(e: React.MouseEvent) => { e.stopPropagation(); promptDeleteUser(user.id, user.username); }} onReset={(e: React.MouseEvent) => { e.stopPropagation(); promptSendResetEmail(user.email, user.username); }} />)}
                   </div>
                 </div>
               )}
@@ -478,12 +479,28 @@ export default function TeamPage() {
  * SafeAvatar — mostra o avatar do utilizador; se a imagem falhar (ou não existir)
  * cai para a imagem por defeito do SuperAdmin ou para um ícone.
  */
-function SafeAvatar({ user, iconSize = "w-6 h-6" }: any) {
-  const [error, setError] = useState(false);
-  useEffect(() => { setError(false); }, [user?.avatarUrl]);
+function SafeAvatar({ user, iconSize = "w-6 h-6" }: { user?: UserData | null; iconSize?: string }) {
+  // Guarda o URL que falhou; muda automaticamente quando o avatarUrl muda (sem efeito).
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const error = failedUrl !== null && failedUrl === (user?.avatarUrl ?? null);
   if (!user) return null;
-  if (user.avatarUrl && !error) return <img src={user.avatarUrl} alt={user.username} className="w-full h-full object-cover" onError={() => setError(true)} />;
-  if (user.role === "SuperAdmin") return <img src="/superadmin_default.png" alt="SuperAdmin" className="w-full h-full object-cover" />;
+  if (user.avatarUrl && !error) {
+    const avatarUrl = user.avatarUrl;
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element -- avatar/logótipo dinâmico (data URI ou URL da API), next/image não aplicável */}
+        <img src={avatarUrl} alt={user.username} className="w-full h-full object-cover" onError={() => setFailedUrl(avatarUrl)} />
+      </>
+    );
+  }
+  if (user.role === "SuperAdmin") {
+    return (
+      <>
+        {/* eslint-disable-next-line @next/next/no-img-element -- avatar/logótipo dinâmico (data URI ou URL da API), next/image não aplicável */}
+        <img src="/superadmin_default.png" alt="SuperAdmin" className="w-full h-full object-cover" />
+      </>
+    );
+  }
   const Icon = user.role === "SuperAdmin" ? Shield : User;
   return <Icon className={iconSize} />;
 }
@@ -492,14 +509,27 @@ function SafeAvatar({ user, iconSize = "w-6 h-6" }: any) {
  * SafeCompanyLogo — logótipo da empresa com fallback para um ícone de edifício.
  * Empresas "Seatly" usam sempre o ícone da marca.
  */
-function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: any) {
-  const [error, setError] = useState(false);
-  useEffect(() => { setError(false); }, [logoUrl]);
-  if (companyName?.toLowerCase().includes("seatly admin") || companyName?.toLowerCase().includes("seatly")) return <div className={`relative bg-white border border-white rounded-2xl overflow-hidden shadow-md ring-1 ring-purple-200 shrink-0 flex items-center justify-center ${className}`}><img src="/seatly_icon.png" alt="Seatly Admin" className="w-full h-full object-cover" /></div>;
+function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 h-6" }: { logoUrl?: string | null; companyName?: string | null; className?: string; fallbackSize?: string }) {
+  // Guarda o URL que falhou; muda automaticamente quando o logoUrl muda (sem efeito).
+  const [failedUrl, setFailedUrl] = useState<string | null>(null);
+  const error = failedUrl !== null && failedUrl === (logoUrl ?? null);
+  if (companyName?.toLowerCase().includes("seatly admin") || companyName?.toLowerCase().includes("seatly")) {
+    return (
+      <div className={`relative bg-white border border-white rounded-2xl overflow-hidden shadow-md ring-1 ring-purple-200 shrink-0 flex items-center justify-center ${className}`}>
+        {/* eslint-disable-next-line @next/next/no-img-element -- avatar/logótipo dinâmico (data URI ou URL da API), next/image não aplicável */}
+        <img src="/seatly_icon.png" alt="Seatly Admin" className="w-full h-full object-cover" />
+      </div>
+    );
+  }
   if (!logoUrl || error) return <div className={`flex items-center justify-center bg-[image:var(--grad-brand-soft)] border border-purple-100 rounded-2xl shrink-0 ${className}`}><Building2 className={`${fallbackSize} text-purple-400`} /></div>;
-  
+
   const src = logoUrl.startsWith('http') || logoUrl.startsWith('data:image') ? logoUrl : `${process.env.NEXT_PUBLIC_API_URL}${logoUrl}`;
-  return <div className={`relative bg-white border border-white rounded-2xl overflow-hidden shadow-md ring-1 ring-purple-200 shrink-0 flex items-center justify-center ${className}`}><img src={src} alt={companyName} className="w-full h-full object-cover" onError={() => setError(true)} /></div>;
+  return (
+    <div className={`relative bg-white border border-white rounded-2xl overflow-hidden shadow-md ring-1 ring-purple-200 shrink-0 flex items-center justify-center ${className}`}>
+      {/* eslint-disable-next-line @next/next/no-img-element -- avatar/logótipo dinâmico (data URI ou URL da API), next/image não aplicável */}
+      <img src={src} alt={companyName ?? undefined} className="w-full h-full object-cover" onError={() => setFailedUrl(logoUrl)} />
+    </div>
+  );
 }
 
 /**
@@ -508,7 +538,15 @@ function SafeCompanyLogo({ logoUrl, companyName, className, fallbackSize = "w-6 
  * Cores: SuperAdmin = vermelho, Gestor = azul, restantes = verde.
  */
 // ACESSIBILIDADE CORRIGIDA (DIV para navegação com teclado no cartão)
-function UserCard({ user, currentUserRole, onClick, onDelete, onReset }: any) {
+interface UserCardProps {
+  user: UserData;
+  currentUserRole: string | null;
+  onClick: (e: React.SyntheticEvent) => void;
+  onDelete: (e: React.MouseEvent) => void;
+  onReset: (e: React.MouseEvent) => void;
+}
+
+function UserCard({ user, currentUserRole, onClick, onDelete, onReset }: UserCardProps) {
   const isSuperAdmin = user.role === "SuperAdmin";
   const isGestor = user.role === "Gestor";
   const colorClass = isSuperAdmin ? "bg-red-50 text-red-600 border-red-100" : isGestor ? "bg-blue-50 text-blue-600 border-blue-100" : "bg-emerald-50 text-emerald-600 border-emerald-100";

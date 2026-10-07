@@ -1,0 +1,5 @@
+Test run for /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/backend/SeatingManagement.API.Tests/bin/Release/net10.0/SeatingManagement.API.Tests.dll (.NETCoreApp,Version=v10.0)
+A total of 1 test files matched the specified pattern.
+Results File: /Users/leo_barreiras/Desktop/Projetos/seating-management/sm_1/seating-management/TestResults/ci/ci.trx
+
+Passed!  - Failed:     0, Passed:   207, Skipped:     0, Total:   207, Duration: 3 s - SeatingManagement.API.Tests.dll (net10.0)

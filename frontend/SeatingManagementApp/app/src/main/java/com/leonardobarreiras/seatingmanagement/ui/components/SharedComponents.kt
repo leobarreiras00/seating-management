@@ -107,7 +107,9 @@ import com.leonardobarreiras.seatingmanagement.ui.theme.TextGray
 import com.leonardobarreiras.seatingmanagement.ui.utils.getMesaFromSeat
 import com.leonardobarreiras.seatingmanagement.viewmodel.AppFeedback
 import com.leonardobarreiras.seatingmanagement.viewmodel.FeedbackType
+import com.leonardobarreiras.seatingmanagement.viewmodel.MAX_PASSWORD_LENGTH
 import com.leonardobarreiras.seatingmanagement.viewmodel.MIN_PASSWORD_LENGTH
+import com.leonardobarreiras.seatingmanagement.viewmodel.isStrongPassword
 import kotlinx.coroutines.delay
 
 /*
@@ -326,7 +328,7 @@ fun SeatlyTextField(
  */
 @Composable
 fun PasswordRulesHint(currentValue: String = "", modifier: Modifier = Modifier) {
-    val ok = currentValue.length >= MIN_PASSWORD_LENGTH
+    val ok = isStrongPassword(currentValue)
     val tooShort = currentValue.isNotEmpty() && !ok
     val tint = when { ok -> SuccessGreen; tooShort -> ErrorRed; else -> TextGray }
     Row(
@@ -335,7 +337,7 @@ fun PasswordRulesHint(currentValue: String = "", modifier: Modifier = Modifier) 
     ) {
         Icon(if (ok) Icons.Rounded.CheckCircle else Icons.Rounded.Info, contentDescription = null, tint = tint, modifier = Modifier.size(16.dp))
         Spacer(Modifier.width(8.dp))
-        Text("A palavra-passe tem de ter no mínimo $MIN_PASSWORD_LENGTH caracteres.", fontSize = 12.sp, color = tint, fontWeight = FontWeight.Medium, lineHeight = 16.sp)
+        Text("A palavra-passe tem de ter entre $MIN_PASSWORD_LENGTH e $MAX_PASSWORD_LENGTH caracteres, com pelo menos uma letra e um número.", fontSize = 12.sp, color = tint, fontWeight = FontWeight.Medium, lineHeight = 16.sp)
     }
 }
 
@@ -518,7 +520,7 @@ fun ShimmerBlock(modifier: Modifier = Modifier, shape: RoundedCornerShape = Roun
 // ---------------------------------------------------------------------------------------------
 
 /** Base do servidor (igual ao Retrofit) para logos que venham como caminho relativo. */
-private const val LOGO_BASE_URL = "https://api-seatly.onrender.com/"
+private val LOGO_BASE_URL: String = com.leonardobarreiras.seatingmanagement.BuildConfig.API_BASE_URL
 
 /**
  * Converte o valor guardado em `Company.LogoUrl` num modelo que o Coil entende:

@@ -1,0 +1,48 @@
+== Seatly DevOps metrics | generated 2026-10-06 14:44 UTC | window from 2026-07-23 | ref origin/main
+
+[Repository]
+commits on origin/main (all history): 262
+non-merge commits since 2026-07-23: 138 (by author: {'Leonardo Barreiras': 130, 'dependabot[bot]': 8})
+Conventional-Commit conformance: 130/138 = 94%
+types: {'feat': 41, 'fix': 33, 'chore': 16, 'refactor': 10, 'other': 8, 'style': 8, 'ci': 7, 'ui': 6, 'security': 4, 'change': 2, 'docs': 1, 'build': 1, 'sec': 1}
+tracked files: 223
+tags: 0 | remote branches: 9
+develop vs main: main has 3 commits not in develop; develop has 7 not in main
+
+[DORA - deployments = PR merges into main]
+deployments: 78 between 2026-07-23 and 2026-10-04 (10.5 weeks) = 7.4 per week
+deployment days: 17
+merges per ISO week: {32: 9, 33: 4, 34: 1, 35: 2, 37: 8, 39: 10, 40: 44}
+lead time (n=78 PRs with new commits): median 0.05 h, p90 0.67 h, max 699.7 h, mean 10.16 h; mean excluding >200 h outliers 1.21 h; under 24 h: 76/78
+change failures (heuristic: fix-only PR, not security/lint/a11y hardening): 18/78 = 23.1%
+   #4 06/08 18:56 fix: uptime robot fixes regarding the ping fetches 2.0
+   #9 07/08 15:55 fix: fixes regarding password reset link
+   #19 08/09 07:28 fix: atualizar URLs do Azure para o Render no Next.js
+   #20 08/09 07:49 fix: adicionar logs detalhados no envio de email
+   #21 08/09 07:58 fix: smtp changes regarding API call
+   #24 08/09 10:54 fix: android changes
+   #25 22/09 21:02 fix(mqtt): corrigir falhas de conexão e race conditions no HiveMQ
+   #27 26/09 15:13 fix: issues regarding bd importations
+   #28 26/09 20:13 fix: db fix 2.0
+   #35 30/09 09:24 fix
+   #39 30/09 15:40 fix(login): creation of new condition for .ToLowerCase function
+   #41 30/09 15:58 fix(events): date validation implementation on form events
+   #42 30/09 16:05 fix(event): fix eventDate properties
+   #51 01/10 11:44 fix(companies): resolve missing imports and finalize mobile-first layout
+   #52 01/10 11:51 fix(companies): restore default export and verify build stability
+   #55 01/10 12:51 fix(team): render Base64 company logos correctly
+   #95 02/10 13:08 fix(api): accept HEAD requests on health endpoints for uptime monitoring
+   #105 04/10 11:33 fix(backoffice): corrigir sintaxe do comentário JSX na pré-visualização
+restore proxy (gap to previous merge): median 0.43 h; under 6 h: 15/18
+
+[GitHub API]
+CodeQL: 90 runs {'success': 85, 'failure': 5}; successful duration median 194s p90 395s max 413s
+CI: 117 runs {'success': 89, 'cancelled': 14, 'failure': 14}; successful duration median 60s p90 318s max 420s
+CI failures by origin: {'developer branch': 3, 'dependabot': 11}
+pull requests: 110 total, 88 merged (78 into main, 10 into develop), 22 closed unmerged, 30 by Dependabot
+releases: 0 | tags: 0
+ruleset 'Protect main' enforcement=active bypass_actors=None
+   rule: deletion
+   rule: non_fast_forward
+   pull request: required approvals = 0
+   required checks: ['Secret scan (Gitleaks)', 'Backend (.NET)', 'Backoffice (Next.js)', 'Android (Gradle)', 'Backend Docker build'] strict: True

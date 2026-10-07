@@ -226,15 +226,21 @@ namespace SeatingManagement.API.Controllers
 
         [HttpPost("{companyId}/events/{eventId}/assign/{userId}")]
         [Authorize(Roles = "SuperAdmin")]
-        public async Task<IActionResult> AssignAccess(int companyId, int eventId, string userId)
+        public async Task<IActionResult> AssignAccess(int companyId, int eventId, int userId)
         {
             var ev = await _context.Events.FirstOrDefaultAsync(e => e.Id == eventId && e.CompanyId == companyId);
             if (ev == null) return NotFound("Evento não encontrado.");
-            var exists = await _context.EventAccesses.AnyAsync(ea => ea.EventId == eventId && ea.UserId == userId);
+
+            var user = await _context.Users.FirstOrDefaultAsync(u => u.Id == userId && u.CompanyId == companyId);
+            if (user == null) return NotFound("Utilizador não encontrado nesta empresa.");
+
+            // Access is stored in UserEvents, the table EventAccessService reads (same as POST api/Event/{id}/assign-user).
+            var exists = await _context.UserEvents.AnyAsync(ue => ue.EventId == eventId && ue.UserId == userId);
             if (exists) return BadRequest("O utilizador já tem acesso.");
-            var access = new EventAccess { EventId = eventId, UserId = userId };
-            _context.EventAccesses.Add(access);
+
+            _context.UserEvents.Add(new UserEvent { EventId = eventId, UserId = userId });
             await _context.SaveChangesAsync();
+            await _mqttService.PublishMessageAsync($"seating/managers/{user.UserGuid}/events", "REFRESH");
             return Ok(new { message = "Acesso atribuído!" });
         }
 

@@ -16,6 +16,10 @@ val localProps = Properties().apply {
 }
 val mqttUsername: String = localProps.getProperty("mqtt.username") ?: "CHANGE_ME"
 val mqttPassword: String = localProps.getProperty("mqtt.password") ?: "CHANGE_ME"
+// Debug builds can point to another API (e.g. api.baseUrl=http://10.0.2.2:8080/ for the Android emulator).
+// Release builds always use production (see buildTypes.release below).
+val PROD_API_URL: String = "https://api-seatly.onrender.com/"
+val debugApiUrl: String = localProps.getProperty("api.baseUrl") ?: PROD_API_URL
 
 android {
     namespace = "com.leonardobarreiras.seatingmanagement"
@@ -30,10 +34,12 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
         buildConfigField("String", "MQTT_USERNAME", "\"$mqttUsername\"")
         buildConfigField("String", "MQTT_PASSWORD", "\"$mqttPassword\"")
+        buildConfigField("String", "API_BASE_URL", "\"$debugApiUrl\"")
     }
 
     buildTypes {
         release {
+            buildConfigField("String", "API_BASE_URL", "\"$PROD_API_URL\"")
             isMinifyEnabled = true        // Ofusca o código (anti-pirataria) e reduz o tamanho do APK
             isShrinkResources = true      // Remove recursos (imagens/ícones) não utilizados
             proguardFiles(getDefaultProguardFile("proguard-android-optimize.txt"), "proguard-rules.pro")

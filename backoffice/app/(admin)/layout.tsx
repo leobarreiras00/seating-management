@@ -13,16 +13,25 @@
  * notificações novas, menus de vidro e transição `.page-enter` a cada mudança de rota.
  */
 
-import { useEffect, useState, useRef } from "react";
+import { useEffect, useState } from "react";
 import { useRouter, usePathname } from "next/navigation";
 import Sidebar from "@/components/Sidebar";
 import { 
-  Bell, Shield, User as UserIcon, LogOut, ChevronDown, CheckCircle2, 
+  Bell, User as UserIcon, LogOut, ChevronDown, CheckCircle2, 
   Settings, Camera, Lock, Loader2, AlertTriangle, Info, AlertCircle, Mail 
 } from "lucide-react";
 import mqtt from "mqtt";
 import Modal from "@/components/ui/Modal";
 import AlertDialog from "@/components/ui/AlertDialog";
+import { fileToAvatarDataUri } from "@/lib/avatar";
+import { isStrongPassword, PASSWORD_ERROR } from "@/lib/passwordPolicy";
+
+interface CurrentUser {
+  id: number;
+  username: string;
+  email?: string;
+  avatarUrl?: string;
+}
 
 interface AppNotification {
   id: string;
@@ -39,7 +48,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [isAuthorized, setIsAuthorized] = useState(false);
   
   const [userInfo, setUserInfo] = useState<{username: string, role: string} | null>(null);
-  const [currentUser, setCurrentUser] = useState<any>(null);
+  const [currentUser, setCurrentUser] = useState<CurrentUser | null>(null);
   
   const [showProfileMenu, setShowProfileMenu] = useState(false);
   const [showNotifMenu, setShowNotifMenu] = useState(false);
@@ -57,6 +66,21 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   const [notifications, setNotifications] = useState<AppNotification[]>([]);
   const unreadCount = notifications.filter(n => !n.read).length;
 
+  const fetchMyProfile = async (username: string, token: string) => {
+    try {
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/users?t=${Date.now()}`, {
+        headers: { Authorization: `Bearer ${token}` }
+      });
+      if (res.ok) {
+        const users = await res.json();
+        const me = (users as CurrentUser[]).find((u) => u.username === username);
+        if (me) setCurrentUser(me);
+      }
+    } catch (e) {
+      console.error("Não foi possível carregar o perfil completo.", e);
+    }
+  };
+
   useEffect(() => {
     const token = localStorage.getItem("token");
     if (!token) {
@@ -64,6 +88,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       return;
     } 
     
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- guarda de autenticação: só corre no cliente (localStorage), não pode ser derivado no render (SSR)
     setIsAuthorized(true);
     
     try {
@@ -91,8 +116,8 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
       try {
         const payloadStr = message.toString();
         
-        let data: any = { message: payloadStr, title: "Novo Alerta de Sistema" };
-        try { data = JSON.parse(payloadStr); } catch (e) {}
+        let data: { message?: string; title?: string; type?: AppNotification['type'] } = { message: payloadStr, title: "Novo Alerta de Sistema" };
+        try { data = JSON.parse(payloadStr); } catch {}
 
         let type: AppNotification['type'] = 'info';
         if (topic.includes("security") || topic.includes("fake")) type = 'alert';
@@ -117,21 +142,6 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     return () => { client.end(); };
   }, [router]);
 
-  const fetchMyProfile = async (username: string, token: string) => {
-    try {
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/users?t=${Date.now()}`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      if (res.ok) {
-        const users = await res.json();
-        const me = users.find((u: any) => u.username === username);
-        if (me) setCurrentUser(me);
-      }
-    } catch (e) {
-      console.error("Não foi possível carregar o perfil completo.", e);
-    }
-  };
-
   const handleLogout = () => {
     localStorage.removeItem("token");
     router.push("/login");
@@ -142,7 +152,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
   };
 
   const handleChangePassword = async () => {
-    if (!oldPassword || newPassword.length < 6 || newPassword !== confirmPassword) return;
+    if (!oldPassword || !isStrongPassword(newPassword) || newPassword !== confirmPassword) return;
     setIsProcessing(true);
     
     try {
@@ -175,28 +185,26 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
     if (!file || !currentUser) return;
 
     setIsUploadingAvatar(true);
-    const reader = new FileReader();
+    try {
+      const base64String = await fileToAvatarDataUri(file);
+      const token = localStorage.getItem("token");
+      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${currentUser.id}/avatar`, {
+        method: 'PUT',
+        headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
+        body: JSON.stringify({ avatarBase64: base64String })
+      });
 
-    reader.onloadend = async () => {
-      const base64String = reader.result as string;
-      try {
-        const token = localStorage.getItem("token");
-        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Auth/user/${currentUser.id}/avatar`, {
-          method: 'PUT',
-          headers: { Authorization: `Bearer ${token}`, "Content-Type": "application/json" },
-          body: JSON.stringify({ avatarBase64: base64String })
-        });
-
-        if (res.ok) {
-          setCurrentUser({ ...currentUser, avatarUrl: base64String });
-        }
-      } catch (error) {
-        console.error("Falha ao fazer upload da imagem", error);
-      } finally {
-        setIsUploadingAvatar(false);
+      if (res.ok) {
+        setCurrentUser({ ...currentUser, avatarUrl: base64String });
+      } else {
+        alert("Não foi possível atualizar a fotografia. Tenta com outra imagem.");
       }
-    };
-    reader.readAsDataURL(file);
+    } catch (error) {
+      console.error("Falha ao fazer upload da imagem", error);
+      alert(error instanceof Error ? error.message : "Falha ao fazer upload da imagem.");
+    } finally {
+      setIsUploadingAvatar(false);
+    }
   };
 
   const getNotificationIcon = (type: string) => {
@@ -293,7 +301,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                     <span className={`badge ${userInfo?.role === "SuperAdmin" ? "badge-red" : "badge-blue"}`}>{userInfo?.role}</span>
                   </div>
                   <div className={`w-10 h-10 rounded-2xl flex items-center justify-center ring-2 ring-white shadow-md transition-transform group-hover:scale-105 overflow-hidden ${userInfo?.role === 'SuperAdmin' ? 'bg-red-50 text-red-600' : 'bg-blue-50 text-blue-600'}`}>
-                    {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : userInfo?.role === 'SuperAdmin' ? <img src="/superadmin_default.png" alt="SuperAdmin" className="w-full h-full object-cover" /> : <UserIcon className="w-5 h-5" />}
+                    {currentUser?.avatarUrl ? <img /* eslint-disable-line @next/next/no-img-element -- avatar dinâmico (data URI ou URL da API) */ src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : userInfo?.role === 'SuperAdmin' ? <img src="/superadmin_default.png" alt="SuperAdmin" className="w-full h-full object-cover" /> : <UserIcon className="w-5 h-5" />}
                   </div>
                   <ChevronDown className={`w-4 h-4 text-slate-400 transition-transform ${showProfileMenu ? 'rotate-180' : ''}`} />
                 </button>
@@ -333,7 +341,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
               <div className="relative group cursor-pointer w-32 h-32 rounded-[2rem] overflow-hidden mb-5 shadow-[0_14px_34px_-12px_rgba(124,58,237,0.55)] ring-4 ring-white transition-transform hover:scale-105">
                 <input type="file" accept="image/*" className="hidden" id="myAvatarUpload" onChange={handleImageUpload} disabled={isUploadingAvatar || !currentUser} />
                 <label htmlFor="myAvatarUpload" className="w-full h-full flex items-center justify-center cursor-pointer relative">
-                  {currentUser?.avatarUrl ? <img src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : userInfo?.role === 'SuperAdmin' ? <img src="/superadmin_default.png" alt="SuperAdmin" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-blue-50 text-blue-600"><UserIcon className="w-10 h-10" /></div>}
+                  {currentUser?.avatarUrl ? <img /* eslint-disable-line @next/next/no-img-element -- avatar dinâmico (data URI ou URL da API) */ src={currentUser.avatarUrl} alt="Avatar" className="w-full h-full object-cover" /> : userInfo?.role === 'SuperAdmin' ? <img src="/superadmin_default.png" alt="SuperAdmin" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center bg-blue-50 text-blue-600"><UserIcon className="w-10 h-10" /></div>}
                   <div className="absolute inset-0 bg-purple-900/60 flex flex-col items-center justify-center opacity-0 group-hover:opacity-100 transition-opacity">
                     {isUploadingAvatar ? <Loader2 className="w-6 h-6 text-white animate-spin" /> : <Camera className="w-6 h-6 text-white mb-1" />}
                     {!isUploadingAvatar && <span className="text-[11px] font-semibold text-white">Alterar</span>}
@@ -357,9 +365,9 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
                   <input type="password" placeholder="Palavra-passe Atual" value={oldPassword} onChange={(e) => setOldPassword(e.target.value)} className="input" />
 
                   <div>
-                    <input type="password" placeholder="Nova Palavra-passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`input ${newPassword.length > 0 && newPassword.length < 6 ? 'input-invalid' : ''}`} />
-                    {newPassword.length > 0 && newPassword.length < 6 && (
-                      <p className="text-red-500 text-[11px] font-semibold mt-1.5 ml-1 animate-in">A palavra-passe deve ter pelo menos 6 caracteres.</p>
+                    <input type="password" placeholder="Nova Palavra-passe" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className={`input ${newPassword.length > 0 && !isStrongPassword(newPassword) ? 'input-invalid' : ''}`} />
+                    {newPassword.length > 0 && !isStrongPassword(newPassword) && (
+                      <p className="text-red-500 text-[11px] font-semibold mt-1.5 ml-1 animate-in">{PASSWORD_ERROR}</p>
                     )}
                   </div>
 
@@ -367,7 +375,7 @@ export default function AdminLayout({ children }: { children: React.ReactNode })
 
                   <button
                     onClick={handleChangePassword}
-                    disabled={isProcessing || !oldPassword || newPassword.length < 6 || newPassword !== confirmPassword}
+                    disabled={isProcessing || !oldPassword || !isStrongPassword(newPassword) || newPassword !== confirmPassword}
                     className="btn btn-primary btn-lg btn-block mt-2">
                     {isProcessing ? <Loader2 className="w-4 h-4 animate-spin" /> : 'Atualizar Segurança'}
                   </button>

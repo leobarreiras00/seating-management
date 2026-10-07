@@ -7,6 +7,8 @@ import Link from "next/link";
 import { Loader2, AlertTriangle, Mail, Lock, CheckCircle2, ChevronLeft } from "lucide-react";
 import ContactModal from "@/components/ContactModal";
 import SeatMap from "@/components/SeatMap";
+import { isStrongPassword, PASSWORD_ERROR, PASSWORD_HINT } from "@/lib/passwordPolicy";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function LoginScreen() {
   const router = useRouter();
@@ -32,8 +34,8 @@ export default function LoginScreen() {
   const handleLogin = async (e: React.FormEvent) => {
     e.preventDefault();
 
-    if (password.length < 6) {
-      setError("A palavra-passe deve ter pelo menos 6 caracteres.");
+    if (!password) {
+      setError("Introduz a palavra-passe.");
       return;
     }
 
@@ -64,11 +66,12 @@ export default function LoginScreen() {
       localStorage.setItem("token", data.token);
       router.push("/dashboard");
       
-    } catch (err: any) {
-      if (err.message.includes("Failed to fetch")) {
+    } catch (err: unknown) {
+      const message = getErrorMessage(err);
+      if (message.includes("Failed to fetch")) {
         setError("A API não está a responder. Verifica a tua ligação.");
       } else {
-        setError(err.message);
+        setError(message);
       }
     } finally {
       setIsLoading(false);
@@ -81,8 +84,8 @@ export default function LoginScreen() {
       setError("As palavras-passe não coincidem.");
       return;
     }
-    if (newPassword.length < 6) {
-      setError("A palavra-passe deve ter pelo menos 6 caracteres.");
+    if (!isStrongPassword(newPassword)) {
+      setError(PASSWORD_ERROR);
       return;
     }
 
@@ -111,8 +114,8 @@ export default function LoginScreen() {
       localStorage.setItem("token", data.token);
       router.push("/dashboard");
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -142,8 +145,8 @@ export default function LoginScreen() {
         setResetEmail("");
       }, 4000);
 
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -275,7 +278,7 @@ export default function LoginScreen() {
                 <form onSubmit={handleFirstLoginReset} className="space-y-5">
                   <div>
                     <label htmlFor="new-password" className="field-label">Nova palavra-passe</label>
-                    <input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input" placeholder="Mínimo 6 caracteres" required />
+                    <input id="new-password" type="password" value={newPassword} onChange={(e) => setNewPassword(e.target.value)} className="input" placeholder={PASSWORD_HINT} required />
                   </div>
                   <div>
                     <label htmlFor="confirm-new-password" className="field-label">Confirmar nova palavra-passe</label>
@@ -283,7 +286,7 @@ export default function LoginScreen() {
                     {errorLine}
                   </div>
 
-                  <button type="submit" disabled={isLoading || newPassword.length < 6 || newPassword !== confirmNewPassword} className="btn btn-primary btn-lg btn-block mt-1">
+                  <button type="submit" disabled={isLoading || !isStrongPassword(newPassword) || newPassword !== confirmNewPassword} className="btn btn-primary btn-lg btn-block mt-1">
                     {isLoading ? <Loader2 className="animate-spin h-5 w-5" /> : "Guardar e entrar no dashboard"}
                   </button>
                 </form>

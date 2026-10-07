@@ -50,6 +50,7 @@ namespace SeatingManagement.API.Controllers
         }
 
         [HttpPost]
+        [Authorize(Roles = "SuperAdmin,Gestor")]
         public async Task<IActionResult> CreateEvent([FromBody] CreateEventDto request)
         {
             var userGuidStr = User.FindFirstValue(ClaimTypes.NameIdentifier);

@@ -123,6 +123,7 @@ export default function AuditsPage() {
   };
 
   useEffect(() => {
+    // eslint-disable-next-line react-hooks/set-state-in-effect -- fetch inicial no mount; o setState só corre depois do await
     fetchEventsOverview();
 
     const client = mqtt.connect(process.env.NEXT_PUBLIC_MQTT_URL as string, {
@@ -182,11 +183,18 @@ export default function AuditsPage() {
 
     try {
       const token = localStorage.getItem("token");
-      const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Audit/event/${selectedEvent.id}?page=1&pageSize=100000`, {
-        headers: { Authorization: `Bearer ${token}` }
-      });
-      const data = await res.json();
-      const logsToExport = data.logs;
+      // A API limita cada página a 200 registos, por isso percorre todas as páginas para exportar o histórico completo
+      const EXPORT_PAGE_SIZE = 200;
+      const logsToExport: AuditLog[] = [];
+      for (let exportPage = 1; ; exportPage++) {
+        const res = await fetch(`${process.env.NEXT_PUBLIC_API_URL}/api/Audit/event/${selectedEvent.id}?page=${exportPage}&pageSize=${EXPORT_PAGE_SIZE}`, {
+          headers: { Authorization: `Bearer ${token}` }
+        });
+        if (!res.ok) throw new Error(`Erro ${res.status} ao obter os registos`);
+        const data = await res.json();
+        logsToExport.push(...data.logs);
+        if (data.logs.length === 0 || logsToExport.length >= data.totalLogs) break;
+      }
 
       if(logsToExport.length === 0) {
         setIsExporting(false);
@@ -241,7 +249,7 @@ export default function AuditsPage() {
       doc.text(`Registos: ${logsToExport.length} | Emitido a: ${new Date().toLocaleDateString('pt-PT')} às ${new Date().toLocaleTimeString('pt-PT', {hour: '2-digit', minute: '2-digit'})}`, 46, 36.5);
 
       const tableColumn = ["Data e Hora", "Ação", "Descrição", "Utilizador", "Cargo"];
-      const tableRows = logsToExport.map((log: any) => {
+      const tableRows = logsToExport.map((log: AuditLog) => {
         const date = new Date(log.timestamp);
         return [
           `${date.toLocaleDateString('pt-PT')}\n${date.toLocaleTimeString('pt-PT')}`,
@@ -345,7 +353,7 @@ export default function AuditsPage() {
         );
       }
       return <pre className="text-[11px] text-slate-700 bg-slate-100 border border-slate-200 p-4 rounded-2xl font-mono whitespace-pre-wrap break-words mt-2">{JSON.stringify(data, null, 2)}</pre>;
-    } catch (e) {
+    } catch {
       return <p className="text-sm text-slate-500 italic mt-2">Nenhum dado estruturado disponível.</p>;
     }
   };

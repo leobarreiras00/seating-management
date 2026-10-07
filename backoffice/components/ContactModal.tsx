@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { Send, Mail, MessageSquare, Loader2, CheckCircle2, AlertTriangle, LifeBuoy } from "lucide-react";
 import Modal from "@/components/ui/Modal";
+import { getErrorMessage } from "@/lib/errors";
 
 /**
  * ContactModal — formulário de contacto com o suporte (POST /api/Auth/contact).
@@ -36,9 +37,9 @@ export default function ContactModal({ isOpen, onClose }: { isOpen: boolean; onC
         setStatus("idle");
         setMessage("");
       }, 3000);
-    } catch (err: any) {
+    } catch (err: unknown) {
       setStatus("error");
-      setErrorMsg(err.message);
+      setErrorMsg(getErrorMessage(err));
     }
   };
 

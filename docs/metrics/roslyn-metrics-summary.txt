@@ -1,0 +1,51 @@
+
+Cyclomatic complexity per method (CA1502): n=56 mean=5.66 median=4.0 max=39
+    39  ImportCsv
+    19  <Main>$
+    14  Register
+    12  UpdateSingleSeat
+    10  AssignUserToEvent
+    10  BulkUpdateStatus
+     9  Login
+     9  FirstLoginReset
+     9  ValidateTicket
+     8  CanManageUser
+     8  EditGuest
+     7  AssignAccess
+  methods with V(G) > 10: 4
+
+Class coupling per type (CA1506): n=123 mean=16.46 median=11 max=120
+   120  Program
+   120  <Main>$
+    85  AuthController
+    64  SeatCsvController
+    60  ImportCsv
+    53  CompanyController
+    51  SeatController
+    43  EventController
+    37  InitialPostgres
+    33  Register
+    32  BulkUpdateStatus
+    30  AnalyticsController
+
+Class coupling per method (CA1506): no data
+
+Maintainability index (CA1505, lower = worse): n=353 mean=89.42 median=100 max=100
+   100  Key
+   100  _context
+   100  _access
+   100  _configuration
+   100  _emailService
+   100  _cache
+   100  _mqttService
+   100  CsvValidationError
+
+Inheritance depth inside the project (CA1501; types not listed have depth 0): n=12 mean=1.00 median=1.0 max=1
+     1  AnalyticsController
+     1  AuditController
+     1  AuthController
+     1  CompanyController
+     1  EventController
+     1  SeatController
+     1  SeatCsvController
+     1  AppDbContext

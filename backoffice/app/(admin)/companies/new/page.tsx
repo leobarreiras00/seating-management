@@ -15,6 +15,7 @@ import { useRouter } from "next/navigation";
 import Link from "next/link";
 import { ChevronLeft, Upload, Building2, ImageIcon, Sparkles } from "lucide-react";
 import PageHeader from "@/components/ui/PageHeader";
+import { getErrorMessage } from "@/lib/errors";
 
 export default function NewCompanyPage() {
   const router = useRouter();
@@ -67,8 +68,8 @@ export default function NewCompanyPage() {
       }
 
       router.push("/companies");
-    } catch (err: any) {
-      setError(err.message);
+    } catch (err: unknown) {
+      setError(getErrorMessage(err));
     } finally {
       setIsLoading(false);
     }
@@ -118,9 +119,9 @@ export default function NewCompanyPage() {
                   </div>
                 )}
                 <div className="text-xs lg:text-sm text-slate-600"><span className="font-bold text-purple-600">Clica para selecionar</span> ou arrasta</div>
-                <p className="text-[11px] lg:text-xs text-slate-500">SVG, PNG, JPG até 5MB</p>
+                <p className="text-[11px] lg:text-xs text-slate-500">PNG, JPG ou WEBP (redimensionado automaticamente)</p>
               </div>
-              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/svg+xml" className="hidden" />
+              <input type="file" ref={fileInputRef} onChange={handleFileChange} accept="image/png, image/jpeg, image/webp" className="hidden" />
             </div>
           </div>
 

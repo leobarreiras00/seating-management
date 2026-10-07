@@ -94,19 +94,13 @@ interface SeatingApiService {
         @Header("Authorization") token: String,
         @Path("eventId") eventId: Int
     ): Response<Unit>
-
-    @POST("api/SeatCsv/remove-duplicates/{eventId}")
-    suspend fun removeDuplicates(
-        @Header("Authorization") token: String,
-        @Path("eventId") eventId: Int
-    ): Response<Unit>
 }
 
 /**
  * Cliente Retrofit de referência com o endereço do servidor de produção.
  */
 object RetrofitClient {
-    private const val BASE_URL = "https://api-seatly.onrender.com/"
+    private val BASE_URL: String = com.leonardobarreiras.seatingmanagement.BuildConfig.API_BASE_URL
 
     val apiService: SeatingApiService by lazy {
         Retrofit.Builder().baseUrl(BASE_URL).addConverterFactory(GsonConverterFactory.create()).build().create(SeatingApiService::class.java)

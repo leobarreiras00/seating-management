@@ -51,7 +51,7 @@ object AppModule {
     @Singleton
     fun provideSeatingApiService(): SeatingApiService {
         return Retrofit.Builder()
-            .baseUrl("https://api-seatly.onrender.com/")
+            .baseUrl(com.leonardobarreiras.seatingmanagement.BuildConfig.API_BASE_URL)
             .addConverterFactory(GsonConverterFactory.create())
             .build()
             .create(SeatingApiService::class.java)
