@@ -251,10 +251,10 @@ export default function CompaniesPage() {
                   <div className="flex text-sm text-slate-600 justify-center">
                     <label htmlFor="file-upload-edit" className="relative cursor-pointer rounded-md font-bold text-purple-600 hover:text-purple-500 focus-within:outline-none focus-within:ring-2 focus-within:ring-purple-500 focus-within:ring-offset-2">
                       <span>Carregar novo ficheiro</span>
-                      <input id="file-upload-edit" name="file-upload-edit" type="file" className="sr-only" accept="image/png, image/jpeg, image/svg+xml" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setEditCompanyLogo(e.target.files[0]); }} />
+                      <input id="file-upload-edit" name="file-upload-edit" type="file" className="sr-only" accept="image/png, image/jpeg, image/webp" onChange={(e) => { if (e.target.files && e.target.files.length > 0) setEditCompanyLogo(e.target.files[0]); }} />
                     </label>
                   </div>
-                  {editCompanyLogo ? <p className="badge badge-green max-w-full truncate"><FileImage className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{editCompanyLogo.name}</span></p> : <p className="text-xs text-slate-500">PNG, JPG, SVG até 5MB</p>}
+                  {editCompanyLogo ? <p className="badge badge-green max-w-full truncate"><FileImage className="w-3.5 h-3.5 shrink-0" /> <span className="truncate">{editCompanyLogo.name}</span></p> : <p className="text-xs text-slate-500">PNG, JPG ou WEBP (redimensionado automaticamente)</p>}
                 </div>
               </div>
             </div>
