@@ -520,7 +520,7 @@ fun ShimmerBlock(modifier: Modifier = Modifier, shape: RoundedCornerShape = Roun
 // ---------------------------------------------------------------------------------------------
 
 /** Base do servidor (igual ao Retrofit) para logos que venham como caminho relativo. */
-private const val LOGO_BASE_URL = "https://api-seatly.onrender.com/"
+private val LOGO_BASE_URL: String = com.leonardobarreiras.seatingmanagement.BuildConfig.API_BASE_URL
 
 /**
  * Converte o valor guardado em `Company.LogoUrl` num modelo que o Coil entende:
